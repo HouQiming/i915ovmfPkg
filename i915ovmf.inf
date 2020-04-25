@@ -37,6 +37,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   OvmfPkg/OvmfPkg.dec
+  OptionRomPkg/OptionRomPkg.dec
   i915ovmfPkg/i915ovmf.dec
 
 [LibraryClasses]
@@ -63,3 +64,8 @@
 
 [Depex]
   TRUE
+
+[Pcd]
+  gOptionRomPkgTokenSpaceGuid.PcdDriverSupportedEfiVersion
+  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfHostBridgePciDevId
+  gEfiMdeModulePkgTokenSpaceGuid.PcdNullPointerDetectionPropertyMask
