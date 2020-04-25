@@ -128,6 +128,44 @@
 #define AUX_I2C_MOT				0x4
 #define AUX_I2C_REPLY_ACK			0x0
 
+#define VGACNTRL		(0x71400)
+#define VGA_DISP_DISABLE			(1 << 31)
+#define VGA_2X_MODE				(1 << 30)
+
+/* Pipe A timing regs */
+#define HTOTAL_A	0x60000
+#define HBLANK_A	0x60004
+#define HSYNC_A	0x60008
+#define VTOTAL_A	0x6000c
+#define VBLANK_A	0x60010
+#define VSYNC_A	0x60014
+#define PIPEASRC	0x6001c
+#define BCLRPAT_A	0x60020
+#define VSYNCSHIFT_A	0x60028
+#define PIPE_MULT_A	0x6002c
+
+#define _PIPEACONF		0x70008
+#define   PIPECONF_ENABLE	(1 << 31)
+#define   PIPECONF_DISABLE	0
+#define   I965_PIPECONF_ACTIVE	(1 << 30)
+
+#define _DSPACNTR				0x70180
+#define   DISPLAY_PLANE_ENABLE			(1 << 31)
+#define   DISPLAY_PLANE_DISABLE			0
+#define   PLANE_CTL_FORMAT_MASK			(0xf << 24)
+#define   PLANE_CTL_FORMAT_YUV422		(0 << 24)
+#define   PLANE_CTL_FORMAT_NV12			(1 << 24)
+#define   PLANE_CTL_FORMAT_XRGB_2101010		(2 << 24)
+#define   PLANE_CTL_FORMAT_XRGB_8888		(4 << 24)
+#define _DSPAADDR				0x70184
+#define _DSPASTRIDE				0x70188
+#define _DSPAPOS				0x7018C /* reserved */
+#define _DSPASIZE				0x70190
+#define _DSPASURF				0x7019C /* 965+ only */
+#define _DSPATILEOFF				0x701A4 /* 965+ only */
+#define _DSPAOFFSET				0x701A4 /* HSW */
+#define _DSPASURFLIVE				0x701AC
+
 STATIC EFI_GRAPHICS_OUTPUT_MODE_INFORMATION g_mode_info[] = {
   {
     0,    // Version
@@ -142,40 +180,6 @@ STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE g_mode = {
   g_mode_info,                             // Info
   sizeof (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION),  // SizeOfInfo
 };
-
-typedef struct {
-  UINT64                                Signature;
-  EFI_HANDLE                            Handle;
-  EFI_PCI_IO_PROTOCOL                   *PciIo;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL          GraphicsOutput;
-  EFI_DEVICE_PATH_PROTOCOL              *GopDevicePath;
-} I915_VIDEO_PRIVATE_DATA;
-
-I915_VIDEO_PRIVATE_DATA g_private={SIGNATURE_32('i','9','1','5')};
-
-static void write32(UINT64 reg, UINT32 data){
-	g_private.PciIo->Mem.Write (
-		g_private.PciIo,
-		EfiPciIoWidthFillUint32,
-		PCI_BAR_IDX0,
-		reg,
-		1,
-		&data
-	);
-}
-
-static UINT32 read32(UINT64 reg){
-	UINT32 data=0;
-	g_private.PciIo->Mem.Read (
-		g_private.PciIo,
-		EfiPciIoWidthFillUint32,
-		PCI_BAR_IDX0,
-		reg,
-		1,
-		&data
-	);
-	return data;
-}
 
 #pragma pack(1)
 typedef struct {
@@ -223,6 +227,57 @@ typedef struct {
 	UINT8 checksum;
 } EDID;
 #pragma pack()
+
+typedef struct {
+  UINT64                                Signature;
+  EFI_HANDLE                            Handle;
+  EFI_PCI_IO_PROTOCOL                   *PciIo;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL          GraphicsOutput;
+  EFI_DEVICE_PATH_PROTOCOL              *GopDevicePath;
+  EDID edid;
+  //UINT32 video_mem_addr;
+  UINT32 stride;
+  UINT32 gmadr;
+} I915_VIDEO_PRIVATE_DATA;
+
+I915_VIDEO_PRIVATE_DATA g_private={SIGNATURE_32('i','9','1','5')};
+
+static void write32(UINT64 reg, UINT32 data){
+	g_private.PciIo->Mem.Write (
+		g_private.PciIo,
+		EfiPciIoWidthFillUint32,
+		PCI_BAR_IDX0,
+		reg,
+		1,
+		&data
+	);
+}
+
+static UINT32 read32(UINT64 reg){
+	UINT32 data=0;
+	g_private.PciIo->Mem.Read (
+		g_private.PciIo,
+		EfiPciIoWidthFillUint32,
+		PCI_BAR_IDX0,
+		reg,
+		1,
+		&data
+	);
+	return data;
+}
+
+static UINT64 read64(UINT64 reg){
+	UINT64 data=0;
+	g_private.PciIo->Mem.Read (
+		g_private.PciIo,
+		EfiPciIoWidthFillUint64,
+		PCI_BAR_IDX0,
+		reg,
+		1,
+		&data
+	);
+	return data;
+}
 
 static EFI_STATUS gmbusWait(UINT32 wanted){
 	for(;;){
@@ -448,6 +503,81 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   )
 {
 	DebugPrint(EFI_D_ERROR,"i915: set mode %u\n",ModeNumber);
+	//TODO: DPLL
+	
+	//program PIPE_A
+	UINT32 horz_active = g_private.edid.detailTimings[0].horzActive
+			| ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb >> 4) << 8);
+	UINT32 horz_blank = g_private.edid.detailTimings[0].horzBlank
+			| ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb & 0xF) << 8);
+	UINT32 horz_sync_offset = g_private.edid.detailTimings[0].horzSyncOffset
+			| ((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 6) << 8);
+	UINT32 horz_sync_pulse = g_private.edid.detailTimings[0].horzSyncPulse
+			| (((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 4) & 0x3) << 8);
+	
+	UINT32 horizontal_active = horz_active;
+	UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
+	UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
+	UINT32 horizontal_total = horz_active + horz_blank;
+	
+	UINT32 vert_active =  g_private.edid.detailTimings[0].vertActive
+			| ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb >> 4) << 8);
+	UINT32 vert_blank = g_private.edid.detailTimings[0].vertBlank
+			| ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb & 0xF) << 8);
+	UINT32 vert_sync_offset = (g_private.edid.detailTimings[0].vertSync >> 4)
+			| (((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 2) & 0x3) << 4);
+	UINT32 vert_sync_pulse = (g_private.edid.detailTimings[0].vertSync & 0xF)
+			| ((UINT32)(g_private.edid.detailTimings[0].syncMsb & 0x3) << 4);
+	
+	UINT32 vertical_active = vert_active;
+	UINT32 vertical_syncStart = vert_active + vert_sync_offset;
+	UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
+	UINT32 vertical_total = vert_active + vert_blank;
+	
+	write32(VSYNCSHIFT_A, 0);
+	
+	write32(HTOTAL_A,
+		   (horizontal_active - 1) |
+		   ((horizontal_total - 1) << 16));
+	write32(HBLANK_A,
+		   (horizontal_active - 1) |
+		   ((horizontal_total - 1) << 16));
+	write32(HSYNC_A,
+		   (horizontal_syncStart - 1) |
+		   ((horizontal_syncEnd - 1) << 16));
+	
+	write32(VTOTAL_A,
+		   (vertical_active - 1) |
+		   ((vertical_total - 1) << 16));
+	write32(VBLANK_A,
+		   (vertical_active - 1) |
+		   ((vertical_total - 1) << 16));
+	write32(VSYNC_A,
+		   (vertical_syncStart - 1) |
+		   ((vertical_syncEnd - 1) << 16));
+	
+	UINT32 word=read32(_PIPEACONF);
+	write32(_PIPEACONF,word|PIPECONF_ENABLE);
+	for(;;){
+		if(read32(_PIPEACONF)&I965_PIPECONF_ACTIVE){
+			break;
+		}
+	}
+	
+	DebugPrint(EFI_D_ERROR,"i915: pipe enabled\n");
+	
+	//plane
+	UINT32 stride=(horizontal_active+63)&-64;
+	g_private.stride=stride;
+	write32(_DSPAOFFSET,0);
+	write32(_DSPASTRIDE,stride);
+	write32(_DSPASIZE,(horizontal_active - 1) | ((vertical_active-1)<<16));
+	write32(_DSPAADDR,0);
+	write32(_DSPASURF,g_private.gmadr);
+	word=read32(_DSPACNTR);
+	write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
+	DebugPrint(EFI_D_ERROR,"i915: plane enabled\n");
+	
 	return EFI_SUCCESS;
 }
 
@@ -512,7 +642,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	Status = Private->PciIo->Attributes (
 	                          Private->PciIo,
 	                          EfiPciIoAttributeOperationEnable,
-	                          EFI_PCI_DEVICE_ENABLE | EFI_PCI_IO_ATTRIBUTE_VGA_MEMORY | EFI_PCI_IO_ATTRIBUTE_VGA_IO,
+	                          EFI_PCI_DEVICE_ENABLE,// | EFI_PCI_IO_ATTRIBUTE_VGA_MEMORY,
 	                          NULL
 	                          );
 	if (EFI_ERROR (Status)) {
@@ -569,8 +699,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	DebugPrint(EFI_D_ERROR,"i915: installed child handle\n");
 	
 	// query EDID and initialize the mode
-	EDID edid={0};
-	Status = ReadEDID(&edid);
+	Status = ReadEDID(&g_private.edid);
 	if (EFI_ERROR (Status)) {
 		DebugPrint(EFI_D_ERROR,"i915: failed to read EDID\n");
 		goto FreeGopDevicePath;
@@ -578,10 +707,44 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	DebugPrint(EFI_D_ERROR,"i915: got EDID:\n");
 	for(UINT32 i=0;i<16;i++){
 		for(UINT32 j=0;j<8;j++){
-			DebugPrint(EFI_D_ERROR,"%02x ",((UINT8*)(&edid))[i*8+j]);
+			DebugPrint(EFI_D_ERROR,"%02x ",((UINT8*)(&g_private.edid))[i*8+j]);
 		}
 		DebugPrint(EFI_D_ERROR,"\n");
 	}
+	UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[0].pixelClock) * 10;
+	UINT32 x_active = g_private.edid.detailTimings[0].horzActive | ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb >> 4) << 8);
+	UINT32 y_active =  g_private.edid.detailTimings[0].vertActive | ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb >> 4) << 8);
+	DebugPrint(EFI_D_ERROR,"i915: %ux%u clock=%u\n",x_active,y_active,pixel_clock);
+	g_mode_info[0].HorizontalResolution=x_active;
+	g_mode_info[0].VerticalResolution=y_active;
+	//disable VGA
+	UINT32 vgaword=read32(VGACNTRL);
+	write32(VGACNTRL,(vgaword&~VGA_2X_MODE)|VGA_DISP_DISABLE);
+	DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
+	//allocate BAR 2
+	UINT32 bar_work=0xffffffff;
+	Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	UINTN MaxFbSize=~(bar_work&~0xf)+1;
+	UINTN Pages = EFI_SIZE_TO_PAGES (MaxFbSize);
+	EFI_PHYSICAL_ADDRESS FbBase = 0x80000000; 
+	gBS->AllocatePages (AllocateAddress,EfiMemoryMappedIO,Pages,&FbBase);
+	if (!FbBase) {
+	  DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
+	  Status=EFI_OUT_OF_RESOURCES;
+	  goto FreeGopDevicePath;
+	}
+	DebugPrint(EFI_D_ERROR,"i915: aperture at %p, size %08x, %d pages\n",FbBase,MaxFbSize,Pages);
+	Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&FbBase);
+	Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %08x\n",bar_work);
+	//GVT-g gmadr issue
+	g_private.gmadr=0;
+	if(read64(0x78000)==0x4776544776544776ULL){
+		g_private.gmadr=read32(0x78040);
+	}
+	DebugPrint(EFI_D_ERROR,"i915: gmadr = %08x\n",g_private.gmadr);
+	//TODO: setup OpRegion from fw_cfg, turn on backlight
 	
 	//
 	// Start the GOP software stack.
@@ -592,6 +755,11 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	GraphicsOutput->SetMode   = i915GraphicsOutputSetMode;
 	GraphicsOutput->Blt       = i915GraphicsOutputBlt;
 	GraphicsOutput->Mode = &g_mode;
+	Status = GraphicsOutput->SetMode (GraphicsOutput, 0);
+	if (EFI_ERROR (Status)) {
+		goto FreeGopDevicePath;
+	}
+	
 	
 	Status = gBS->InstallMultipleProtocolInterfaces (
 	                &Private->Handle,
