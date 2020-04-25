@@ -1,0 +1,8 @@
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = i915ovmfPkg
+  PACKAGE_GUID                   = 2daf5f34-50e5-4b9d-b8e3-5562334d87e6
+  PACKAGE_VERSION                = 0.1
+
+[Guids]
+  gI915OvmfGuid = {0x557423a1, 0x63ab, 0x406c, {0xbe, 0x7e, 0x91, 0xcd, 0xbc, 0x08, 0xc4, 0x58}}
