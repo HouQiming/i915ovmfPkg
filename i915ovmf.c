@@ -523,12 +523,20 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputQueryMode (
 
 STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure=NULL;
 STATIC UINTN                         g_i915FrameBufferBltConfigureSize=0;
+STATIC INTN g_already_set=0;
+
 STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   IN  EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
   IN  UINT32                       ModeNumber
   )
 {
 	DebugPrint(EFI_D_ERROR,"i915: set mode %u\n",ModeNumber);
+	if(g_already_set){
+		DebugPrint(EFI_D_ERROR,"i915: mode already set\n");
+		return EFI_SUCCESS;
+	}
+	g_already_set=1;
+	
 	//TODO: DPLL
 	
 	//program PIPE_A
@@ -600,84 +608,44 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	write32(_DSPAPOS,0);
 	write32(_DSPASTRIDE,stride>>6);
 	write32(_DSPASIZE,(horizontal_active - 1) | ((vertical_active-1)<<16));
+	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888|PLANE_CTL_PLANE_GAMMA_DISABLE);
+	write32(_DSPASURF,g_private.gmadr);
 	//write32(_DSPAADDR,0);
 	//word=read32(_DSPACNTR);
 	//write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
 	//|PLANE_CTL_ORDER_RGBX
-	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888|PLANE_CTL_PLANE_GAMMA_DISABLE);
-	write32(_DSPASURF,g_private.gmadr);
-	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
-	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x, FbBase: %p\n",read32(_DSPACNTR),g_private.FbBase);
 	g_mode.FrameBufferBase=g_private.FbBase;
 	g_mode.FrameBufferSize=stride*vertical_active;
-	
+		
 	//test pattern
 	//there is just one page wrapping around... why?
-	UINT32 cnt=0;
-	for(cnt=0;cnt<256*16;cnt++){
-		((UINT32*)g_private.FbBase)[cnt]=0x00010203;
-	}
-	for(cnt=0;cnt<256*4;cnt++){
-		UINT32 c=cnt&255;
-		((UINT32*)g_private.FbBase)[cnt]=((cnt+256)&256?c:0)+((cnt+256)&512?c<<8:0)+((cnt+256)&1024?c<<16:0);
-	}
-	DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
+	//we have intel_vgpu_mmap in effect so the correct range is mmaped host vmem
+	//and the host vmem is actually one-page!
+	//((UINT32*)g_private.FbBase)[-1]=0x00010203;
+	//there is a mechanism called `get_pages` that seems to put main memory behind the aperture or sth
+	//the page is the scratch page that unmapped GTT entries point to
+	//we need to set up a GTT for our framebuffer: https://bwidawsk.net/blog/index.php/2014/06/the-global-gtt-part-1/
+	//UINT32 cnt=0;
+	//for(cnt=0;cnt<256*16;cnt++){
+	//	((UINT32*)g_private.FbBase)[cnt]=0x00010203;
+	//}
+	//for(cnt=0;cnt<256*4;cnt++){
+	//	UINT32 c=cnt&255;
+	//	((UINT32*)g_private.FbBase)[cnt]=((cnt+256)&256?c:0)+((cnt+256)&512?c<<8:0)+((cnt+256)&1024?c<<16:0);
+	//}
+	//DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
 	////
 	//UEFI thinks it's BAR1
-	/*
-	{
-		UINT32 data=0x1234;
-		EFI_STATUS Status=g_private.PciIo->Mem.Read (
-			g_private.PciIo,
-			EfiPciIoWidthFillUint8,
-			PCI_BAR_IDX1,
-			0,
-			1,
-			&data
-		);
-		DebugPrint(EFI_D_ERROR,"i915: 0 read Status: %d\n",Status);
-		Status=g_private.PciIo->Mem.Write (
-			g_private.PciIo,
-			EfiPciIoWidthFillUint8,
-			PCI_BAR_IDX1,
-			0,
-			1,
-			&data
-		);
-		DebugPrint(EFI_D_ERROR,"i915: 0 Status: %d\n",Status);
-		Status=g_private.PciIo->Mem.Write (
-			g_private.PciIo,
-			EfiPciIoWidthFillUint32,
-			PCI_BAR_IDX1,
-			g_private.gmadr,
-			1,
-			&data
-		);
-		DebugPrint(EFI_D_ERROR,"i915: gmadr Status: %d\n",Status);
-	}
-	cnt=0;
+	UINT32 cnt=0;
 	for(UINT32 y=0;y<vertical_active;y+=1){
 		for(UINT32 x=0;x<horizontal_active;x+=1){
 			UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
-			//the write is unsupported!?
-			EFI_STATUS Status=g_private.PciIo->Mem.Write (
-				g_private.PciIo,
-				EfiPciIoWidthFillUint32,
-				PCI_BAR_IDX1,
-				g_private.gmadr+cnt*4,
-				1,
-				&data
-			);
-			if(EFI_ERROR(Status)){
-				DebugPrint(EFI_D_ERROR,"i915: Status: %d\n",Status);
-				break;
-			}
-			//((UINT32*)g_private.FbBase)[y*horizontal_active+x]=(x&255)<<((x&256)?8:0);
-			//((UINT32*)g_private.FbBase)[cnt]=cnt;
+			((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00);
 			cnt++;
 		}
 	}
-	*/
+	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
+	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x, FbBase: %p\n",read32(_DSPACNTR),g_private.FbBase);
 	
 	//blt stuff
 	EFI_STATUS Status;
@@ -867,40 +835,63 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	UINT32 vgaword=read32(VGACNTRL);
 	write32(VGACNTRL,(vgaword&~VGA_2X_MODE)|VGA_DISP_DISABLE);
 	DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
+	//get BAR 0 address and size
+	EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR     *bar0Desc;
+	Private->PciIo->GetBarAttributes (
+		Private->PciIo,
+		PCI_BAR_IDX0,
+		NULL,
+		(VOID**) &bar0Desc
+	);
+	EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR     *bar2Desc;
+	Private->PciIo->GetBarAttributes (
+		Private->PciIo,
+		PCI_BAR_IDX1,
+		NULL,
+		(VOID**) &bar2Desc
+	);
+	DebugPrint(EFI_D_ERROR,"i915: bar ranges - %llx %llx, %llx %llx\n",
+		bar0Desc->AddrRangeMin,bar0Desc->AddrLen,
+		bar2Desc->AddrRangeMin,bar2Desc->AddrLen);
+	UINT32 bar0Size=bar0Desc->AddrLen;
+	EFI_PHYSICAL_ADDRESS mmio_base = bar0Desc->AddrRangeMin;
+	
 	//get BAR 2 address
-	//UINT32 bar_work=0xffffffff;
-	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
-	//Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
-	//UINTN MaxFbSize=~(bar_work&~0xf)+1;
-	//UINTN Pages = EFI_SIZE_TO_PAGES (MaxFbSize);
-	EFI_PHYSICAL_ADDRESS ApertureBase = (Pci.Device.Bar[2]+(((UINT64)Pci.Device.Bar[3])<<32))&~(UINT64)(0xF);
-	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&ApertureBase); 
-	//Status=gBS->AllocatePages (AllocateAddress,EfiReservedMemoryType,Pages,&ApertureBase);
-	//if( EFI_ERROR(Status) ){
-	//	DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
-	//	goto FreeGopDevicePath;
-	//}
-	//if (!ApertureBase) {
-	//  DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
-	//  Status=EFI_OUT_OF_RESOURCES;
-	//  goto FreeGopDevicePath;
-	//}
-	DebugPrint(EFI_D_ERROR,"i915: aperture at %p\n",ApertureBase);
-	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&ApertureBase);
+	EFI_PHYSICAL_ADDRESS aperture_base = bar2Desc->AddrRangeMin;
+	DebugPrint(EFI_D_ERROR,"i915: aperture at %p\n",aperture_base);
+	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&aperture_base);
 	//Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
 	//DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %016x\n",bar_work);
 	//GVT-g gmadr issue
 	g_private.gmadr=0;
 	if(read64(0x78000)==0x4776544776544776ULL){
 		g_private.gmadr=read32(0x78040);
+		//apertureSize=read32(0x78044);
 	}
 	DebugPrint(EFI_D_ERROR,"i915: gmadr = %08x, size = %08x, hgmadr = %08x, hsize = %08x\n",
 		g_private.gmadr,read32(0x78044),read32(0x78048),read32(0x7804c));
-	g_private.FbBase=ApertureBase+(UINT64)(g_private.gmadr);
-	/*for(INTN i=0;i<(32<<20);i+=2048){
-		((UINT32*)FbBase)[i]=0x00ff0000|(i>>12);
-	}*/
-	//TODO: setup OpRegion from fw_cfg, turn on backlight
+
+	//create Global GTT entries to actually back the framebuffer
+	g_private.FbBase=aperture_base+(UINT64)(g_private.gmadr);
+	UINTN MaxFbSize=((x_active*4+64)&-64)*y_active;
+	UINTN Pages = EFI_SIZE_TO_PAGES ((MaxFbSize+65535)&-65536);
+	EFI_PHYSICAL_ADDRESS fb_backing=(EFI_PHYSICAL_ADDRESS)AllocateReservedPages(Pages);
+	if(!fb_backing){
+		DebugPrint(EFI_D_ERROR,"i915: failed to allocate framebuffer\n");
+		Status=EFI_OUT_OF_RESOURCES;
+		goto FreeGopDevicePath;
+	}
+	EFI_PHYSICAL_ADDRESS ggtt_base=mmio_base+(bar0Size>>1);
+	UINT64* ggtt=(UINT64*)ggtt_base;
+	DebugPrint(EFI_D_ERROR,"i915: ggtt_base at %p, entries: %08x %08x, backing fb: %p, %x bytes\n",ggtt_base,ggtt[0],ggtt[g_private.gmadr>>12],fb_backing,MaxFbSize);
+	for(UINTN i=0;i<MaxFbSize;i+=4096){
+		//create one PTE entry for each page
+		//cache is UC don't care for now
+		EFI_PHYSICAL_ADDRESS addr=fb_backing+i;
+		ggtt[(g_private.gmadr+i)>>12]=((UINT32)(addr>>32)&0x7F0u)|((UINT32)addr&0xFFFFF000u)|1;
+	}
+
+	//TODO: setup OpRegion from fw_cfg (IgdAssignmentDxe), turn on backlight, after DPLL
 	
 	//
 	// Start the GOP software stack.
@@ -1130,9 +1121,6 @@ i915ComponentNameGetControllerName (
     return Status;
   }
 
-  //
-  // Get the Cirrus Logic 5430's Device structure
-  //
   return LookupUnicodeString2 (
            Language,
            This->SupportedLanguages,
