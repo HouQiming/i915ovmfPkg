@@ -157,6 +157,28 @@
 #define   PLANE_CTL_FORMAT_NV12			(1 << 24)
 #define   PLANE_CTL_FORMAT_XRGB_2101010		(2 << 24)
 #define   PLANE_CTL_FORMAT_XRGB_8888		(4 << 24)
+#define   PLANE_CTL_ORDER_BGRX			(0 << 20)
+#define   PLANE_CTL_ORDER_RGBX			(1 << 20)
+#define   PLANE_CTL_ALPHA_MASK			(0x3 << 4) /* Pre-GLK */
+#define   PLANE_CTL_ALPHA_DISABLE		(0 << 4)
+#define   PLANE_CTL_ALPHA_SW_PREMULTIPLY	(2 << 4)
+#define   PLANE_CTL_ALPHA_HW_PREMULTIPLY	(3 << 4)
+
+#define   DISPPLANE_PIXFORMAT_MASK		(0xf << 26)
+#define   DISPPLANE_YUV422			(0x0 << 26)
+#define   DISPPLANE_8BPP			(0x2 << 26)
+#define   DISPPLANE_BGRA555			(0x3 << 26)
+#define   DISPPLANE_BGRX555			(0x4 << 26)
+#define   DISPPLANE_BGRX565			(0x5 << 26)
+#define   DISPPLANE_BGRX888			(0x6 << 26)
+#define   DISPPLANE_BGRA888			(0x7 << 26)
+#define   DISPPLANE_RGBX101010			(0x8 << 26)
+#define   DISPPLANE_RGBA101010			(0x9 << 26)
+#define   DISPPLANE_BGRX101010			(0xa << 26)
+#define   DISPPLANE_RGBX161616			(0xc << 26)
+#define   DISPPLANE_RGBX888			(0xe << 26)
+#define   DISPPLANE_RGBA888			(0xf << 26)
+
 #define _DSPAADDR				0x70184
 #define _DSPASTRIDE				0x70188
 #define _DSPAPOS				0x7018C /* reserved */
@@ -235,7 +257,7 @@ typedef struct {
   EFI_GRAPHICS_OUTPUT_PROTOCOL          GraphicsOutput;
   EFI_DEVICE_PATH_PROTOCOL              *GopDevicePath;
   EDID edid;
-  //UINT32 video_mem_addr;
+  EFI_PHYSICAL_ADDRESS FbBase;
   UINT32 stride;
   UINT32 gmadr;
 } I915_VIDEO_PRIVATE_DATA;
@@ -497,6 +519,8 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputQueryMode (
   return EFI_SUCCESS;
 }
 
+STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure;
+STATIC UINTN                         g_i915FrameBufferBltConfigureSize;
 STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   IN  EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
   IN  UINT32                       ModeNumber
@@ -555,7 +579,6 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	write32(VSYNC_A,
 		   (vertical_syncStart - 1) |
 		   ((vertical_syncEnd - 1) << 16));
-	
 	UINT32 word=read32(_PIPEACONF);
 	write32(_PIPEACONF,word|PIPECONF_ENABLE);
 	for(;;){
@@ -563,20 +586,51 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 			break;
 		}
 	}
-	
 	DebugPrint(EFI_D_ERROR,"i915: pipe enabled\n");
 	
 	//plane
-	UINT32 stride=(horizontal_active+63)&-64;
+	UINT32 stride=(horizontal_active*4+63)&-64;
 	g_private.stride=stride;
 	write32(_DSPAOFFSET,0);
-	write32(_DSPASTRIDE,stride);
+	write32(_DSPASTRIDE,stride>>6);
 	write32(_DSPASIZE,(horizontal_active - 1) | ((vertical_active-1)<<16));
 	write32(_DSPAADDR,0);
 	write32(_DSPASURF,g_private.gmadr);
-	word=read32(_DSPACNTR);
-	write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
-	DebugPrint(EFI_D_ERROR,"i915: plane enabled\n");
+	//word=read32(_DSPACNTR);
+	//write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
+	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
+	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
+	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x\n",read32(_DSPACNTR));
+	g_mode.FrameBufferBase=g_private.FbBase;
+	g_mode.FrameBufferSize=stride*vertical_active;
+	
+	//blt stuff
+	EFI_STATUS Status;
+	Status = FrameBufferBltConfigure (
+	           (VOID*)(UINTN)g_mode.FrameBufferBase,
+	           g_mode_info,
+	           g_i915FrameBufferBltConfigure,
+	           &g_i915FrameBufferBltConfigureSize
+	           );
+
+	if (Status == RETURN_BUFFER_TOO_SMALL) {
+	  if (g_i915FrameBufferBltConfigure != NULL) {
+	    FreePool (g_i915FrameBufferBltConfigure);
+	  }
+	  g_i915FrameBufferBltConfigure =
+	    AllocatePool (g_i915FrameBufferBltConfigureSize);
+	  if (g_i915FrameBufferBltConfigure == NULL) {
+	    g_i915FrameBufferBltConfigureSize = 0;
+	    return EFI_OUT_OF_RESOURCES;
+	  }
+
+	  Status = FrameBufferBltConfigure (
+	             (VOID*)(UINTN)g_mode.FrameBufferBase,
+	             g_mode_info,
+	             g_i915FrameBufferBltConfigure,
+	             &g_i915FrameBufferBltConfigureSize
+	             );
+	}
 	
 	return EFI_SUCCESS;
 }
@@ -595,7 +649,18 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
   )
 {
 	DebugPrint(EFI_D_ERROR,"i915: blt\n");
-	return EFI_SUCCESS;
+	return FrameBufferBlt (
+	         g_i915FrameBufferBltConfigure,
+	         BltBuffer,
+	         BltOperation,
+	         SourceX,
+	         SourceY,
+	         DestinationX,
+	         DestinationY,
+	         Width,
+	         Height,
+	         Delta
+	         );
 }
 
 EFI_STATUS EFIAPI i915ControllerDriverStart (
@@ -717,6 +782,8 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	DebugPrint(EFI_D_ERROR,"i915: %ux%u clock=%u\n",x_active,y_active,pixel_clock);
 	g_mode_info[0].HorizontalResolution=x_active;
 	g_mode_info[0].VerticalResolution=y_active;
+	g_mode_info[0].PixelsPerScanLine = g_mode_info[0].HorizontalResolution;
+	g_mode_info[0].PixelFormat = PixelBlueGreenRedReserved8BitPerColor;
 	//disable VGA
 	UINT32 vgaword=read32(VGACNTRL);
 	write32(VGACNTRL,(vgaword&~VGA_2X_MODE)|VGA_DISP_DISABLE);
@@ -728,7 +795,13 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	UINTN MaxFbSize=~(bar_work&~0xf)+1;
 	UINTN Pages = EFI_SIZE_TO_PAGES (MaxFbSize);
 	EFI_PHYSICAL_ADDRESS FbBase = 0x80000000; 
-	gBS->AllocatePages (AllocateAddress,EfiMemoryMappedIO,Pages,&FbBase);
+	/*
+	Status=gBS->AllocatePages (AllocateAddress,EfiReservedMemoryType,Pages,&FbBase);
+	if( EFI_ERROR(Status) ){
+		DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
+		goto FreeGopDevicePath;
+	}
+	*/
 	if (!FbBase) {
 	  DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
 	  Status=EFI_OUT_OF_RESOURCES;
@@ -744,6 +817,11 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 		g_private.gmadr=read32(0x78040);
 	}
 	DebugPrint(EFI_D_ERROR,"i915: gmadr = %08x\n",g_private.gmadr);
+	g_private.FbBase=FbBase;
+	//test 
+	for(INTN i=0;i<(32<<20);i+=2048){
+		((UINT32*)FbBase)[i]=0x00ff0000|(i>>12);
+	}
 	//TODO: setup OpRegion from fw_cfg, turn on backlight
 	
 	//
@@ -890,6 +968,8 @@ EFI_STATUS EFIAPI i915ControllerDriverSupported (
 		}
 		if(Status==EFI_SUCCESS){
 			DebugPrint(EFI_D_ERROR,"i915: found device %04x-%04x %p\n",Pci.Hdr.VendorId,Pci.Hdr.DeviceId,RemainingDevicePath);
+			//DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
+			//Status=EFI_UNSUPPORTED;
 		}
 	}
 	
