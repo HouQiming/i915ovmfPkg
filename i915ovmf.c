@@ -163,6 +163,8 @@
 #define   PLANE_CTL_ALPHA_DISABLE		(0 << 4)
 #define   PLANE_CTL_ALPHA_SW_PREMULTIPLY	(2 << 4)
 #define   PLANE_CTL_ALPHA_HW_PREMULTIPLY	(3 << 4)
+#define   PLANE_CTL_TRICKLE_FEED_DISABLE	(1 << 14)
+#define   PLANE_CTL_PLANE_GAMMA_DISABLE		(1 << 13) /* Pre-GLK */
 
 #define   DISPPLANE_PIXFORMAT_MASK		(0xf << 26)
 #define   DISPPLANE_YUV422			(0x0 << 26)
@@ -519,8 +521,8 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputQueryMode (
   return EFI_SUCCESS;
 }
 
-STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure;
-STATIC UINTN                         g_i915FrameBufferBltConfigureSize;
+STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure=NULL;
+STATIC UINTN                         g_i915FrameBufferBltConfigureSize=0;
 STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   IN  EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
   IN  UINT32                       ModeNumber
@@ -579,6 +581,9 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	write32(VSYNC_A,
 		   (vertical_syncStart - 1) |
 		   ((vertical_syncEnd - 1) << 16));
+	
+	write32(PIPEASRC,((horizontal_active-1)<<16)|(vertical_active-1));
+	
 	UINT32 word=read32(_PIPEACONF);
 	write32(_PIPEACONF,word|PIPECONF_ENABLE);
 	for(;;){
@@ -592,22 +597,92 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	UINT32 stride=(horizontal_active*4+63)&-64;
 	g_private.stride=stride;
 	write32(_DSPAOFFSET,0);
+	write32(_DSPAPOS,0);
 	write32(_DSPASTRIDE,stride>>6);
 	write32(_DSPASIZE,(horizontal_active - 1) | ((vertical_active-1)<<16));
-	write32(_DSPAADDR,0);
-	write32(_DSPASURF,g_private.gmadr);
+	//write32(_DSPAADDR,0);
 	//word=read32(_DSPACNTR);
 	//write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
-	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
+	//|PLANE_CTL_ORDER_RGBX
+	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888|PLANE_CTL_PLANE_GAMMA_DISABLE);
+	write32(_DSPASURF,g_private.gmadr);
 	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
-	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x\n",read32(_DSPACNTR));
+	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x, FbBase: %p\n",read32(_DSPACNTR),g_private.FbBase);
 	g_mode.FrameBufferBase=g_private.FbBase;
 	g_mode.FrameBufferSize=stride*vertical_active;
+	
+	//test pattern
+	//there is just one page wrapping around... why?
+	UINT32 cnt=0;
+	for(cnt=0;cnt<256*16;cnt++){
+		((UINT32*)g_private.FbBase)[cnt]=0x00010203;
+	}
+	for(cnt=0;cnt<256*4;cnt++){
+		UINT32 c=cnt&255;
+		((UINT32*)g_private.FbBase)[cnt]=((cnt+256)&256?c:0)+((cnt+256)&512?c<<8:0)+((cnt+256)&1024?c<<16:0);
+	}
+	DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
+	////
+	//UEFI thinks it's BAR1
+	/*
+	{
+		UINT32 data=0x1234;
+		EFI_STATUS Status=g_private.PciIo->Mem.Read (
+			g_private.PciIo,
+			EfiPciIoWidthFillUint8,
+			PCI_BAR_IDX1,
+			0,
+			1,
+			&data
+		);
+		DebugPrint(EFI_D_ERROR,"i915: 0 read Status: %d\n",Status);
+		Status=g_private.PciIo->Mem.Write (
+			g_private.PciIo,
+			EfiPciIoWidthFillUint8,
+			PCI_BAR_IDX1,
+			0,
+			1,
+			&data
+		);
+		DebugPrint(EFI_D_ERROR,"i915: 0 Status: %d\n",Status);
+		Status=g_private.PciIo->Mem.Write (
+			g_private.PciIo,
+			EfiPciIoWidthFillUint32,
+			PCI_BAR_IDX1,
+			g_private.gmadr,
+			1,
+			&data
+		);
+		DebugPrint(EFI_D_ERROR,"i915: gmadr Status: %d\n",Status);
+	}
+	cnt=0;
+	for(UINT32 y=0;y<vertical_active;y+=1){
+		for(UINT32 x=0;x<horizontal_active;x+=1){
+			UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
+			//the write is unsupported!?
+			EFI_STATUS Status=g_private.PciIo->Mem.Write (
+				g_private.PciIo,
+				EfiPciIoWidthFillUint32,
+				PCI_BAR_IDX1,
+				g_private.gmadr+cnt*4,
+				1,
+				&data
+			);
+			if(EFI_ERROR(Status)){
+				DebugPrint(EFI_D_ERROR,"i915: Status: %d\n",Status);
+				break;
+			}
+			//((UINT32*)g_private.FbBase)[y*horizontal_active+x]=(x&255)<<((x&256)?8:0);
+			//((UINT32*)g_private.FbBase)[cnt]=cnt;
+			cnt++;
+		}
+	}
+	*/
 	
 	//blt stuff
 	EFI_STATUS Status;
 	Status = FrameBufferBltConfigure (
-	           (VOID*)(UINTN)g_mode.FrameBufferBase,
+	           (VOID*)g_private.FbBase,
 	           g_mode_info,
 	           g_i915FrameBufferBltConfigure,
 	           &g_i915FrameBufferBltConfigureSize
@@ -617,19 +692,21 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	  if (g_i915FrameBufferBltConfigure != NULL) {
 	    FreePool (g_i915FrameBufferBltConfigure);
 	  }
-	  g_i915FrameBufferBltConfigure =
-	    AllocatePool (g_i915FrameBufferBltConfigureSize);
+	  g_i915FrameBufferBltConfigure = AllocatePool (g_i915FrameBufferBltConfigureSize);
 	  if (g_i915FrameBufferBltConfigure == NULL) {
 	    g_i915FrameBufferBltConfigureSize = 0;
 	    return EFI_OUT_OF_RESOURCES;
 	  }
 
 	  Status = FrameBufferBltConfigure (
-	             (VOID*)(UINTN)g_mode.FrameBufferBase,
+	             (VOID*)g_private.FbBase,
 	             g_mode_info,
 	             g_i915FrameBufferBltConfigure,
 	             &g_i915FrameBufferBltConfigureSize
 	             );
+	}
+	if( EFI_ERROR(Status) ){
+		DebugPrint(EFI_D_ERROR,"i915: failed to setup blt\n");
 	}
 	
 	return EFI_SUCCESS;
@@ -648,8 +725,8 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
   IN  UINTN                                 Delta
   )
 {
-	DebugPrint(EFI_D_ERROR,"i915: blt\n");
-	return FrameBufferBlt (
+	//return EFI_SUCCESS;
+	EFI_STATUS Status=FrameBufferBlt (
 	         g_i915FrameBufferBltConfigure,
 	         BltBuffer,
 	         BltOperation,
@@ -661,6 +738,8 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
 	         Height,
 	         Delta
 	         );
+	DebugPrint(EFI_D_ERROR,"i915: blt %d %d,%d %dx%d\n",Status,DestinationX,DestinationY,Width,Height);
+	return Status;
 }
 
 EFI_STATUS EFIAPI i915ControllerDriverStart (
@@ -782,46 +861,45 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	DebugPrint(EFI_D_ERROR,"i915: %ux%u clock=%u\n",x_active,y_active,pixel_clock);
 	g_mode_info[0].HorizontalResolution=x_active;
 	g_mode_info[0].VerticalResolution=y_active;
-	g_mode_info[0].PixelsPerScanLine = g_mode_info[0].HorizontalResolution;
+	g_mode_info[0].PixelsPerScanLine = ((x_active*4+63)&-64)>>2;
 	g_mode_info[0].PixelFormat = PixelBlueGreenRedReserved8BitPerColor;
 	//disable VGA
 	UINT32 vgaword=read32(VGACNTRL);
 	write32(VGACNTRL,(vgaword&~VGA_2X_MODE)|VGA_DISP_DISABLE);
 	DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
-	//allocate BAR 2
-	UINT32 bar_work=0xffffffff;
-	Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
-	Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
-	UINTN MaxFbSize=~(bar_work&~0xf)+1;
-	UINTN Pages = EFI_SIZE_TO_PAGES (MaxFbSize);
-	EFI_PHYSICAL_ADDRESS FbBase = 0x80000000; 
-	/*
-	Status=gBS->AllocatePages (AllocateAddress,EfiReservedMemoryType,Pages,&FbBase);
-	if( EFI_ERROR(Status) ){
-		DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
-		goto FreeGopDevicePath;
-	}
-	*/
-	if (!FbBase) {
-	  DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
-	  Status=EFI_OUT_OF_RESOURCES;
-	  goto FreeGopDevicePath;
-	}
-	DebugPrint(EFI_D_ERROR,"i915: aperture at %p, size %08x, %d pages\n",FbBase,MaxFbSize,Pages);
-	Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&FbBase);
-	Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
-	DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %08x\n",bar_work);
+	//get BAR 2 address
+	//UINT32 bar_work=0xffffffff;
+	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	//Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	//UINTN MaxFbSize=~(bar_work&~0xf)+1;
+	//UINTN Pages = EFI_SIZE_TO_PAGES (MaxFbSize);
+	EFI_PHYSICAL_ADDRESS ApertureBase = (Pci.Device.Bar[2]+(((UINT64)Pci.Device.Bar[3])<<32))&~(UINT64)(0xF);
+	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&ApertureBase); 
+	//Status=gBS->AllocatePages (AllocateAddress,EfiReservedMemoryType,Pages,&ApertureBase);
+	//if( EFI_ERROR(Status) ){
+	//	DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
+	//	goto FreeGopDevicePath;
+	//}
+	//if (!ApertureBase) {
+	//  DebugPrint(EFI_D_ERROR,"i915: failed to allocate aperture\n");
+	//  Status=EFI_OUT_OF_RESOURCES;
+	//  goto FreeGopDevicePath;
+	//}
+	DebugPrint(EFI_D_ERROR,"i915: aperture at %p\n",ApertureBase);
+	//Private->PciIo->Pci.Write (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&ApertureBase);
+	//Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
+	//DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %016x\n",bar_work);
 	//GVT-g gmadr issue
 	g_private.gmadr=0;
 	if(read64(0x78000)==0x4776544776544776ULL){
 		g_private.gmadr=read32(0x78040);
 	}
-	DebugPrint(EFI_D_ERROR,"i915: gmadr = %08x\n",g_private.gmadr);
-	g_private.FbBase=FbBase;
-	//test 
-	for(INTN i=0;i<(32<<20);i+=2048){
+	DebugPrint(EFI_D_ERROR,"i915: gmadr = %08x, size = %08x, hgmadr = %08x, hsize = %08x\n",
+		g_private.gmadr,read32(0x78044),read32(0x78048),read32(0x7804c));
+	g_private.FbBase=ApertureBase+(UINT64)(g_private.gmadr);
+	/*for(INTN i=0;i<(32<<20);i+=2048){
 		((UINT32*)FbBase)[i]=0x00ff0000|(i>>12);
-	}
+	}*/
 	//TODO: setup OpRegion from fw_cfg, turn on backlight
 	
 	//
