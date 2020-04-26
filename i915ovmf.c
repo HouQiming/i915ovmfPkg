@@ -9,6 +9,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/UefiLib.h>
 #include <Library/PcdLib.h>
+#include <Library/TimerLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/FrameBufferBltLib.h>
@@ -190,6 +191,145 @@
 #define _DSPAOFFSET				0x701A4 /* HSW */
 #define _DSPASURFLIVE				0x701AC
 
+#define _TRANSA_MSA_MISC		0x60410
+#define _TRANSB_MSA_MISC		0x61410
+#define _TRANSC_MSA_MISC		0x62410
+#define _TRANS_EDP_MSA_MISC		0x6f410
+
+#define  TRANS_MSA_SYNC_CLK		(1 << 0)
+#define  TRANS_MSA_SAMPLING_444		(2 << 1)
+#define  TRANS_MSA_CLRSP_YCBCR		(2 << 3)
+#define  TRANS_MSA_6_BPC		(0 << 5)
+#define  TRANS_MSA_8_BPC		(1 << 5)
+#define  TRANS_MSA_10_BPC		(2 << 5)
+#define  TRANS_MSA_12_BPC		(3 << 5)
+#define  TRANS_MSA_16_BPC		(4 << 5)
+#define  TRANS_MSA_CEA_RANGE		(1 << 3)
+
+#define _TRANS_DDI_FUNC_CTL_A		0x60400
+#define _TRANS_DDI_FUNC_CTL_B		0x61400
+#define _TRANS_DDI_FUNC_CTL_C		0x62400
+#define _TRANS_DDI_FUNC_CTL_EDP		0x6F400
+#define _TRANS_DDI_FUNC_CTL_DSI0	0x6b400
+#define _TRANS_DDI_FUNC_CTL_DSI1	0x6bc00
+
+#define  TRANS_DDI_FUNC_ENABLE		(1 << 31)
+/* Those bits are ignored by pipe EDP since it can only connect to DDI A */
+#define  TRANS_DDI_PORT_MASK		(7 << 28)
+#define  TRANS_DDI_PORT_SHIFT		28
+#define  TRANS_DDI_SELECT_PORT(x)	((x) << 28)
+#define  TRANS_DDI_PORT_NONE		(0 << 28)
+#define  TRANS_DDI_MODE_SELECT_MASK	(7 << 24)
+#define  TRANS_DDI_MODE_SELECT_HDMI	(0 << 24)
+#define  TRANS_DDI_MODE_SELECT_DVI	(1 << 24)
+#define  TRANS_DDI_MODE_SELECT_DP_SST	(2 << 24)
+#define  TRANS_DDI_MODE_SELECT_DP_MST	(3 << 24)
+#define  TRANS_DDI_MODE_SELECT_FDI	(4 << 24)
+#define  TRANS_DDI_BPC_MASK		(7 << 20)
+#define  TRANS_DDI_BPC_8		(0 << 20)
+#define  TRANS_DDI_BPC_10		(1 << 20)
+#define  TRANS_DDI_BPC_6		(2 << 20)
+#define  TRANS_DDI_BPC_12		(3 << 20)
+#define  TRANS_DDI_PVSYNC		(1 << 17)
+#define  TRANS_DDI_PHSYNC		(1 << 16)
+#define  TRANS_DDI_EDP_INPUT_MASK	(7 << 12)
+#define  TRANS_DDI_EDP_INPUT_A_ON	(0 << 12)
+#define  TRANS_DDI_EDP_INPUT_A_ONOFF	(4 << 12)
+#define  TRANS_DDI_EDP_INPUT_B_ONOFF	(5 << 12)
+#define  TRANS_DDI_EDP_INPUT_C_ONOFF	(6 << 12)
+#define  TRANS_DDI_HDCP_SIGNALLING	(1 << 9)
+#define  TRANS_DDI_DP_VC_PAYLOAD_ALLOC	(1 << 8)
+#define  TRANS_DDI_HDMI_SCRAMBLER_CTS_ENABLE (1 << 7)
+#define  TRANS_DDI_HDMI_SCRAMBLER_RESET_FREQ (1 << 6)
+#define  TRANS_DDI_BFI_ENABLE		(1 << 4)
+#define  TRANS_DDI_HIGH_TMDS_CHAR_RATE	(1 << 4)
+#define  TRANS_DDI_HDMI_SCRAMBLING	(1 << 0)
+#define  TRANS_DDI_HDMI_SCRAMBLING_MASK (TRANS_DDI_HDMI_SCRAMBLER_CTS_ENABLE \
+					| TRANS_DDI_HDMI_SCRAMBLER_RESET_FREQ \
+					| TRANS_DDI_HDMI_SCRAMBLING)
+
+#define _TRANS_DDI_FUNC_CTL2_A		0x60404
+#define _TRANS_DDI_FUNC_CTL2_B		0x61404
+#define _TRANS_DDI_FUNC_CTL2_C		0x62404
+#define _TRANS_DDI_FUNC_CTL2_EDP	0x6f404
+#define _TRANS_DDI_FUNC_CTL2_DSI0	0x6b404
+#define _TRANS_DDI_FUNC_CTL2_DSI1	0x6bc04
+#define  PORT_SYNC_MODE_ENABLE			(1 << 4)
+#define  PORT_SYNC_MODE_MASTER_SELECT(x)	((x) < 0)
+#define  PORT_SYNC_MODE_MASTER_SELECT_MASK	(0x7 << 0)
+#define  PORT_SYNC_MODE_MASTER_SELECT_SHIFT	0
+
+#define PORT_A 0
+
+#define _FPA0	(PCH_DISPLAY_BASE+0x6040)
+#define _FPA1	(PCH_DISPLAY_BASE+0x6044)
+#define _FPB0	(PCH_DISPLAY_BASE+0x6048)
+#define _FPB1	(PCH_DISPLAY_BASE+0x604c)
+#define   FP_N_DIV_MASK		0x003f0000
+#define   FP_N_PINEVIEW_DIV_MASK	0x00ff0000
+#define   FP_N_DIV_SHIFT		16
+#define   FP_M1_DIV_MASK	0x00003f00
+#define   FP_M1_DIV_SHIFT		 8
+#define   FP_M2_DIV_MASK	0x0000003f
+#define   FP_M2_PINEVIEW_DIV_MASK	0x000000ff
+#define   FP_M2_DIV_SHIFT		 0
+
+#define _DPLL_A (PCH_DISPLAY_BASE + 0x6014)
+#define _DPLL_B (PCH_DISPLAY_BASE + 0x6018)
+#define   DPLL_VCO_ENABLE		(1 << 31)
+#define   DPLL_SDVO_HIGH_SPEED		(1 << 30)
+#define   DPLL_DVO_2X_MODE		(1 << 30)
+#define   DPLL_EXT_BUFFER_ENABLE_VLV	(1 << 30)
+#define   DPLL_SYNCLOCK_ENABLE		(1 << 29)
+#define   DPLL_REF_CLK_ENABLE_VLV	(1 << 29)
+#define   DPLL_VGA_MODE_DIS		(1 << 28)
+#define   DPLLB_MODE_DAC_SERIAL		(1 << 26) /* i915 */
+#define   DPLLB_MODE_LVDS		(2 << 26) /* i915 */
+#define   DPLL_MODE_MASK		(3 << 26)
+#define   DPLL_DAC_SERIAL_P2_CLOCK_DIV_10 (0 << 24) /* i915 */
+#define   DPLL_DAC_SERIAL_P2_CLOCK_DIV_5 (1 << 24) /* i915 */
+#define   DPLLB_LVDS_P2_CLOCK_DIV_14	(0 << 24) /* i915 */
+#define   DPLLB_LVDS_P2_CLOCK_DIV_7	(1 << 24) /* i915 */
+#define   DPLL_P2_CLOCK_DIV_MASK	0x03000000 /* i915 */
+#define   DPLL_FPA01_P1_POST_DIV_MASK	0x00ff0000 /* i915 */
+#define   DPLL_FPA01_P1_POST_DIV_MASK_PINEVIEW	0x00ff8000 /* Pineview */
+#define   DPLL_LOCK_VLV			(1 << 15)
+#define   DPLL_INTEGRATED_CRI_CLK_VLV	(1 << 14)
+#define   DPLL_INTEGRATED_REF_CLK_VLV	(1 << 13)
+#define   DPLL_SSC_REF_CLK_CHV		(1 << 13)
+#define   DPLL_PORTC_READY_MASK		(0xf << 4)
+#define   DPLL_PORTB_READY_MASK		(0xf)
+
+#define   DPLL_FPA01_P1_POST_DIV_SHIFT	16
+#define   DPLL_FPA01_P1_POST_DIV_SHIFT_PINEVIEW 15
+
+#define   PLL_P2_DIVIDE_BY_4		(1 << 23)
+#define   PLL_P1_DIVIDE_BY_TWO		(1 << 21) /* i830 */
+#define   PLL_REF_INPUT_DREFCLK		(0 << 13)
+#define   PLL_REF_INPUT_TVCLKINA	(1 << 13) /* i830 */
+#define   PLL_REF_INPUT_TVCLKINBC	(2 << 13) /* SDVO TVCLKIN */
+#define   PLLB_REF_INPUT_SPREADSPECTRUMIN (3 << 13)
+#define   PLL_REF_INPUT_MASK		(3 << 13)
+#define   PLL_LOAD_PULSE_PHASE_SHIFT		9
+/* Ironlake */
+#define PLL_REF_SDVO_HDMI_MULTIPLIER_SHIFT     9
+#define PLL_REF_SDVO_HDMI_MULTIPLIER_MASK      (7 << 9)
+#define PLL_REF_SDVO_HDMI_MULTIPLIER(x)	(((x) - 1) << 9)
+#define DPLL_FPA1_P1_POST_DIV_SHIFT            0
+#define DPLL_FPA1_P1_POST_DIV_MASK             0xff
+
+#define _DPLL_A_MD (PCH_DISPLAY_BASE + 0x601c)
+#define _DPLL_B_MD (PCH_DISPLAY_BASE + 0x6020)
+#define   DPLL_MD_UDI_MULTIPLIER_MASK		0x00003f00
+#define   DPLL_MD_UDI_MULTIPLIER_SHIFT		8
+/*
+ * SDVO/UDI pixel multiplier for VGA, same as DPLL_MD_UDI_MULTIPLIER_MASK.
+ * This best be set to the default value (3) or the CRT won't work. No,
+ * I don't entirely understand what this does...
+ */
+#define   DPLL_MD_VGA_UDI_MULTIPLIER_MASK	0x0000003f
+#define   DPLL_MD_VGA_UDI_MULTIPLIER_SHIFT	0
+
 STATIC EFI_GRAPHICS_OUTPUT_MODE_INFORMATION g_mode_info[] = {
   {
     0,    // Version
@@ -304,10 +444,18 @@ static UINT64 read64(UINT64 reg){
 }
 
 static EFI_STATUS gmbusWait(UINT32 wanted){
+	UINTN counter=0;
 	for(;;){
 		UINT32 status=read32(gmbusStatus);
+		counter+=1;
+		if(counter>=1024){
+			//failed
+			DebugPrint(EFI_D_ERROR,"i915: gmbus timeout");
+			return EFI_DEVICE_ERROR;
+		}
 		if(status&GMBUS_SATOER){
 			//failed
+			DebugPrint(EFI_D_ERROR,"i915: gmbus error");
 			return EFI_DEVICE_ERROR;
 		}
 		if(status&wanted){
@@ -391,7 +539,10 @@ static EFI_STATUS ReadEDID(EDID* result){
 			aux_status=read32(_DPA_AUX_CH_CTL+(pin<<8));
 			if(!(aux_status&DP_AUX_CH_CTL_SEND_BUSY)){break;}
 			counter+=1;
-			if(counter>=16384){break;}
+			if(counter>=16384){
+				DebugPrint(EFI_D_ERROR,"i915:DP AUX channel timeout");
+				break;
+			}
 		}
 		write32(_DPA_AUX_CH_CTL+(pin<<8), 
 			aux_status |
@@ -418,7 +569,10 @@ static EFI_STATUS ReadEDID(EDID* result){
 			aux_status=read32(_DPA_AUX_CH_CTL+(pin<<8));
 			if(!(aux_status&DP_AUX_CH_CTL_SEND_BUSY)){break;}
 			counter+=1;
-			if(counter>=16384){break;}
+			if(counter>=16384){
+				DebugPrint(EFI_D_ERROR,"i915:DP AUX channel timeout");
+				break;
+			}
 		}
 		write32(_DPA_AUX_CH_CTL+(pin<<8), 
 			aux_status |
@@ -453,7 +607,10 @@ static EFI_STATUS ReadEDID(EDID* result){
 			aux_status=read32(_DPA_AUX_CH_CTL+(pin<<8));
 			if(!(aux_status&DP_AUX_CH_CTL_SEND_BUSY)){break;}
 			counter+=1;
-			if(counter>=16384){break;}
+			if(counter>=16384){
+				DebugPrint(EFI_D_ERROR,"i915: DP AUX channel timeout");
+				break;
+			}
 		}
 		write32(_DPA_AUX_CH_CTL+(pin<<8), 
 			aux_status |
@@ -480,7 +637,10 @@ static EFI_STATUS ReadEDID(EDID* result){
 				aux_status=read32(_DPA_AUX_CH_CTL+(pin<<8));
 				if(!(aux_status&DP_AUX_CH_CTL_SEND_BUSY)){break;}
 				counter+=1;
-				if(counter>=16384){break;}
+				if(counter>=16384){
+					DebugPrint(EFI_D_ERROR,"i915: DP AUX channel timeout");
+					break;
+				}
 			}
 			write32(_DPA_AUX_CH_CTL+(pin<<8), 
 				aux_status |
@@ -490,6 +650,12 @@ static EFI_STATUS ReadEDID(EDID* result){
 			);
 			UINT32 word=read32(_DPA_AUX_CH_DATA1+(pin<<8));
 			((UINT8*)p)[i]=(word>>16)&0xff;
+		}
+		for(UINT32 i=0;i<16;i++){
+			for(UINT32 j=0;j<8;j++){
+				DebugPrint(EFI_D_ERROR,"%02x ",((UINT8*)(p))[i*8+j]);
+			}
+			DebugPrint(EFI_D_ERROR,"\n");
 		}
 		if(i>=128&&*(UINT64*)result->magic==0x00FFFFFFFFFFFF00uLL){return EFI_SUCCESS;}
 	}
@@ -525,6 +691,43 @@ STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure=NULL;
 STATIC UINTN                         g_i915FrameBufferBltConfigureSize=0;
 STATIC INTN g_already_set=0;
 
+struct dpll {
+	/* given values */
+	int n;
+	int m1, m2;
+	int p1, p2;
+	/* derived values */
+	int	dot;
+	int	vco;
+	int	m;
+	int	p;
+};
+
+struct intel_limit {
+	struct {
+		int min, max;
+	} dot, vco, n, m, m1, m2, p, p1;
+
+	struct {
+		int dot_limit;
+		int p2_slow, p2_fast;
+	} p2;
+};
+
+//intel_limits_i9xx_sdvo
+static const struct intel_limit g_limits = {
+	.dot = { .min = 20000, .max = 400000 },
+	.vco = { .min = 1400000, .max = 2800000 },
+	.n = { .min = 1, .max = 6 },
+	.m = { .min = 70, .max = 120 },
+	.m1 = { .min = 8, .max = 18 },
+	.m2 = { .min = 3, .max = 7 },
+	.p = { .min = 5, .max = 80 },
+	.p1 = { .min = 1, .max = 8 },
+	.p2 = { .dot_limit = 200000,
+		.p2_slow = 10, .p2_fast = 5 },
+};
+
 STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   IN  EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
   IN  UINT32                       ModeNumber
@@ -537,7 +740,86 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	}
 	g_already_set=1;
 	
-	//TODO: DPLL
+	//setup DPLL
+	UINT32 refclock = 96000;
+	UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[0].pixelClock) * 10;
+	UINT32 multiplier = 1;
+	if(pixel_clock >= 100000) {
+		multiplier = 1;
+	}else if(pixel_clock >= 50000) {
+		multiplier = 2;
+	}else{
+		//assert(pixel_clock >= 25000);
+		multiplier = 4;
+	}
+	struct dpll final_params,params;
+	INT32 target=(INT32)(pixel_clock * multiplier);
+	INT32 best_err=target;
+	for(params.n=g_limits.n.min;params.n<=g_limits.n.max;params.n++)
+	for(params.m1=g_limits.m1.max;params.m1>=g_limits.m1.max;params.m1--)
+	for(params.m2=g_limits.m2.max;params.m2>=g_limits.m2.max&&params.m2>=params.m1;params.m2--)
+	for(params.p1=g_limits.p1.max;params.p1>=g_limits.p1.max;params.p1--)
+	for(params.p2=g_limits.p2.p2_slow;params.p2>=g_limits.p2.p2_fast;params.p2--){
+		params.m = 5 * (params.m1 + 2) + (params.m2 + 2);
+		params.p = params.p1*params.p2;
+		if(params.m < g_limits.m.min || params.m > g_limits.m.max){continue;}
+		if(params.p < g_limits.p.min || params.p > g_limits.p.max){continue;}
+		params.vco = (refclock * params.m + (params.n + 2) / 2) / (params.n + 2);
+		params.dot = (params.vco + params.p / 2) / params.p;
+		if(params.dot < g_limits.dot.min || params.dot > g_limits.dot.max){continue;}
+		if(params.vco < g_limits.vco.min || params.vco > g_limits.vco.max){continue;}
+		INT32 err=(INT32)params.dot-target;
+		if(err<0){err=-err;}
+		if(best_err>err){
+			best_err=err;
+			final_params=params;
+		}
+	}
+	
+	params=final_params;
+	
+	write32(_FPA0, params.n << 16 | params.m1 << 8 | params.m2);
+	write32(_FPA1, params.n << 16 | params.m1 << 8 | params.m2);
+	
+	write32(_DPLL_A, 0);
+	
+	UINT32 dplla=DPLLB_MODE_DAC_SERIAL | DPLL_VGA_MODE_DIS | DPLL_SDVO_HIGH_SPEED | DPLL_VCO_ENABLE;
+	dplla |= (1 << (params.p1 - 1)) << DPLL_FPA01_P1_POST_DIV_SHIFT;
+	switch (params.p2) {
+	case 5:
+		dplla |= DPLL_DAC_SERIAL_P2_CLOCK_DIV_5;
+		break;
+	case 7:
+		dplla |= DPLLB_LVDS_P2_CLOCK_DIV_7;
+		break;
+	case 10:
+		dplla |= DPLL_DAC_SERIAL_P2_CLOCK_DIV_10;
+		break;
+	case 14:
+		dplla |= DPLLB_LVDS_P2_CLOCK_DIV_14;
+		break;
+	}
+	dplla |= (6 << PLL_LOAD_PULSE_PHASE_SHIFT);
+	dplla |= PLL_REF_INPUT_DREFCLK;
+	
+	write32(_DPLL_A, dplla);
+	read32(_DPLL_A);
+	
+	//it's pointless to wait in GVT-g
+	if(!g_private.gmadr){
+		MicroSecondDelay(150);
+	}
+	
+	write32(_DPLL_A_MD, (multiplier-1)<<DPLL_MD_UDI_MULTIPLIER_SHIFT);
+	
+	for(int i = 0; i < 3; i++) {
+		write32(_DPLL_A, dplla);
+		read32(_DPLL_A);
+	
+		if(!g_private.gmadr){
+			MicroSecondDelay(150);
+		}
+	}
 	
 	//program PIPE_A
 	UINT32 horz_active = g_private.edid.detailTimings[0].horzActive
@@ -591,16 +873,28 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 		   ((vertical_syncEnd - 1) << 16));
 	
 	write32(PIPEASRC,((horizontal_active-1)<<16)|(vertical_active-1));
+	write32(PIPE_MULT_A, multiplier - 1);
+	
+	//ddi
+	write32(_TRANSA_MSA_MISC, TRANS_MSA_SYNC_CLK|TRANS_MSA_8_BPC);
+	write32(_TRANS_DDI_FUNC_CTL_A, (
+		TRANS_DDI_FUNC_ENABLE|TRANS_DDI_SELECT_PORT(PORT_A)|TRANS_DDI_BPC_8|TRANS_DDI_MODE_SELECT_HDMI
+	));
 	
 	UINT32 word=read32(_PIPEACONF);
 	write32(_PIPEACONF,word|PIPECONF_ENABLE);
+	UINT32 counter=0;
 	for(;;){
+		counter+=1;
+		if(counter>=16384){
+			DebugPrint(EFI_D_ERROR,"i915: pipe enabled\n");
+			break;
+		}
 		if(read32(_PIPEACONF)&I965_PIPECONF_ACTIVE){
+			DebugPrint(EFI_D_ERROR,"i915: failed to enable PIPE");
 			break;
 		}
 	}
-	DebugPrint(EFI_D_ERROR,"i915: pipe enabled\n");
-	
 	//plane
 	UINT32 stride=(horizontal_active*4+63)&-64;
 	g_private.stride=stride;
@@ -636,14 +930,14 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
 	////
 	//UEFI thinks it's BAR1
-	UINT32 cnt=0;
-	for(UINT32 y=0;y<vertical_active;y+=1){
-		for(UINT32 x=0;x<horizontal_active;x+=1){
-			UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
-			((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00);
-			cnt++;
-		}
-	}
+	//UINT32 cnt=0;
+	//for(UINT32 y=0;y<vertical_active;y+=1){
+	//	for(UINT32 x=0;x<horizontal_active;x+=1){
+	//		UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
+	//		((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00);
+	//		cnt++;
+	//	}
+	//}
 	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
 	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x, FbBase: %p\n",read32(_DSPACNTR),g_private.FbBase);
 	
@@ -709,6 +1003,11 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
 	DebugPrint(EFI_D_ERROR,"i915: blt %d %d,%d %dx%d\n",Status,DestinationX,DestinationY,Width,Height);
 	return Status;
 }
+
+STATIC UINT8 edid_fallback[]={
+	0,255,255,255,255,255,255,0,34,240,84,41,1,0,0,0,4,23,1,4,165,52,32,120,35,252,129,164,85,77,157,37,18,80,84,33,8,0,209,192,129,192,129,64,129,128,149,0,169,64,179,0,1,1,26,29,0,128,81,208,28,32,64,128,53,0,77,187,16,0,0,30,0,0,0,254,0,55,50,48,112,32,32,32,32,32,32,32,32,10,0,0,0,253,0,24,60,24,80,17,0,10,32,32,32,32,32,32,0,0,0,252,0,72,80,32,90,82,95,55,50,48,112,10,32,32,0,161
+};
+
 
 EFI_STATUS EFIAPI i915ControllerDriverStart (
   IN EFI_DRIVER_BINDING_PROTOCOL    *This,
@@ -814,7 +1113,9 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	Status = ReadEDID(&g_private.edid);
 	if (EFI_ERROR (Status)) {
 		DebugPrint(EFI_D_ERROR,"i915: failed to read EDID\n");
-		goto FreeGopDevicePath;
+		for(UINT32 i=0;i<128;i++){
+			((UINT8*)&g_private.edid)[i]=edid_fallback[i];
+		}
 	}
 	DebugPrint(EFI_D_ERROR,"i915: got EDID:\n");
 	for(UINT32 i=0;i<16;i++){
@@ -886,9 +1187,9 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	DebugPrint(EFI_D_ERROR,"i915: ggtt_base at %p, entries: %08x %08x, backing fb: %p, %x bytes\n",ggtt_base,ggtt[0],ggtt[g_private.gmadr>>12],fb_backing,MaxFbSize);
 	for(UINTN i=0;i<MaxFbSize;i+=4096){
 		//create one PTE entry for each page
-		//cache is UC don't care for now
+		//cache is whatever cache used by the linux driver on my host
 		EFI_PHYSICAL_ADDRESS addr=fb_backing+i;
-		ggtt[(g_private.gmadr+i)>>12]=((UINT32)(addr>>32)&0x7F0u)|((UINT32)addr&0xFFFFF000u)|1;
+		ggtt[(g_private.gmadr+i)>>12]=((UINT32)(addr>>32)&0x7F0u)|((UINT32)addr&0xFFFFF000u)|11;
 	}
 
 	//TODO: setup OpRegion from fw_cfg (IgdAssignmentDxe), turn on backlight, after DPLL
