@@ -15,6 +15,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
+#include "QemuFwCfgLib.h"
 
 #include <IndustryStandard/Pci.h>
 #include <IndustryStandard/Acpi.h>
@@ -28,6 +29,7 @@
 #define HSW_PWR_WELL_CTL3			(0x45408)
 #define HSW_PWR_WELL_CTL4			(0x4540C)
 
+#define GMBUS0 (PCH_DISPLAY_BASE+0x5100)
 #define gmbusSelect (PCH_DISPLAY_BASE+0x5100)
 #define   GMBUS_AKSV_SELECT	(1 << 11)
 #define   GMBUS_RATE_100KHZ	(0 << 8)
@@ -80,6 +82,7 @@
 #define   GMBUS_ACTIVE		(1 << 9)
 
 #define gmbusData (PCH_DISPLAY_BASE+0x510C)
+#define GMBUS4 (PCH_DISPLAY_BASE+0x5110)
 
 #define _PCH_DP_B		(0xe4100)
 #define _PCH_DPB_AUX_CH_CTL	(0xe4110)
@@ -1793,6 +1796,382 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
 	return Status;
 }
 
+//
+// selector and size of ASSIGNED_IGD_FW_CFG_OPREGION
+//
+STATIC FIRMWARE_CONFIG_ITEM mOpRegionItem;
+STATIC UINTN                mOpRegionSize;
+//
+// value read from ASSIGNED_IGD_FW_CFG_BDSM_SIZE, converted to UINTN
+//
+STATIC UINTN                mBdsmSize;
+
+/**
+  Allocate memory in the 32-bit address space, with the requested UEFI memory
+  type and the requested alignment.
+
+  @param[in] MemoryType        Assign MemoryType to the allocated pages as
+                               memory type.
+
+  @param[in] NumberOfPages     The number of pages to allocate.
+
+  @param[in] AlignmentInPages  On output, Address will be a whole multiple of
+                               EFI_PAGES_TO_SIZE (AlignmentInPages).
+                               AlignmentInPages must be a power of two.
+
+  @param[out] Address          Base address of the allocated area.
+
+  @retval EFI_SUCCESS            Allocation successful.
+
+  @retval EFI_INVALID_PARAMETER  AlignmentInPages is not a power of two (a
+                                 special case of which is when AlignmentInPages
+                                 is zero).
+
+  @retval EFI_OUT_OF_RESOURCES   Integer overflow detected.
+
+  @return                        Error codes from gBS->AllocatePages().
+**/
+STATIC
+EFI_STATUS
+Allocate32BitAlignedPagesWithType (
+  IN  EFI_MEMORY_TYPE      MemoryType,
+  IN  UINTN                NumberOfPages,
+  IN  UINTN                AlignmentInPages,
+  OUT EFI_PHYSICAL_ADDRESS *Address
+  )
+{
+  EFI_STATUS           Status;
+  EFI_PHYSICAL_ADDRESS PageAlignedAddress;
+  EFI_PHYSICAL_ADDRESS FullyAlignedAddress;
+  UINTN                BottomPages;
+  UINTN                TopPages;
+
+  //
+  // AlignmentInPages must be a power of two.
+  //
+  if (AlignmentInPages == 0 ||
+      (AlignmentInPages & (AlignmentInPages - 1)) != 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+  //
+  // (NumberOfPages + (AlignmentInPages - 1)) must not overflow UINTN.
+  //
+  if (AlignmentInPages - 1 > MAX_UINTN - NumberOfPages) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+  //
+  // EFI_PAGES_TO_SIZE (AlignmentInPages) must not overflow UINTN.
+  //
+  if (AlignmentInPages > (MAX_UINTN >> EFI_PAGE_SHIFT)) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Allocate with sufficient padding for alignment.
+  //
+  PageAlignedAddress = BASE_4GB - 1;
+  //PageAlignedAddress = BASE_2GB - 1;
+  Status = gBS->AllocatePages (
+                  AllocateMaxAddress,
+                  MemoryType,
+                  NumberOfPages + (AlignmentInPages - 1),
+                  &PageAlignedAddress
+                  );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+  FullyAlignedAddress = ALIGN_VALUE (
+                          PageAlignedAddress,
+                          (UINT64)EFI_PAGES_TO_SIZE (AlignmentInPages)
+                          );
+
+  //
+  // Release bottom and/or top padding.
+  //
+  BottomPages = EFI_SIZE_TO_PAGES (
+                  (UINTN)(FullyAlignedAddress - PageAlignedAddress)
+                  );
+  TopPages = (AlignmentInPages - 1) - BottomPages;
+  if (BottomPages > 0) {
+    Status = gBS->FreePages (PageAlignedAddress, BottomPages);
+    ASSERT_EFI_ERROR (Status);
+  }
+  if (TopPages > 0) {
+    Status = gBS->FreePages (
+                    FullyAlignedAddress + EFI_PAGES_TO_SIZE (NumberOfPages),
+                    TopPages
+                    );
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  *Address = FullyAlignedAddress;
+  return EFI_SUCCESS;
+}
+
+//CHAR8 OPREGION_SIGNATURE[]="IntelGraphicsMem";
+
+typedef struct {
+  UINT16 VendorId;
+  UINT8  ClassCode[3];
+  UINTN  Segment;
+  UINTN  Bus;
+  UINTN  Device;
+  UINTN  Function;
+  CHAR8  Name[sizeof "0000:00:02.0"];
+} CANDIDATE_PCI_INFO;
+
+
+/**
+  Populate the CANDIDATE_PCI_INFO structure for a PciIo protocol instance.
+
+  @param[in] PciIo     EFI_PCI_IO_PROTOCOL instance to interrogate.
+
+  @param[out] PciInfo  CANDIDATE_PCI_INFO structure to fill.
+
+  @retval EFI_SUCCESS  PciInfo has been filled in. PciInfo->Name has been set
+                       to the empty string.
+
+  @return              Error codes from PciIo->Pci.Read() and
+                       PciIo->GetLocation(). The contents of PciInfo are
+                       indeterminate.
+**/
+STATIC
+EFI_STATUS
+InitPciInfo (
+  IN  EFI_PCI_IO_PROTOCOL *PciIo,
+  OUT CANDIDATE_PCI_INFO  *PciInfo
+  )
+{
+  EFI_STATUS Status;
+
+  Status = PciIo->Pci.Read (
+                        PciIo,
+                        EfiPciIoWidthUint16,
+                        PCI_VENDOR_ID_OFFSET,
+                        1,                    // Count
+                        &PciInfo->VendorId
+                        );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = PciIo->Pci.Read (
+                        PciIo,
+                        EfiPciIoWidthUint8,
+                        PCI_CLASSCODE_OFFSET,
+                        sizeof PciInfo->ClassCode,
+                        PciInfo->ClassCode
+                        );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = PciIo->GetLocation (
+                    PciIo,
+                    &PciInfo->Segment,
+                    &PciInfo->Bus,
+                    &PciInfo->Device,
+                    &PciInfo->Function
+                    );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  PciInfo->Name[0] = '\0';
+  return EFI_SUCCESS;
+}
+
+#define ASSIGNED_IGD_FW_CFG_OPREGION  "etc/igd-opregion"
+#define ASSIGNED_IGD_FW_CFG_BDSM_SIZE "etc/igd-bdsm-size"
+
+//
+// Alignment constants. UEFI page allocation automatically satisfies the
+// requirements for the OpRegion, thus we only need to define an alignment
+// constant for IGD stolen memory.
+//
+#define ASSIGNED_IGD_BDSM_ALIGN SIZE_1MB
+
+//
+// PCI config space registers. The naming follows the PCI_*_OFFSET pattern seen
+// in MdePkg/Include/IndustryStandard/Pci*.h.
+//
+#define ASSIGNED_IGD_PCI_BDSM_OFFSET 0x5C
+#define ASSIGNED_IGD_PCI_ASLS_OFFSET 0xFC
+
+//
+// PCI location and vendor
+//
+#define ASSIGNED_IGD_PCI_BUS       0x00
+#define ASSIGNED_IGD_PCI_DEVICE    0x02
+#define ASSIGNED_IGD_PCI_FUNCTION  0x0
+#define ASSIGNED_IGD_PCI_VENDOR_ID 0x8086
+
+/**
+  Set up the OpRegion for the device identified by PciIo.
+
+  @param[in] PciIo        The device to set up the OpRegion for.
+
+  @param[in,out] PciInfo  On input, PciInfo must have been initialized from
+                          PciIo with InitPciInfo(). SetupOpRegion() may call
+                          GetPciName() on PciInfo, possibly modifying it.
+
+  @retval EFI_SUCCESS            OpRegion setup successful.
+
+  @retval EFI_INVALID_PARAMETER  mOpRegionSize is zero.
+
+  @return                        Error codes propagated from underlying
+                                 functions.
+**/
+STATIC
+EFI_STATUS
+SetupOpRegion (
+  IN     EFI_PCI_IO_PROTOCOL *PciIo,
+  IN OUT CANDIDATE_PCI_INFO  *PciInfo
+  )
+{
+  UINTN                OpRegionPages;
+  UINTN                OpRegionResidual;
+  EFI_STATUS           Status;
+  EFI_PHYSICAL_ADDRESS Address;
+  UINT8                *BytePointer;
+
+  if (mOpRegionSize == 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+  OpRegionPages = EFI_SIZE_TO_PAGES (mOpRegionSize<8192?8192:mOpRegionSize);
+  OpRegionResidual = EFI_PAGES_TO_SIZE (OpRegionPages) - mOpRegionSize;
+
+  //
+  // While QEMU's "docs/igd-assign.txt" specifies reserved memory, Intel's IGD
+  // OpRegion spec refers to ACPI NVS.
+  //
+  Status = Allocate32BitAlignedPagesWithType (
+             EfiACPIMemoryNVS,
+             OpRegionPages,
+             1,                // AlignmentInPages
+             &Address
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: %a: failed to allocate OpRegion: %r\n",
+      __FUNCTION__, GetPciName (PciInfo), Status));
+    return Status;
+  }
+
+  //
+  // Download OpRegion contents from fw_cfg, zero out trailing portion.
+  //
+  BytePointer = (UINT8 *)(UINTN)Address;
+  QemuFwCfgSelectItem (mOpRegionItem);
+  QemuFwCfgReadBytes (mOpRegionSize, BytePointer);
+  if(OpRegionResidual){
+      ZeroMem (BytePointer + mOpRegionSize, OpRegionResidual);
+  }
+  
+  //for(int i=0;i<sizeof(OPREGION_SIGNATURE);i++){
+  //    BytePointer[i]=(UINT8)OPREGION_SIGNATURE[i];
+  //}
+  //BytePointer[0x43f]=0x20;
+  
+  //
+  // Write address of OpRegion to PCI config space.
+  //
+  Status = PciIo->Pci.Write (
+                        PciIo,
+                        EfiPciIoWidthUint32,
+                        ASSIGNED_IGD_PCI_ASLS_OFFSET,
+                        1,                            // Count
+                        &Address
+                        );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: %a: failed to write OpRegion address: %r\n",
+      __FUNCTION__, GetPciName (PciInfo), Status));
+    goto FreeOpRegion;
+  }
+
+  DebugPrint(EFI_D_ERROR, "i915: %a: OpRegion @ 0x%Lx size 0x%Lx in %d pages\n", __FUNCTION__,
+    Address, (UINT64)mOpRegionSize,(int)OpRegionPages);
+  return EFI_SUCCESS;
+
+FreeOpRegion:
+  gBS->FreePages (Address, OpRegionPages);
+  return Status;
+}
+
+
+/**
+  Set up stolen memory for the device identified by PciIo.
+
+  @param[in] PciIo        The device to set up stolen memory for.
+
+  @param[in,out] PciInfo  On input, PciInfo must have been initialized from
+                          PciIo with InitPciInfo(). SetupStolenMemory() may
+                          call GetPciName() on PciInfo, possibly modifying it.
+
+  @retval EFI_SUCCESS            Stolen memory setup successful.
+
+  @retval EFI_INVALID_PARAMETER  mBdsmSize is zero.
+
+  @return                        Error codes propagated from underlying
+                                 functions.
+**/
+STATIC
+EFI_STATUS
+SetupStolenMemory (
+  IN     EFI_PCI_IO_PROTOCOL *PciIo,
+  IN OUT CANDIDATE_PCI_INFO  *PciInfo
+  )
+{
+  UINTN                BdsmPages;
+  EFI_STATUS           Status;
+  EFI_PHYSICAL_ADDRESS Address;
+
+  if (mBdsmSize == 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+  BdsmPages = EFI_SIZE_TO_PAGES (mBdsmSize);
+
+  Status = Allocate32BitAlignedPagesWithType (
+             EfiReservedMemoryType,//
+             BdsmPages,
+             EFI_SIZE_TO_PAGES ((UINTN)ASSIGNED_IGD_BDSM_ALIGN),
+             &Address
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: %a: failed to allocate stolen memory: %r\n",
+      __FUNCTION__, GetPciName (PciInfo), Status));
+    return Status;
+  }
+
+  //
+  // Zero out stolen memory.
+  //
+  ZeroMem ((VOID *)(UINTN)Address, EFI_PAGES_TO_SIZE (BdsmPages));
+
+  //
+  // Write address of stolen memory to PCI config space.
+  //
+  Status = PciIo->Pci.Write (
+                        PciIo,
+                        EfiPciIoWidthUint32,
+                        ASSIGNED_IGD_PCI_BDSM_OFFSET,
+                        1,                            // Count
+                        &Address
+                        );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: %a: failed to write stolen memory address: %r\n",
+      __FUNCTION__, GetPciName (PciInfo), Status));
+    goto FreeStolenMemory;
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: %a: stolen memory @ 0x%Lx size 0x%Lx\n",
+    __FUNCTION__, GetPciName (PciInfo), Address, (UINT64)mBdsmSize));
+  return EFI_SUCCESS;
+
+FreeStolenMemory:
+  gBS->FreePages (Address, BdsmPages);
+  return Status;
+}
+
 STATIC UINT8 edid_fallback[]={
 	//generic 1280x720
 	0,255,255,255,255,255,255,0,34,240,84,41,1,0,0,0,4,23,1,4,165,52,32,120,35,252,129,164,85,77,157,37,18,80,84,33,8,0,209,192,129,192,129,64,129,128,149,0,169,64,179,0,1,1,26,29,0,128,81,208,28,32,64,128,53,0,77,187,16,0,0,30,0,0,0,254,0,55,50,48,112,32,32,32,32,32,32,32,32,10,0,0,0,253,0,24,60,24,80,17,0,10,32,32,32,32,32,32,0,0,0,252,0,72,80,32,90,82,95,55,50,48,112,10,32,32,0,161
@@ -1800,6 +2179,69 @@ STATIC UINT8 edid_fallback[]={
 	//0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
 };
 
+STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo){
+	EFI_STATUS OpRegionStatus = QemuFwCfgFindFile (
+	                   ASSIGNED_IGD_FW_CFG_OPREGION,
+	                   &mOpRegionItem,
+	                   &mOpRegionSize
+	                   );
+	FIRMWARE_CONFIG_ITEM BdsmItem;
+	UINTN                BdsmItemSize;
+	EFI_STATUS BdsmStatus = QemuFwCfgFindFile (
+	               ASSIGNED_IGD_FW_CFG_BDSM_SIZE,
+	               &BdsmItem,
+	               &BdsmItemSize
+	               );
+	//
+	// If neither fw_cfg file is available, assume no IGD is assigned.
+	//
+	if (EFI_ERROR (OpRegionStatus) && EFI_ERROR (BdsmStatus)) {
+	  return EFI_UNSUPPORTED;
+	}
+	
+	//
+	// Require all fw_cfg files that are present to be well-formed.
+	//
+	if (!EFI_ERROR (OpRegionStatus) && mOpRegionSize == 0)  {
+	  DEBUG ((DEBUG_ERROR, "%a: %a: zero size\n", __FUNCTION__,
+	    ASSIGNED_IGD_FW_CFG_OPREGION));
+	  return EFI_PROTOCOL_ERROR;
+	}
+	
+	if (!EFI_ERROR (BdsmStatus)) {
+	  UINT64 BdsmSize;
+	
+	  if (BdsmItemSize != sizeof BdsmSize) {
+	    DEBUG ((DEBUG_ERROR, "%a: %a: invalid fw_cfg size: %Lu\n", __FUNCTION__,
+	      ASSIGNED_IGD_FW_CFG_BDSM_SIZE, (UINT64)BdsmItemSize));
+	    return EFI_PROTOCOL_ERROR;
+	  }
+	  QemuFwCfgSelectItem (BdsmItem);
+	  QemuFwCfgReadBytes (BdsmItemSize, &BdsmSize);
+	
+	  if (BdsmSize == 0 || BdsmSize > MAX_UINTN) {
+	    DEBUG ((DEBUG_ERROR, "%a: %a: invalid value: %Lu\n", __FUNCTION__,
+	      ASSIGNED_IGD_FW_CFG_BDSM_SIZE, BdsmSize));
+	    return EFI_PROTOCOL_ERROR;
+	  }
+	  DEBUG((DEBUG_INFO,"BdsmSize=%Lu\n",BdsmSize));
+	  mBdsmSize = (UINTN)BdsmSize;
+	}else{
+	    //assume 64M
+	    DEBUG((DEBUG_INFO,"BdsmSize not found\n"));
+	    //mBdsmSize = (UINTN)(64<<20);
+	}
+	
+	CANDIDATE_PCI_INFO PciInfo={};
+	InitPciInfo (PciIo, &PciInfo);
+	if (mOpRegionSize > 0) {
+	  SetupOpRegion (PciIo, &PciInfo);
+	}
+	if (mBdsmSize > 0) {
+	  SetupStolenMemory (PciIo, &PciInfo);
+	}
+	return EFI_SUCCESS;
+}
 
 EFI_STATUS EFIAPI i915ControllerDriverStart (
   IN EFI_DRIVER_BINDING_PROTOCOL    *This,
@@ -1980,6 +2422,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	//intel_ddi_init(PORT_A);
 	UINT32 found = I915_READ(SFUSE_STRAP);
 	DebugPrint(EFI_D_ERROR,"i915: SFUSE_STRAP = %08x\n",found);
+	port=PORT_A;
 	if (found & SFUSE_STRAP_DDIB_DETECTED){
 		port=PORT_B;//intel_ddi_init(PORT_B);
 	}else if (found & SFUSE_STRAP_DDIC_DETECTED){
@@ -1990,7 +2433,13 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	//if (found & SFUSE_STRAP_DDIF_DETECTED)
 	//	intel_ddi_init(dev_priv, PORT_F);
 	
+	//reset GMBUS
+	//intel_i2c_reset(dev_priv);
+	I915_WRITE(GMBUS0, 0);
+	I915_WRITE(GMBUS4, 0);
+	
 	// query EDID and initialize the mode
+	// it somehow fails on real hardware
 	Status = ReadEDID(&g_private.edid);
 	if (EFI_ERROR (Status)) {
 		DebugPrint(EFI_D_ERROR,"i915: failed to read EDID\n");
@@ -2071,7 +2520,17 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 		ggtt[(g_private.gmadr+i)>>12]=((UINT32)(addr>>32)&0x7F0u)|((UINT32)addr&0xFFFFF000u)|11;
 	}
 
-	//TODO: setup OpRegion from fw_cfg (IgdAssignmentDxe), turn on backlight, after DPLL
+	//setup OpRegion from fw_cfg (IgdAssignmentDxe)
+	DebugPrint(EFI_D_ERROR,"i915: before QEMU shenanigans\n");
+	QemuFwCfgInitialize();
+	if(QemuFwCfgIsAvailable()){
+		//setup opregion
+		Status=SetupFwcfgStuff(Private->PciIo);
+		DebugPrint(EFI_D_ERROR,"i915: SetupFwcfgStuff returns %d\n",Status);
+	}
+	DebugPrint(EFI_D_ERROR,"i915: after QEMU shenanigans\n");
+	
+	//TODO: turn on backlight if found in OpRegion, need eDP initialization first...
 	
 	//
 	// Start the GOP software stack.

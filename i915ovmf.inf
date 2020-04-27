@@ -32,6 +32,8 @@
 
 [Sources]
   i915ovmf.c
+  QemuFwCfgLib.c
+  QemuFwCfgPei.c
 
 [Packages]
   MdePkg/MdePkg.dec
