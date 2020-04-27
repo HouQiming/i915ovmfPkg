@@ -528,6 +528,45 @@
 #define  PSR2_ADD_VERTICAL_LINE_COUNT   (1 << 15)
 #define  PSR2_VSC_ENABLE_PROG_HEADER    (1 << 12)
 
+#define HSW_NDE_RSTWRN_OPT	(0x46408)
+#define  RESET_PCH_HANDSHAKE_ENABLE	(1 << 4)
+
+#define CDCLK_CTL			(0x46000)
+#define  CDCLK_FREQ_SEL_MASK		(3 << 26)
+#define  CDCLK_FREQ_450_432		(0 << 26)
+#define  CDCLK_FREQ_540			(1 << 26)
+#define  CDCLK_FREQ_337_308		(2 << 26)
+#define  CDCLK_FREQ_675_617		(3 << 26)
+#define  BXT_CDCLK_CD2X_DIV_SEL_MASK	(3 << 22)
+#define  BXT_CDCLK_CD2X_DIV_SEL_1	(0 << 22)
+#define  BXT_CDCLK_CD2X_DIV_SEL_1_5	(1 << 22)
+#define  BXT_CDCLK_CD2X_DIV_SEL_2	(2 << 22)
+#define  BXT_CDCLK_CD2X_DIV_SEL_4	(3 << 22)
+#define  BXT_CDCLK_CD2X_PIPE(pipe)	((pipe) << 20)
+#define  CDCLK_DIVMUX_CD_OVERRIDE	(1 << 19)
+#define  BXT_CDCLK_CD2X_PIPE_NONE	BXT_CDCLK_CD2X_PIPE(3)
+#define  ICL_CDCLK_CD2X_PIPE_NONE	(7 << 19)
+#define  BXT_CDCLK_SSA_PRECHARGE_ENABLE	(1 << 16)
+#define  CDCLK_FREQ_DECIMAL_MASK	(0x7ff)
+
+#define DBUF_CTL	(0x45008)
+#define DBUF_CTL_S1	(0x45008)
+#define DBUF_CTL_S2	(0x44FE8)
+#define  DBUF_POWER_REQUEST		(1 << 31)
+#define  DBUF_POWER_STATE		(1 << 30)
+
+#define MBUS_ABOX_CTL			(0x45038)
+#define MBUS_ABOX_BW_CREDIT_MASK	(3 << 20)
+#define MBUS_ABOX_BW_CREDIT(x)		((x) << 20)
+#define MBUS_ABOX_B_CREDIT_MASK		(0xF << 16)
+#define MBUS_ABOX_B_CREDIT(x)		((x) << 16)
+#define MBUS_ABOX_BT_CREDIT_POOL2_MASK	(0x1F << 8)
+#define MBUS_ABOX_BT_CREDIT_POOL2(x)	((x) << 8)
+#define MBUS_ABOX_BT_CREDIT_POOL1_MASK	(0x1F << 0)
+#define MBUS_ABOX_BT_CREDIT_POOL1(x)	((x) << 0)
+
+#define _PLANE_BUF_CFG_1_A			0x7027c
+
 #define I915_READ read32
 #define I915_WRITE write32
 
@@ -1182,14 +1221,14 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//UINT32 refclock = 96000;
 	//UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[0].pixelClock) * 10;
 	//UINT32 multiplier = 1;
-	//if(pixel_clock >= 100000) {
-	//	multiplier = 1;
-	//}else if(pixel_clock >= 50000) {
-	//	multiplier = 2;
-	//}else{
-	//	//assert(pixel_clock >= 25000);
-	//	multiplier = 4;
-	//}
+	////if(pixel_clock >= 100000) {
+	////	multiplier = 1;
+	////}else if(pixel_clock >= 50000) {
+	////	multiplier = 2;
+	////}else{
+	////	//assert(pixel_clock >= 25000);
+	////	multiplier = 4;
+	////}
 	//struct dpll final_params,params;
 	//INT32 target=(INT32)(pixel_clock * multiplier);
 	//INT32 best_err=target;
@@ -1282,7 +1321,6 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//.cfgcr1 = _DPLL1_CFGCR1,
 	//.cfgcr2 = _DPLL1_CFGCR2,
 	
-	//TODO:
 	//intel_encoders_pre_pll_enable(crtc, pipe_config, old_state);
 	
 	UINT32 ctrl1, cfgcr1, cfgcr2;
@@ -1372,7 +1410,8 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//}else if(clock_khz>>1 >=270000){
 	//	id=DPLL_CTRL1_LINK_RATE_2700;
 	//}
-	UINT32 id=DPLL_CTRL1_LINK_RATE_1350;//TODO: hack: anything else hangs
+	//hack: anything else hangs
+	UINT32 id=DPLL_CTRL1_LINK_RATE_1350;
 	
 	val &= ~(DPLL_CTRL1_HDMI_MODE(id) |
 		 DPLL_CTRL1_SSC(id) |
@@ -1387,6 +1426,11 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	write32(_DPLL1_CFGCR2, cfgcr2);
 	read32(_DPLL1_CFGCR1);
 	read32(_DPLL1_CFGCR2);
+	
+	//845 80400173 3a5
+	DebugPrint(EFI_D_ERROR,"i915: DPLL_CTRL1 = %08x\n", read32(DPLL_CTRL1));
+	DebugPrint(EFI_D_ERROR,"i915: _DPLL1_CFGCR1 = %08x\n", read32(_DPLL1_CFGCR1));
+	DebugPrint(EFI_D_ERROR,"i915: _DPLL1_CFGCR2 = %08x\n", read32(_DPLL1_CFGCR2));
 	
 	/* the enable bit is always bit 31 */
 	write32(LCPLL2_CTL, read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
@@ -1448,7 +1492,6 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	}
 	
 	//intel_ddi_enable_pipe_clock(crtc_state);
-	//TODO: this hangs
 	write32(_TRANS_CLK_SEL_A, TRANS_CLK_SEL_PORT(port));
 	DebugPrint(EFI_D_ERROR,"i915: progressed to line %d, TRANS_CLK_SEL_PORT(port) is %08x\n", __LINE__, TRANS_CLK_SEL_PORT(port));
 	
@@ -1514,7 +1557,20 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	
 	write32(PIPEASRC,((horizontal_active-1)<<16)|(vertical_active-1));
 	UINT32 multiplier=1;
-	write32(PIPE_MULT_A, multiplier - 1);		
+	write32(PIPE_MULT_A, multiplier - 1);
+	
+	DebugPrint(EFI_D_ERROR,"i915: HTOTAL_A (%x) = %08x\n",HTOTAL_A,read32(HTOTAL_A));
+	DebugPrint(EFI_D_ERROR,"i915: HBLANK_A (%x) = %08x\n",HBLANK_A,read32(HBLANK_A));
+	DebugPrint(EFI_D_ERROR,"i915: HSYNC_A (%x) = %08x\n",HSYNC_A,read32(HSYNC_A));
+	DebugPrint(EFI_D_ERROR,"i915: VTOTAL_A (%x) = %08x\n",VTOTAL_A,read32(VTOTAL_A));
+	DebugPrint(EFI_D_ERROR,"i915: VBLANK_A (%x) = %08x\n",VBLANK_A,read32(VBLANK_A));
+	DebugPrint(EFI_D_ERROR,"i915: VSYNC_A (%x) = %08x\n",VSYNC_A,read32(VSYNC_A));
+	DebugPrint(EFI_D_ERROR,"i915: PIPEASRC (%x) = %08x\n",PIPEASRC,read32(PIPEASRC));
+	DebugPrint(EFI_D_ERROR,"i915: BCLRPAT_A (%x) = %08x\n",BCLRPAT_A,read32(BCLRPAT_A));
+	DebugPrint(EFI_D_ERROR,"i915: VSYNCSHIFT_A (%x) = %08x\n",VSYNCSHIFT_A,read32(VSYNCSHIFT_A));
+	DebugPrint(EFI_D_ERROR,"i915: PIPE_MULT_A (%x) = %08x\n",PIPE_MULT_A,read32(PIPE_MULT_A));
+	
+	DebugPrint(EFI_D_ERROR,"i915: before pipe gamma\n");
 	
 	//intel_color_load_luts(pipe_config);
 	//intel_color_commit(pipe_config);
@@ -1527,8 +1583,11 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//DebugPrint(EFI_D_ERROR,"i915: _PIPEACONF: %08x\n",read32(_PIPEACONF));
 	//g_SystemTable->RuntimeServices->ResetSystem(EfiResetShutdown,0,0,NULL);	
 	//return EFI_UNSUPPORTED;
-	//write32(_PIPEACONF,PIPECONF_PROGRESSIVE|PIPECONF_GAMMA_MODE_8BIT);
-	write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
+	write32(_PIPEACONF,PIPECONF_PROGRESSIVE|PIPECONF_GAMMA_MODE_8BIT);
+	//write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
+	//write32(_SKL_BOTTOM_COLOR_A,0);
+	//write32(_SKL_BOTTOM_COLOR_A,0x335577);
+	write32(_SKL_BOTTOM_COLOR_A,0);
 	write32(_GAMMA_MODE_A,GAMMA_MODE_MODE_8BIT);
 	
 	//bad setup causes hanging when enabling trans / pipe, but what is it?
@@ -1624,6 +1683,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	 * enabling the port.
 	 */
 	I915_WRITE(DDI_BUF_CTL(port), saved_port_bits | DDI_BUF_CTL_ENABLE);
+	DebugPrint(EFI_D_ERROR,"DDI_BUF_CTL(port) = %08x\n",read32(DDI_BUF_CTL(port)));
 	
 	//plane
 	UINT32 stride=(horizontal_active*4+63)&-64;
@@ -1634,6 +1694,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	write32(_DSPASIZE,(horizontal_active - 1) | ((vertical_active-1)<<16));
 	write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888|PLANE_CTL_PLANE_GAMMA_DISABLE);
 	write32(_DSPASURF,g_private.gmadr);
+	
 	//write32(_DSPAADDR,0);
 	//word=read32(_DSPACNTR);
 	//write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
@@ -1659,12 +1720,11 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//}
 	//DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
 	////
-	//UEFI thinks it's BAR1
 	//UINT32 cnt=0;
 	//for(UINT32 y=0;y<vertical_active;y+=1){
 	//	for(UINT32 x=0;x<horizontal_active;x+=1){
 	//		UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
-	//		((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00);
+	//		((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00)|0x80;
 	//		cnt++;
 	//	}
 	//}
@@ -1717,7 +1777,6 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
   IN  UINTN                                 Delta
   )
 {
-	//return EFI_SUCCESS;
 	EFI_STATUS Status=FrameBufferBlt (
 	         g_i915FrameBufferBltConfigure,
 	         BltBuffer,
@@ -1735,7 +1794,10 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputBlt (
 }
 
 STATIC UINT8 edid_fallback[]={
+	//generic 1280x720
 	0,255,255,255,255,255,255,0,34,240,84,41,1,0,0,0,4,23,1,4,165,52,32,120,35,252,129,164,85,77,157,37,18,80,84,33,8,0,209,192,129,192,129,64,129,128,149,0,169,64,179,0,1,1,26,29,0,128,81,208,28,32,64,128,53,0,77,187,16,0,0,30,0,0,0,254,0,55,50,48,112,32,32,32,32,32,32,32,32,10,0,0,0,253,0,24,60,24,80,17,0,10,32,32,32,32,32,32,0,0,0,252,0,72,80,32,90,82,95,55,50,48,112,10,32,32,0,161
+	//the test monitor
+	//0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
 };
 
 
@@ -1839,6 +1901,17 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	}
 	DebugPrint(EFI_D_ERROR,"i915: installed child handle\n");
 	
+	/* 1. Enable PCH reset handshake. */
+	//intel_pch_reset_handshake(dev_priv, !HAS_PCH_NOP(dev_priv));
+	write32(HSW_NDE_RSTWRN_OPT,read32(HSW_NDE_RSTWRN_OPT)|RESET_PCH_HANDSHAKE_ENABLE);
+	
+	//DOESN'T APPLY
+	///* 2-3. */
+	//icl_combo_phys_init(dev_priv);
+		
+	//if (resume && dev_priv->csr.dmc_payload)
+	//	intel_csr_load_program(dev_priv);
+	
 	//power well enable, we are requesting these to be enabled
 	//#define   SKL_PW_CTL_IDX_PW_2			15
 	//#define   SKL_PW_CTL_IDX_PW_1			14
@@ -1862,12 +1935,48 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	//disable VGA
 	UINT32 vgaword=read32(VGACNTRL);
 	write32(VGACNTRL,(vgaword&~VGA_2X_MODE)|VGA_DISP_DISABLE);
-	DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
+	//DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
+	
+	///* 5. Enable CDCLK. */
+	//icl_init_cdclk(dev_priv);
+	//080002a1 on test machine
+	//DebugPrint(EFI_D_ERROR,"i915: CDCLK = %08x\n",read32(CDCLK_CTL));
+	//there seems no need to do so
+	
+	///* 6. Enable DBUF. */
+	//icl_dbuf_enable(dev_priv);
+	I915_WRITE(DBUF_CTL_S1, I915_READ(DBUF_CTL_S1) | DBUF_POWER_REQUEST);
+	I915_WRITE(DBUF_CTL_S2, I915_READ(DBUF_CTL_S2) | DBUF_POWER_REQUEST);
+	read32(DBUF_CTL_S2);
+	for(UINT32 counter=0;;counter++){
+		if(counter>16384){
+			DebugPrint(EFI_D_ERROR,"i915: DBUF timeout\n");
+			break;
+		}
+		if(read32(DBUF_CTL_S1)&read32(DBUF_CTL_S2)&DBUF_POWER_STATE){
+			DebugPrint(EFI_D_ERROR,"i915: DBUF good\n");
+			break;
+		}
+	}
+	
+	///* 7. Setup MBUS. */
+	//icl_mbus_init(dev_priv);
+	I915_WRITE(MBUS_ABOX_CTL, 
+		MBUS_ABOX_BT_CREDIT_POOL1(16) |
+		MBUS_ABOX_BT_CREDIT_POOL2(16) |
+		MBUS_ABOX_B_CREDIT(1) |
+		MBUS_ABOX_BW_CREDIT(1)
+	);
+	
+	//set up display buffer
+	//the value is from host
+	DebugPrint(EFI_D_ERROR,"i915: _PLANE_BUF_CFG_1_A = %08x\n",read32(_PLANE_BUF_CFG_1_A));
+	write32(_PLANE_BUF_CFG_1_A,0x035b0000);
+	DebugPrint(EFI_D_ERROR,"i915: _PLANE_BUF_CFG_1_A = %08x (after)\n",read32(_PLANE_BUF_CFG_1_A));
 	
 	//initialize output
 	//need workaround: always initialize DDI
 	//intel_dig_port->hdmi.hdmi_reg = DDI_BUF_CTL(port);
-	//TODO: 
 	//intel_ddi_init(PORT_A);
 	UINT32 found = I915_READ(SFUSE_STRAP);
 	DebugPrint(EFI_D_ERROR,"i915: SFUSE_STRAP = %08x\n",found);
@@ -1932,7 +2041,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 	//Private->PciIo->Pci.Read (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
 	//DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %016x\n",bar_work);
 	//GVT-g gmadr issue
-	g_private.gmadr=0x10000;
+	g_private.gmadr=0;
 	g_private.is_gvt=0;
 	if(read64(0x78000)==0x4776544776544776ULL){
 		g_private.gmadr=read32(0x78040);
@@ -2036,7 +2145,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStop (
   )
 {
 	DebugPrint(EFI_D_ERROR,"i915ControllerDriverStop\n");
-	//TODO
+	//we don't support this, Windows can clean up our mess without this anyway
 	return EFI_UNSUPPORTED;
 }
 

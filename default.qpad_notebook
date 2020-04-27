@@ -1,0 +1,12 @@
+v4
+
+═══ (ʘ皿ʘ)つ Config
+{"m_language":"markdown"}
+═══ (ʘ口ʘ)つ Cell
+# TODO
+
+need to allocate display buffer: PLANE_BUF_CFG
+
+It's as if the plane weren't there
+- But the pipe's good
+- so is DDI_BUF_CTL
