@@ -1,0 +1,2 @@
+#!/bin/sh
+sudo dd if=/dev/mem iflag=skip_bytes skip=`printf "%d" 0x$1` "bs=4" count=1 | xxd -e -g 4
