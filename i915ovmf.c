@@ -1920,6 +1920,10 @@ typedef struct {
   CHAR8  Name[sizeof "0000:00:02.0"];
 } CANDIDATE_PCI_INFO;
 
+STATIC CHAR8* GetPciName (IN CANDIDATE_PCI_INFO *PciInfo) {
+	return PciInfo->Name;
+
+}
 
 /**
   Populate the CANDIDATE_PCI_INFO structure for a PciIo protocol instance.

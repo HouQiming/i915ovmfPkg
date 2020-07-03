@@ -1,11 +1,18 @@
 #!/bin/bash
-cd ../edk2
-. ../edk2/edksetup.sh
-#build -b DEBUG -p i915ovmfPkg/i915ovmf.dsc || exit
-build -b RELEASE -p i915ovmfPkg/i915ovmf.dsc || exit
-cd ../i915_simple
-cp ../edk2/Build/i915ovmf/RELEASE_GCC5/X64/i915ovmf.rom ./ || exit
-#cp ../edk2/Build/i915ovmf/DEBUG_GCC5/X64/i915ovmf.rom ./ || exit
+export WORKSPACE=/home/patrick/development
+export PACKAGES_PATH=$WORKSPACE/edk2:$WORKSPACE/edk2-platforms
+
+cd $WORKSPACE
+. edk2/edksetup.sh
+if [ ! -f "$WORKSPACE/edk2/BaseTools/Source/C/bin" ]; then
+    make -C edk2/BaseTools
+fi
+build -v -b DEBUG -p i915ovmfPkg/i915ovmf.dsc || exit
+#build -b RELEASE -p i915ovmfPkg/i915ovmf.dsc || exit
+mkdir i915_simple
+cd ./i915_simple
+#cp ../Build/i915ovmf/RELEASE_CLANGPDB/X64/i915ovmf.rom ./ || exit
+cp ../Build/i915ovmf/DEBUG_CLANGPDB/X64/i915ovmf.rom ./ || exit
 
 if [ -e /sys/bus/pci/devices/0000:00:02.0/2aee154e-7d0d-11e8-88b8-6f45320c7162 ]
 then
