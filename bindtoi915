@@ -1,0 +1,6 @@
+#!/bin/bash
+export PCILOC=00:02.0
+export PCIID=8086:9bca
+     echo $PCIID > /sys/bus/pci/drivers/i915/new_id
+     echo $PCILOC> /sys/bus/pci/devices/0000:$PCILOC/driver/unbind
+     echo $PCILOC > /sys/bus/pci/drivers/i915/bind
