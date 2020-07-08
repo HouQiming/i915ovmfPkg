@@ -19,7 +19,7 @@
 
 #include <IndustryStandard/Pci.h>
 #include <IndustryStandard/Acpi.h>
-
+#define DETAIL_TIME_SELCTION 1
 //registers are in bar 0
 //frame buffer is in bar 2
 #define PCH_DISPLAY_BASE	0xc0000u
@@ -1211,6 +1211,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
   IN  UINT32                       ModeNumber
   )
 {
+
 	DebugPrint(EFI_D_ERROR,"i915: set mode %u\n",ModeNumber);
 	if(g_already_set){
 		DebugPrint(EFI_D_ERROR,"i915: mode already set\n");
@@ -1222,7 +1223,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	
 	//setup DPLL (old GPU, doesn't apply here)
 	//UINT32 refclock = 96000;
-	//UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[0].pixelClock) * 10;
+	//UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock) * 10;
 	//UINT32 multiplier = 1;
 	////if(pixel_clock >= 100000) {
 	////	multiplier = 1;
@@ -1338,7 +1339,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	
 	{
 		//clock in Hz
-		UINT64 clock=(UINT64)(g_private.edid.detailTimings[0].pixelClock)*10000;
+		UINT64 clock=(UINT64)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock)*10000;
 		UINT64 afe_clock = clock * 5; /* AFE Clock is 5x Pixel clock */
 		UINT64 dco_central_freq[3] = { 8400000000ULL, 9000000000ULL, 9600000000ULL };
 		
@@ -1406,7 +1407,7 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	
 	//it's clock id!
 	//how's port clock comptued?
-	//UINT64 clock_khz=(UINT64)(g_private.edid.detailTimings[0].pixelClock)*10;
+	//UINT64 clock_khz=(UINT64)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock)*10;
 	//UINT32 id=DPLL_CTRL1_LINK_RATE_810;
 	//if(clock_khz>>1 >=135000){
 	//	id=DPLL_CTRL1_LINK_RATE_1350;
@@ -1508,28 +1509,28 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	//	intel_dp_set_m_n(pipe_config, M1_N1);
 	
 	//program PIPE_A
-	UINT32 horz_active = g_private.edid.detailTimings[0].horzActive
-			| ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb >> 4) << 8);
-	UINT32 horz_blank = g_private.edid.detailTimings[0].horzBlank
-			| ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb & 0xF) << 8);
-	UINT32 horz_sync_offset = g_private.edid.detailTimings[0].horzSyncOffset
-			| ((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 6) << 8);
-	UINT32 horz_sync_pulse = g_private.edid.detailTimings[0].horzSyncPulse
-			| (((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 4) & 0x3) << 8);
+	UINT32 horz_active = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActive
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
+	UINT32 horz_blank = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
+	UINT32 horz_sync_offset = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
+	UINT32 horz_sync_pulse = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse
+			| (((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
 	
 	UINT32 horizontal_active = horz_active;
 	UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
 	UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
 	UINT32 horizontal_total = horz_active + horz_blank;
 	
-	UINT32 vert_active =  g_private.edid.detailTimings[0].vertActive
-			| ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb >> 4) << 8);
-	UINT32 vert_blank = g_private.edid.detailTimings[0].vertBlank
-			| ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb & 0xF) << 8);
-	UINT32 vert_sync_offset = (g_private.edid.detailTimings[0].vertSync >> 4)
-			| (((UINT32)(g_private.edid.detailTimings[0].syncMsb >> 2) & 0x3) << 4);
-	UINT32 vert_sync_pulse = (g_private.edid.detailTimings[0].vertSync & 0xF)
-			| ((UINT32)(g_private.edid.detailTimings[0].syncMsb & 0x3) << 4);
+	UINT32 vert_active =  g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertActive
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
+	UINT32 vert_blank = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
+	UINT32 vert_sync_offset = (g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4)
+			| (((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3) << 4);
+	UINT32 vert_sync_pulse = (g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF)
+			| ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
 	
 	UINT32 vertical_active = vert_active;
 	UINT32 vertical_syncStart = vert_active + vert_sync_offset;
@@ -1705,33 +1706,33 @@ STATIC EFI_STATUS EFIAPI i915GraphicsOutputSetMode (
 	g_mode.FrameBufferBase=g_private.FbBase;
 	g_mode.FrameBufferSize=stride*vertical_active;
 		
-	//test pattern
-	//there is just one page wrapping around... why?
-	//we have intel_vgpu_mmap in effect so the correct range is mmaped host vmem
-	//and the host vmem is actually one-page!
-	//((UINT32*)g_private.FbBase)[-1]=0x00010203;
-	//there is a mechanism called `get_pages` that seems to put main memory behind the aperture or sth
-	//the page is the scratch page that unmapped GTT entries point to
-	//we need to set up a GTT for our framebuffer: https://bwidawsk.net/blog/index.php/2014/06/the-global-gtt-part-1/
-	//UINT32 cnt=0;
-	//for(cnt=0;cnt<256*16;cnt++){
-	//	((UINT32*)g_private.FbBase)[cnt]=0x00010203;
-	//}
-	//for(cnt=0;cnt<256*4;cnt++){
-	//	UINT32 c=cnt&255;
-	//	((UINT32*)g_private.FbBase)[cnt]=((cnt+256)&256?c:0)+((cnt+256)&512?c<<8:0)+((cnt+256)&1024?c<<16:0);
-	//}
-	//DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
-	////
-	//UINT32 cnt=0;
-	//for(UINT32 y=0;y<vertical_active;y+=1){
-	//	for(UINT32 x=0;x<horizontal_active;x+=1){
-	//		UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
-	//		((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00)|0x80;
-	//		cnt++;
-	//	}
-	//}
-	//write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
+	// //test pattern
+	// //there is just one page wrapping around... why?
+	// //we have intel_vgpu_mmap in effect so the correct range is mmaped host vmem
+	// //and the host vmem is actually one-page!
+	// ((UINT32*)g_private.FbBase)[-1]=0x00010203;
+	// //there is a mechanism called `get_pages` that seems to put main memory behind the aperture or sth
+	// //the page is the scratch page that unmapped GTT entries point to
+	// //we need to set up a GTT for our framebuffer: https://bwidawsk.net/blog/index.php/2014/06/the-global-gtt-part-1/
+	// UINT32 cnt=0;
+	// for(cnt=0;cnt<256*16;cnt++){
+	// 	((UINT32*)g_private.FbBase)[cnt]=0x00010203;
+	// }
+	// for(cnt=0;cnt<256*4;cnt++){
+	// 	UINT32 c=cnt&255;
+	// 	((UINT32*)g_private.FbBase)[cnt]=((cnt+256)&256?c:0)+((cnt+256)&512?c<<8:0)+((cnt+256)&1024?c<<16:0);
+	// }
+	// DebugPrint(EFI_D_ERROR,"i915: wrap test %08x %08x %08x %08x\n",((UINT32*)g_private.FbBase)[1024],((UINT32*)g_private.FbBase)[1025],((UINT32*)g_private.FbBase)[1026],((UINT32*)g_private.FbBase)[1027]);
+	// //
+	// cnt=0;
+	// for(UINT32 y=0;y<vertical_active;y+=1){
+	// 	for(UINT32 x=0;x<horizontal_active;x+=1){
+	// 		UINT32 data=(((x<<8)/horizontal_active)<<16)|(((y<<8)/vertical_active)<<8);
+	// 		((UINT32*)g_private.FbBase)[cnt]=(data&0xffff00)|0x80;
+	// 		cnt++;
+	// 	}
+	// }
+	// write32(_DSPACNTR,DISPLAY_PLANE_ENABLE|DISPPLANE_BGRX888);
 	DebugPrint(EFI_D_ERROR,"i915: plane enabled, dspcntr: %08x, FbBase: %p\n",read32(_DSPACNTR),g_private.FbBase);
 	
 	//blt stuff
@@ -2458,9 +2459,9 @@ EFI_STATUS EFIAPI i915ControllerDriverStart (
 		}
 		DebugPrint(EFI_D_ERROR,"\n");
 	}
-	UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[0].pixelClock) * 10;
-	UINT32 x_active = g_private.edid.detailTimings[0].horzActive | ((UINT32)(g_private.edid.detailTimings[0].horzActiveBlankMsb >> 4) << 8);
-	UINT32 y_active =  g_private.edid.detailTimings[0].vertActive | ((UINT32)(g_private.edid.detailTimings[0].vertActiveBlankMsb >> 4) << 8);
+	UINT32 pixel_clock = (UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock) * 10;
+	UINT32 x_active = g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActive | ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
+	UINT32 y_active =  g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertActive | ((UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
 	DebugPrint(EFI_D_ERROR,"i915: %ux%u clock=%u\n",x_active,y_active,pixel_clock);
 	g_mode_info[0].HorizontalResolution=x_active;
 	g_mode_info[0].VerticalResolution=y_active;
