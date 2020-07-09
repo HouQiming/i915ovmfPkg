@@ -1,3 +1,6 @@
 Linux kernel EDID COde: https://github.com/torvalds/linux/blob/faa392181a0bd42c5478175cef601adeecdc91b6/drivers/gpu/drm/drm_edid.c
 EDID Wikipedia(Table of values):https://en.wikipedia.org/wiki/Extended_Display_Identification_Data
 GMBUS: https://wiki.osdev.org/Intel_HD_Graphics
+Intel PRMS https://01.org/linuxgraphics/documentation/hardware-specification-prms
+  -- Need Volume: Display
+Another EFI Software that implements intel graphics: https://www.coreboot.org/developers.html
