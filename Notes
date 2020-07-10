@@ -4,3 +4,74 @@ GMBUS: https://wiki.osdev.org/Intel_HD_Graphics
 Intel PRMS https://01.org/linuxgraphics/documentation/hardware-specification-prms
   -- Need Volume: Display
 Another EFI Software that implements intel graphics: https://www.coreboot.org/developers.html
+Display Port Information: https://www.quantumdata.com/assets/displayport_protocols_webinar.pdf
+Display Port Training: https://odr.chalmers.se/bitstream/20.500.12380/249904/1/249904.pdf
+More Display Port Info: https://www.quantumdata.com/assets/displayport_linklayer_compliance_webinar.pdf
+
+eDP Power Sequence info: https://books.google.com/books?id=CO2cBAAAQBAJ&pg=PA101&lpg=PA101&dq=edp+t10&source=bl&ots=f-xk9DqpXG&sig=ACfU3U2DYh6su56pJJR9is_zOAqjR2dJhg&hl=en&sa=X&ved=2ahUKEwjBqMyRgcHqAhVxYjUKHWR3CwUQ6AEwBXoECAoQAQ#v=onepage&q=edp%20t10&f=false
+
+eDP Power Sequence:
+Set PP_DIVISOR, PP_ON_DELAYS, PP_OFF_DELAYS to appropriate values(Read Linux kenrel and above rsc for info) Read VOl 2c-2 pg 620(pdf 645)
+Trigger Panel On with PP_CONTROL
+Read Panel Status with PP_STATUS
+
+Display Port Initialization:
+  DP_TP_CTL_A 64040h
+    B 64140
+    C64240
+    D64340
+    E64440
+    ENable 1 <<31
+    ModeSST 0 << 27
+    ModeMST 1 << 27
+    ForceACT 1 << 25
+    SSTENchancedFraming 1 << 18
+    DPTrainPattern1 000 to bits 10:8
+    DPTrainPat2 001
+    DPTrainIDle 010
+    DPTRainNorm 011
+    DPTrainPat3 100
+    AlternateSREnable 1 << 6
+  Pre-Program DDI_BUF_TRANS
+    Refer to table on vol 12 pg 181(pdf 195) for values
+    DDI_BUF_TRANS_A_* 64E00h-64E4fh
+    B 64E60h-64EAfh
+    C 64EC0h-64F0fh
+    D 64F20h-64F6fh
+    E 64F80h-64FCfh
+  Configure DDI-BUF_CTL
+    DDI_BUF_CTL_A 64000h
+    DDI_BUF_CTL_b 64100h
+    DDI_BUF_CTL_c 64200h
+    DDI_BUF_CTL_d 64300h
+    DDI_BUF_CTL_e 64400h
+      DDI_BUF_ENABLE 1 << 31
+      DDI_BUF_TRANS_* 000b-1000b bits 27:24
+      DDI_BUF_TRANS_9 1001b bits 27:24
+      DDI_PORT_LANE_REVERSAL 1 << 16
+      DDIA_LANE_CAP 1 << 4
+      DDI_PORT_WIDTH bits 3:1
+        000b x1
+        001b x2
+        011b x4
+    Wait >518 us
+    Begin Training Sequence:
+      Clock Recovery
+        Start with lowest swing/emph
+        Send Test pattern 
+        Check AUX for clock recovery
+        If no recovery try with next highest swing/emph
+        Repeat 5 times, then lower Lane speed
+        Repeat until success or max swing/emph on lowest speed
+      Channel Eq
+        Start with Prev settings
+        Send Test and wait delay
+        Check AUx for success
+        Use suggested Swing/emph
+        Repeat until success or 5 times
+        Lower link speed and Repeat
+        Fail if lowest bit rate
+  Set DP_TP_CTL to Normal Pattern
+ENable Planes/Pipes for DP
+  Similar to HDMI
+

@@ -32,8 +32,19 @@
 
 [Sources]
   i915ovmf.c
+  i915ovmf.h
   QemuFwCfgLib.c
   QemuFwCfgPei.c
+  i915_ddi.c
+  i915_display.c
+  i915_dp.c
+  i915_hdmi.c
+  i915_gop.c
+  i915_ddi.h
+  i915_display.h
+  i915_dp.h
+  i915_hdmi.h
+  i915_gop.h
 
 [Packages]
   MdePkg/MdePkg.dec
