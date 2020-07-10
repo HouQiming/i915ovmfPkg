@@ -36,13 +36,16 @@
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgSelectItem (
-  IN FIRMWARE_CONFIG_ITEM   QemuFwCfgItem
-  )
+        IN
+FIRMWARE_CONFIG_ITEM QemuFwCfgItem
+)
 {
-  DEBUG ((EFI_D_INFO, "Select Item: 0x%x\n", (UINT16)(UINTN) QemuFwCfgItem));
-  IoWrite16 (FW_CFG_IO_SELECTOR, (UINT16)(UINTN) QemuFwCfgItem);
+DEBUG ((EFI_D_INFO,
+"Select Item: 0x%x\n", (UINT16)(UINTN) QemuFwCfgItem));
+IoWrite16 (FW_CFG_IO_SELECTOR, (UINT16)(UINTN)
+QemuFwCfgItem);
 }
 
 /**
@@ -53,17 +56,26 @@ QemuFwCfgSelectItem (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 InternalQemuFwCfgReadBytes (
-  IN UINTN                  Size,
-  IN VOID                   *Buffer  OPTIONAL
-  )
+        IN
+UINTN Size,
+        IN
+VOID *Buffer
+OPTIONAL
+)
 {
-  if (InternalQemuFwCfgDmaIsAvailable () && Size <= MAX_UINT32) {
-    InternalQemuFwCfgDmaBytes ((UINT32)Size, Buffer, FW_CFG_DMA_CTL_READ);
-    return;
-  }
-  IoReadFifo8 (FW_CFG_IO_DATA, Size, Buffer);
+if (
+
+InternalQemuFwCfgDmaIsAvailable()
+
+&& Size <= MAX_UINT32) {
+InternalQemuFwCfgDmaBytes ((UINT32)
+Size, Buffer, FW_CFG_DMA_CTL_READ);
+return;
+}
+IoReadFifo8 (FW_CFG_IO_DATA, Size, Buffer
+);
 }
 
 
@@ -79,17 +91,25 @@ InternalQemuFwCfgReadBytes (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgReadBytes (
-  IN UINTN                  Size,
-  IN VOID                   *Buffer
-  )
+        IN
+UINTN Size,
+        IN
+VOID *Buffer
+)
 {
-  if (InternalQemuFwCfgIsAvailable ()) {
-    InternalQemuFwCfgReadBytes (Size, Buffer);
-  } else {
-    ZeroMem (Buffer, Size);
-  }
+if (
+
+InternalQemuFwCfgIsAvailable()
+
+) {
+InternalQemuFwCfgReadBytes (Size, Buffer
+);
+} else {
+ZeroMem (Buffer, Size
+);
+}
 }
 
 /**
@@ -104,19 +124,31 @@ QemuFwCfgReadBytes (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgWriteBytes (
-  IN UINTN                  Size,
-  IN VOID                   *Buffer
-  )
+        IN
+UINTN Size,
+        IN
+VOID *Buffer
+)
 {
-  if (InternalQemuFwCfgIsAvailable ()) {
-    if (InternalQemuFwCfgDmaIsAvailable () && Size <= MAX_UINT32) {
-      InternalQemuFwCfgDmaBytes ((UINT32)Size, Buffer, FW_CFG_DMA_CTL_WRITE);
-      return;
-    }
-    IoWriteFifo8 (FW_CFG_IO_DATA, Size, Buffer);
-  }
+if (
+
+InternalQemuFwCfgIsAvailable()
+
+) {
+if (
+
+InternalQemuFwCfgDmaIsAvailable()
+
+&& Size <= MAX_UINT32) {
+InternalQemuFwCfgDmaBytes ((UINT32)
+Size, Buffer, FW_CFG_DMA_CTL_WRITE);
+return;
+}
+IoWriteFifo8 (FW_CFG_IO_DATA, Size, Buffer
+);
+}
 }
 
 
@@ -130,37 +162,49 @@ QemuFwCfgWriteBytes (
   @param[in] Size  Number of bytes to skip.
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgSkipBytes (
-  IN UINTN                  Size
-  )
+        IN
+UINTN Size
+)
 {
-  UINTN ChunkSize;
-  UINT8 SkipBuffer[256];
+UINTN ChunkSize;
+UINT8 SkipBuffer[256];
 
-  if (!InternalQemuFwCfgIsAvailable ()) {
-    return;
-  }
+if (!
 
-  if (InternalQemuFwCfgDmaIsAvailable () && Size <= MAX_UINT32) {
-    InternalQemuFwCfgDmaBytes ((UINT32)Size, NULL, FW_CFG_DMA_CTL_SKIP);
-    return;
-  }
+InternalQemuFwCfgIsAvailable()
 
-  //
-  // Emulate the skip by reading data in chunks, and throwing it away. The
-  // implementation below is suitable even for phases where RAM or dynamic
-  // allocation is not available or appropriate. It also doesn't affect the
-  // static data footprint for client modules. Large skips are not expected,
-  // therefore this fallback is not performance critical. The size of
-  // SkipBuffer is thought not to exert a large pressure on the stack in any
-  // phase.
-  //
-  while (Size > 0) {
-    ChunkSize = MIN (Size, sizeof SkipBuffer);
-    IoReadFifo8 (FW_CFG_IO_DATA, ChunkSize, SkipBuffer);
-    Size -= ChunkSize;
-  }
+) {
+return;
+}
+
+if (
+
+InternalQemuFwCfgDmaIsAvailable()
+
+&& Size <= MAX_UINT32) {
+InternalQemuFwCfgDmaBytes ((UINT32)
+Size, NULL, FW_CFG_DMA_CTL_SKIP);
+return;
+}
+
+//
+// Emulate the skip by reading data in chunks, and throwing it away. The
+// implementation below is suitable even for phases where RAM or dynamic
+// allocation is not available or appropriate. It also doesn't affect the
+// static data footprint for client modules. Large skips are not expected,
+// therefore this fallback is not performance critical. The size of
+// SkipBuffer is thought not to exert a large pressure on the stack in any
+// phase.
+//
+while (Size > 0) {
+ChunkSize = MIN(Size, sizeof SkipBuffer);
+IoReadFifo8 (FW_CFG_IO_DATA, ChunkSize, SkipBuffer
+);
+Size -=
+ChunkSize;
+}
 }
 
 
@@ -171,17 +215,17 @@ QemuFwCfgSkipBytes (
 
 **/
 UINT8
-EFIAPI
+        EFIAPI
 QemuFwCfgRead8 (
-  VOID
-  )
-{
-  UINT8 Result;
+        VOID
+)
+        {
+                UINT8 Result;
 
-  QemuFwCfgReadBytes (sizeof (Result), &Result);
+        QemuFwCfgReadBytes (sizeof(Result), &Result);
 
-  return Result;
-}
+        return Result;
+        }
 
 
 /**
@@ -191,17 +235,17 @@ QemuFwCfgRead8 (
 
 **/
 UINT16
-EFIAPI
+        EFIAPI
 QemuFwCfgRead16 (
-  VOID
-  )
-{
-  UINT16 Result;
+        VOID
+)
+        {
+                UINT16 Result;
 
-  QemuFwCfgReadBytes (sizeof (Result), &Result);
+        QemuFwCfgReadBytes (sizeof(Result), &Result);
 
-  return Result;
-}
+        return Result;
+        }
 
 
 /**
@@ -211,17 +255,17 @@ QemuFwCfgRead16 (
 
 **/
 UINT32
-EFIAPI
+        EFIAPI
 QemuFwCfgRead32 (
-  VOID
-  )
-{
-  UINT32 Result;
+        VOID
+)
+        {
+                UINT32 Result;
 
-  QemuFwCfgReadBytes (sizeof (Result), &Result);
+        QemuFwCfgReadBytes (sizeof(Result), &Result);
 
-  return Result;
-}
+        return Result;
+        }
 
 
 /**
@@ -231,17 +275,17 @@ QemuFwCfgRead32 (
 
 **/
 UINT64
-EFIAPI
+        EFIAPI
 QemuFwCfgRead64 (
-  VOID
-  )
-{
-  UINT64 Result;
+        VOID
+)
+        {
+                UINT64 Result;
 
-  QemuFwCfgReadBytes (sizeof (Result), &Result);
+        QemuFwCfgReadBytes (sizeof(Result), &Result);
 
-  return Result;
-}
+        return Result;
+        }
 
 
 /**
@@ -258,41 +302,60 @@ QemuFwCfgRead64 (
 
 **/
 RETURN_STATUS
-EFIAPI
+        EFIAPI
 QemuFwCfgFindFile (
-  IN   CONST CHAR8           *Name,
-  OUT  FIRMWARE_CONFIG_ITEM  *Item,
-  OUT  UINTN                 *Size
-  )
+        IN
+CONST CHAR8
+*Name,
+OUT FIRMWARE_CONFIG_ITEM
+*Item,
+OUT UINTN
+*Size
+)
 {
-  UINT32 Count;
-  UINT32 Idx;
+UINT32 Count;
+UINT32 Idx;
 
-  if (!InternalQemuFwCfgIsAvailable ()) {
-    return RETURN_UNSUPPORTED;
-  }
+if (!
 
-  QemuFwCfgSelectItem (QemuFwCfgItemFileDir);
-  Count = SwapBytes32 (QemuFwCfgRead32 ());
+InternalQemuFwCfgIsAvailable()
 
-  for (Idx = 0; Idx < Count; ++Idx) {
-    UINT32 FileSize;
-    UINT16 FileSelect;
-    UINT16 FileReserved;
-    CHAR8  FName[QEMU_FW_CFG_FNAME_SIZE];
+) {
+return
+RETURN_UNSUPPORTED;
+}
 
-    FileSize     = QemuFwCfgRead32 ();
-    FileSelect   = QemuFwCfgRead16 ();
-    FileReserved = QemuFwCfgRead16 ();
-    (VOID) FileReserved; /* Force a do-nothing reference. */
-    InternalQemuFwCfgReadBytes (sizeof (FName), FName);
+QemuFwCfgSelectItem (QemuFwCfgItemFileDir);
+Count = SwapBytes32(QemuFwCfgRead32());
 
-    if (AsciiStrCmp (Name, FName) == 0) {
-      *Item = SwapBytes16 (FileSelect);
-      *Size = SwapBytes32 (FileSize);
-      return RETURN_SUCCESS;
-    }
-  }
+for (
+Idx = 0;
+Idx<Count;
+++Idx) {
+UINT32 FileSize;
+UINT16 FileSelect;
+UINT16 FileReserved;
+CHAR8 FName[QEMU_FW_CFG_FNAME_SIZE];
 
-  return RETURN_NOT_FOUND;
+FileSize = QemuFwCfgRead32();
+FileSelect = QemuFwCfgRead16();
+FileReserved = QemuFwCfgRead16();
+(VOID)
+FileReserved; /* Force a do-nothing reference. */
+InternalQemuFwCfgReadBytes (sizeof (FName), FName);
+
+if (
+AsciiStrCmp (Name, FName
+) == 0) {
+*
+Item = SwapBytes16(FileSelect);
+*
+Size = SwapBytes32(FileSize);
+return
+RETURN_SUCCESS;
+}
+}
+
+return
+RETURN_NOT_FOUND;
 }

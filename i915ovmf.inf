@@ -45,6 +45,8 @@
   i915_dp.h
   i915_hdmi.h
   i915_gop.h
+  i915_gmbus.c
+  i915_gmbus.h
 
 [Packages]
   MdePkg/MdePkg.dec

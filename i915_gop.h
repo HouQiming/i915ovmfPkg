@@ -1,10 +1,13 @@
+#pragma once
+
 #include <Uefi.h>
-#include "i915_controller.h"
+#include "i915_display.h"
 #include <Protocol/GraphicsOutput.h>
 #include <Library/DebugLib.h>
 #include <Library/FrameBufferBltLib.h>
+#include "i915_reg.h"
+#include <Library/MemoryAllocationLib.h>
 
-STATIC FRAME_BUFFER_CONFIGURE        *g_i915FrameBufferBltConfigure;
-STATIC UINTN                         g_i915FrameBufferBltConfigureSize;
-STATIC INTN g_already_set;
-EFI_STATUS i915GraphicsFrambufferConfigure(i915_CONTROLLER* controller, UINTN fbSize);
+EFI_STATUS i915GraphicsFramebufferConfigure(i915_CONTROLLER *controller);
+
+EFI_STATUS i915GraphicsSetupOutput(EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput, UINT32 x_active, UINT32 y_active);
