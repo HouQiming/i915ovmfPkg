@@ -75,5 +75,6 @@ typedef struct {
         UINT8 Transcoder;
         BOOLEAN isEDP;
         ConnectorType ConType;
+        UINT8 DPLL;
     } OutputPath;
 } i915_CONTROLLER;

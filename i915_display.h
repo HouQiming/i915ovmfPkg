@@ -305,39 +305,16 @@
 #define   PLL_REF_INPUT_MASK        (3 << 13)
 #define   PLL_LOAD_PULSE_PHASE_SHIFT        9
 /* Ironlake */
-#define PLL_REF_SDVO_HDMI_MULTIPLIER_SHIFT     9
-#define PLL_REF_SDVO_HDMI_MULTIPLIER_MASK      (7 << 9)
-#define PLL_REF_SDVO_HDMI_MULTIPLIER(x)    (((x) - 1) << 9)
-#define DPLL_FPA1_P1_POST_DIV_SHIFT            0
-#define DPLL_FPA1_P1_POST_DIV_MASK             0xff
 
-#define _DPLL_A_MD (PCH_DISPLAY_BASE + 0x601c)
-#define _DPLL_B_MD (PCH_DISPLAY_BASE + 0x6020)
-#define   DPLL_MD_UDI_MULTIPLIER_MASK        0x00003f00
-#define   DPLL_MD_UDI_MULTIPLIER_SHIFT        8
-/*
- * SDVO/UDI pixel multiplier for VGA, same as DPLL_MD_UDI_MULTIPLIER_MASK.
- * This best be set to the default value (3) or the CRT won't work. No,
- * I don't entirely understand what this does...
- */
-#define   DPLL_MD_VGA_UDI_MULTIPLIER_MASK    0x0000003f
-#define   DPLL_MD_VGA_UDI_MULTIPLIER_SHIFT    0
-
-#define DPLL_CTRL2                (0x6C05C)
-#define  DPLL_CTRL2_DDI_CLK_OFF(port)        (1 << ((port) + 15))
-#define  DPLL_CTRL2_DDI_CLK_SEL_MASK(port)    (3 << ((port) * 3 + 1))
-#define  DPLL_CTRL2_DDI_CLK_SEL_SHIFT(port)    ((port) * 3 + 1)
-#define  DPLL_CTRL2_DDI_CLK_SEL(clk, port)    ((clk) << ((port) * 3 + 1))
-#define  DPLL_CTRL2_DDI_SEL_OVERRIDE(port)     (1 << ((port) * 3))
 
 #define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
 #define _PORT(port, a, b)        _PICK_EVEN(port, a, b)
 
 #define _DDI_BUF_TRANS_A        0x64E00
 #define _DDI_BUF_TRANS_B        0x64E60
-#define DDI_BUF_TRANS_LO(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8)
+#define DDI_BUF_TRANS_LO(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8) //Writes to DWORD 0 At the specified Port and Entry Num
 #define  DDI_BUF_BALANCE_LEG_ENABLE    (1 << 31)
-#define DDI_BUF_TRANS_HI(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8 + 4)
+#define DDI_BUF_TRANS_HI(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8 + 4)//Writes to DWORD 1 At the specified Port and Entry Num
 
 #define DISPIO_CR_TX_BMU_CR0        (0x6C00C)
 /* I_boost values */
@@ -484,88 +461,10 @@ struct intel_limit {
 //		.p2_slow = 10, .p2_fast = 5 },
 //};
 
-#define DPLL_CTRL1        (0x6C058)
-#define  DPLL_CTRL1_HDMI_MODE(id)        (1 << ((id) * 6 + 5))
-#define  DPLL_CTRL1_SSC(id)            (1 << ((id) * 6 + 4))
-#define  DPLL_CTRL1_LINK_RATE_MASK(id)        (7 << ((id) * 6 + 1))
-#define  DPLL_CTRL1_LINK_RATE_SHIFT(id)        ((id) * 6 + 1)
-#define  DPLL_CTRL1_LINK_RATE(linkrate, id)    ((linkrate) << ((id) * 6 + 1))
-#define  DPLL_CTRL1_OVERRIDE(id)        (1 << ((id) * 6))
-#define  DPLL_CTRL1_LINK_RATE_2700        0
-#define  DPLL_CTRL1_LINK_RATE_1350        1
-#define  DPLL_CTRL1_LINK_RATE_810        2
-#define  DPLL_CTRL1_LINK_RATE_1620        3
-#define  DPLL_CTRL1_LINK_RATE_1080        4
-#define  DPLL_CTRL1_LINK_RATE_2160        5
 
-#define DPLL_STATUS    (0x6C060)
-#define  DPLL_LOCK(id) (1 << ((id) * 8))
-
-#define LCPLL1_CTL        (0x46010)
-#define LCPLL2_CTL        (0x46014)
-#define  LCPLL_PLL_ENABLE    (1 << 31)
 
 /* DPLL cfg */
-#define _DPLL1_CFGCR1    0x6C040
-#define _DPLL2_CFGCR1    0x6C048
-#define _DPLL3_CFGCR1    0x6C050
-#define  DPLL_CFGCR1_FREQ_ENABLE    (1 << 31)
-#define  DPLL_CFGCR1_DCO_FRACTION_MASK    (0x7fff << 9)
-#define  DPLL_CFGCR1_DCO_FRACTION(x)    ((x) << 9)
-#define  DPLL_CFGCR1_DCO_INTEGER_MASK    (0x1ff)
 
-#define _DPLL1_CFGCR2    0x6C044
-#define _DPLL2_CFGCR2    0x6C04C
-#define _DPLL3_CFGCR2    0x6C054
-#define  DPLL_CFGCR2_QDIV_RATIO_MASK    (0xff << 8)
-#define  DPLL_CFGCR2_QDIV_RATIO(x)    ((x) << 8)
-#define  DPLL_CFGCR2_QDIV_MODE(x)    ((x) << 7)
-#define  DPLL_CFGCR2_KDIV_MASK        (3 << 5)
-#define  DPLL_CFGCR2_KDIV(x)        ((x) << 5)
-#define  DPLL_CFGCR2_KDIV_5 (0 << 5)
-#define  DPLL_CFGCR2_KDIV_2 (1 << 5)
-#define  DPLL_CFGCR2_KDIV_3 (2 << 5)
-#define  DPLL_CFGCR2_KDIV_1 (3 << 5)
-#define  DPLL_CFGCR2_PDIV_MASK        (7 << 2)
-#define  DPLL_CFGCR2_PDIV(x)        ((x) << 2)
-#define  DPLL_CFGCR2_PDIV_1 (0 << 2)
-#define  DPLL_CFGCR2_PDIV_2 (1 << 2)
-#define  DPLL_CFGCR2_PDIV_3 (2 << 2)
-#define  DPLL_CFGCR2_PDIV_7 (4 << 2)
-#define  DPLL_CFGCR2_CENTRAL_FREQ_MASK    (3)
-/* DCO freq must be within +1%/-6%  of the DCO central freq */
-#define SKL_DCO_MAX_PDEVIATION    100
-#define SKL_DCO_MAX_NDEVIATION    600
-struct skl_wrpll_params {
-    UINT32 dco_fraction;
-    UINT32 dco_integer;
-    UINT32 qdiv_ratio;
-    UINT32 qdiv_mode;
-    UINT32 kdiv;
-    UINT32 pdiv;
-    UINT32 central_freq;
-};
-
-static const int even_dividers[] = {4, 6, 8, 10, 12, 14, 16, 18, 20,
-                                    24, 28, 30, 32, 36, 40, 42, 44,
-                                    48, 52, 54, 56, 60, 64, 66, 68,
-                                    70, 72, 76, 78, 80, 84, 88, 90,
-                                    92, 96, 98};
-static const int odd_dividers[] = {3, 5, 7, 9, 15, 21, 35};
-static const struct {
-    const int *list;
-    int n_dividers;
-} dividers[] = {
-        {even_dividers, ARRAY_SIZE(even_dividers)},
-        {odd_dividers,  ARRAY_SIZE(odd_dividers)},
-};
-
-struct skl_wrpll_context {
-    UINT64 min_deviation;        /* current minimal deviation */
-    UINT64 central_freq;        /* chosen central freq */
-    UINT64 dco_freq;            /* chosen dco freq */
-    UINT64 p;            /* chosen divider */
-};
 EFI_STATUS DisplayInit(i915_CONTROLLER *iController);
 
 EFI_STATUS setDisplayGraphicsMode(

@@ -48,3 +48,6 @@
 #define AUX_I2C_STATUS            0x2
 #define AUX_I2C_MOT                0x4
 #define AUX_I2C_REPLY_ACK            0x0
+EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller);
+EFI_STATUS SetupClockDP(i915_CONTROLLER* controller);
+EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller);
