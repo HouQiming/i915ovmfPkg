@@ -556,6 +556,11 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 
     //it's Type C
     //icl_enable_phy_clock_gating(dig_port);
+    //Train Displayport
+
+    if(controller->OutputPath.ConType == eDP) {
+        TrainDisplayPort(controller);
+    }
 
     SetupIBoost();
 
@@ -605,8 +610,9 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
             break;
         }
     }
-
-    EnableDDI();
+    if (controller->OutputPath.ConType == HDMI) {
+        EnableDDI();
+    }
     SetupAndEnablePlane();
     i915GraphicsFramebufferConfigure(controller);
 

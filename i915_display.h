@@ -356,19 +356,7 @@
 #define  SFUSE_STRAP_DDIC_DETECTED    (1 << 1)
 #define  SFUSE_STRAP_DDID_DETECTED    (1 << 0)
 
-#define _DDI_BUF_CTL_A                0x64000
-#define _DDI_BUF_CTL_B                0x64100
-#define DDI_BUF_CTL(port) _PORT(port, _DDI_BUF_CTL_A, _DDI_BUF_CTL_B)
-#define  DDI_BUF_CTL_ENABLE            (1 << 31)
-#define  DDI_BUF_TRANS_SELECT(n)    ((n) << 24)
-#define  DDI_BUF_EMP_MASK            (0xf << 24)
-#define  DDI_BUF_PORT_REVERSAL            (1 << 16)
-#define  DDI_BUF_IS_IDLE            (1 << 7)
-#define  DDI_A_4_LANES                (1 << 4)
-#define  DDI_PORT_WIDTH(width)            (((width) - 1) << 1)
-#define  DDI_PORT_WIDTH_MASK            (7 << 1)
-#define  DDI_PORT_WIDTH_SHIFT            1
-#define  DDI_INIT_DISPLAY_DETECTED        (1 << 0)
+
 
 #define CHICKEN_TRANS_A        (0x420c0)
 #define CHICKEN_TRANS_B        (0x420c4)
@@ -470,3 +458,4 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController);
 EFI_STATUS setDisplayGraphicsMode(
         UINT32 ModeNumber
 );
+EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller);
