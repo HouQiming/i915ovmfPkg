@@ -242,14 +242,14 @@ EFI_STATUS SetupClocks()
     switch (controller->OutputPath.ConType)
     {
     case HDMI:
-        status = SetupClocksHDMI(controller);
+        status = SetupClockHDMI(controller);
         break;
     case eDP:
-            status = SetupClockseDP(controller);
+            status = SetupClockeDP(controller);
 
         break;
     case DPSST:
-        status = SetupClockseDP(controller);
+        status = SetupClockeDP(controller);
 
         break;
     default:
@@ -716,20 +716,21 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     //intel_ddi_init(PORT_A);
     UINT32 found = controller->read32(SFUSE_STRAP);
     DebugPrint(EFI_D_ERROR, "i915: SFUSE_STRAP = %08x\n", found);
-        UINT32* port = &controller->OutputPath.Port;
+        //UINT32* port = &controller->OutputPath.Port;
+        UINT32* port = &(controller->OutputPath.Port);
 
-    port = PORT_A;
+    *port = PORT_A;
     if (found & SFUSE_STRAP_DDIB_DETECTED)
     {
-        port = PORT_B; //intel_ddi_init(PORT_B);
+        *port = PORT_B; //intel_ddi_init(PORT_B);
     }
     else if (found & SFUSE_STRAP_DDIC_DETECTED)
     {
-        port = PORT_C; //intel_ddi_init(PORT_C);
+        *port = PORT_C; //intel_ddi_init(PORT_C);
     }
     else if (found & SFUSE_STRAP_DDID_DETECTED)
     {
-        port = PORT_D; //intel_ddi_init(PORT_D);
+        *port = PORT_D; //intel_ddi_init(PORT_D);
     }
     //if (found & SFUSE_STRAP_DDIF_DETECTED)
     //	intel_ddi_init(dev_priv, PORT_F);

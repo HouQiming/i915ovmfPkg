@@ -12,7 +12,14 @@
 #define  DPLL_CTRL1_LINK_RATE_1620        3
 #define  DPLL_CTRL1_LINK_RATE_1080        4
 #define  DPLL_CTRL1_LINK_RATE_2160        5
+#define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
+#define _PORT(port, a, b)        _PICK_EVEN(port, a, b)
 
+#define _DDI_BUF_TRANS_A        0x64E00
+#define _DDI_BUF_TRANS_B        0x64E60
+#define DDI_BUF_TRANS_LO(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8) //Writes to DWORD 0 At the specified Port and Entry Num
+#define  DDI_BUF_BALANCE_LEG_ENABLE    (1 << 31)
+#define DDI_BUF_TRANS_HI(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8 + 4)//Writes to DWORD 1 At the specified Port and Entry Num
 #define _DDI_BUF_CTL_A                0x64000
 #define _DDI_BUF_CTL_B                0x64100
 #define DDI_BUF_CTL(port) _PORT(port, _DDI_BUF_CTL_A, _DDI_BUF_CTL_B)

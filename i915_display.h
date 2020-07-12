@@ -307,14 +307,7 @@
 /* Ironlake */
 
 
-#define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
-#define _PORT(port, a, b)        _PICK_EVEN(port, a, b)
 
-#define _DDI_BUF_TRANS_A        0x64E00
-#define _DDI_BUF_TRANS_B        0x64E60
-#define DDI_BUF_TRANS_LO(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8) //Writes to DWORD 0 At the specified Port and Entry Num
-#define  DDI_BUF_BALANCE_LEG_ENABLE    (1 << 31)
-#define DDI_BUF_TRANS_HI(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8 + 4)//Writes to DWORD 1 At the specified Port and Entry Num
 
 #define DISPIO_CR_TX_BMU_CR0        (0x6C00C)
 /* I_boost values */

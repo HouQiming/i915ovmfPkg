@@ -10,10 +10,8 @@
 
 EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
     
-    UINT32 ctrl1, cfgcr1, cfgcr2;
-    struct skl_wrpll_params wrpll_params = {
-        0,
-    };
+    UINT32 ctrl1;
+    
     UINT8 id = controller->OutputPath.DPLL;
     /*
      * See comment in intel_dpll_hw_state to understand why we always use 0
@@ -154,6 +152,13 @@ skl_get_buf_trans_dp(i915_CONTROLLER* controller, int *n_entries)
 	}
 }
 
+/* Display Port */
+#define DP_A			_MMIO(0x64000) /* eDP */
+#define DP_B			_MMIO(0x64100)
+#define DP_C			_MMIO(0x64200)
+#define DP_D			_MMIO(0x64300)
+
+
 EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller) {
     	const struct ddi_buf_trans *ddi_translations;
     
@@ -273,7 +278,7 @@ static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
 {
 	struct drm_dp_aux_msg msg;
 	unsigned int retry, native_reply;
-	int err = 0, ret = 0;
+	RETURN_STATUS err = 0, ret = 0;
 
 	// memset(&msg, 0, sizeof(msg)); //Not Defined
 	msg.address = offset;
@@ -289,7 +294,7 @@ static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
 	 */
 	for (retry = 0; retry < 32; retry++) {
 		if (ret != 0 && ret != -RETURN_TIMEOUT) {
-			Stall(AUX_RETRY_INTERVAL);
+			gBS->Stall(AUX_RETRY_INTERVAL);
 		}
 
 		ret = intel_dp_aux_transfer(&msg);
@@ -313,7 +318,7 @@ static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
 			err = ret;
 	}
 
-	DRM_DEBUG_KMS("Too many retries, giving up. First error: %d\n", err);
+	DebugPrint(EFI_D_ERROR, "Too many retries, giving up. First error: %d\n", err);
 	ret = err;
 
 unlock:
@@ -372,6 +377,19 @@ intel_dp_get_link_status(UINT8 link_status[DP_LINK_STATUS_SIZE])
 	return drm_dp_dpcd_read(DP_LANE0_1_STATUS, link_status,
 				DP_LINK_STATUS_SIZE) == DP_LINK_STATUS_SIZE;
 }
+/* Helpers for DP link training */
+static UINT8 dp_link_status(const UINT8 link_status[DP_LINK_STATUS_SIZE], int r)
+{
+	return link_status[r - DP_LANE0_1_STATUS];
+}
+static UINT8 dp_get_lane_status(const UINT8 link_status[DP_LINK_STATUS_SIZE],
+			     int lane)
+{
+	int i = DP_LANE0_1_STATUS + (lane >> 1);
+	int s = (lane & 1) * 4;
+	UINT8 l = dp_link_status(link_status, i);
+	return (l >> s) & 0xf;
+}
 BOOLEAN drm_dp_clock_recovery_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 			      int lane_count)
 {
@@ -385,11 +403,7 @@ BOOLEAN drm_dp_clock_recovery_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 	}
 	return TRUE;
 }
-/* Helpers for DP link training */
-static UINT8 dp_link_status(const UINT8 link_status[DP_LINK_STATUS_SIZE], int r)
-{
-	return link_status[r - DP_LANE0_1_STATUS];
-}
+
 UINT8 drm_dp_get_adjust_request_voltage(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 				     int lane)
 {
@@ -482,16 +496,10 @@ struct intel_dp {
     UINT8 lane_count;
 	UINT8 train_set[4];
     int link_rate;
+    i915_CONTROLLER* controller;
 	
 };
-static UINT8 dp_get_lane_status(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-			     int lane)
-{
-	int i = DP_LANE0_1_STATUS + (lane >> 1);
-	int s = (lane & 1) * 4;
-	UINT8 l = dp_link_status(link_status, i);
-	return (l >> s) & 0xf;
-}
+
 void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 			       const UINT8 link_status[DP_LINK_STATUS_SIZE])
 {
@@ -522,52 +530,6 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 	for (lane = 0; lane < 4; lane++)
 		intel_dp->train_set[lane] = v | p;
 }
-static BOOLEAN
-intel_dp_update_link_train(struct intel_dp *intel_dp)
-{
-	int ret;
-
-	intel_dp_set_signal_levels(intel_dp);
-
-	ret = drm_dp_dpcd_write(DP_TRAINING_LANE0_SET,
-				intel_dp->train_set, intel_dp->lane_count);
-
-	return ret == intel_dp->lane_count;
-}
-static BOOLEAN
-intel_dp_set_link_train(struct intel_dp *intel_dp,
-			UINT8 dp_train_pat)
-{
-	UINT8 buf[sizeof(intel_dp->train_set) + 1];
-	int ret, len;
-
-	intel_dp_program_link_training_pattern(intel_dp, dp_train_pat);
-
-	buf[0] = dp_train_pat;
-	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
-	    DP_TRAINING_PATTERN_DISABLE) {
-		/* don't write DP_TRAINING_LANEx_SET on disable */
-		len = 1;
-	} else {
-		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
-		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
-		len = intel_dp->lane_count + 1;
-	}
-
-	ret = drm_dp_dpcd_write( DP_TRAINING_PATTERN_SET,
-				buf, len);
-
-	return ret == len;
-}
-
-static BOOLEAN
-intel_dp_reset_link_train(struct intel_dp *intel_dp,
-			UINT8 dp_train_pat)
-{
-	//memset(intel_dp->train_set, 0, sizeof(intel_dp->train_set));
-	//intel_dp_set_signal_levels(intel_dp);
-	return intel_dp_set_link_train(intel_dp, dp_train_pat);
-}
 /**
  * drm_dp_dpcd_write() - write a series of bytes to the DPCD
  * @aux: DisplayPort AUX channel (SST or MST)
@@ -595,6 +557,113 @@ INT32 drm_dp_dpcd_write( unsigned int offset,
 
 	return ret;
 }
+static void intel_dp_set_signal_levels(struct intel_dp *intel_dp) {
+    //Write to Appropraite DDI_BUF_CTL
+}
+
+static BOOLEAN
+intel_dp_update_link_train(struct intel_dp *intel_dp)
+{
+	int ret;
+
+	intel_dp_set_signal_levels(intel_dp);
+
+	ret = drm_dp_dpcd_write(DP_TRAINING_LANE0_SET,
+				intel_dp->train_set, intel_dp->lane_count);
+
+	return ret == intel_dp->lane_count;
+}
+static inline UINT8
+drm_dp_training_pattern_mask()
+{
+	//return (dpcd[DP_DPCD_REV] >= 0x14) ? DP_TRAINING_PATTERN_MASK_1_4 :
+	//	DP_TRAINING_PATTERN_MASK;
+        return DP_TRAINING_PATTERN_MASK;
+}
+/* CPT Link training mode */
+#define   DP_LINK_TRAIN_PAT_1_CPT	(0 << 8)
+#define   DP_LINK_TRAIN_PAT_2_CPT	(1 << 8)
+#define   DP_LINK_TRAIN_PAT_IDLE_CPT	(2 << 8)
+#define   DP_LINK_TRAIN_OFF_CPT		(3 << 8)
+#define   DP_LINK_TRAIN_MASK_CPT	(7 << 8)
+#define   DP_LINK_TRAIN_SHIFT_CPT	8
+static void
+g4x_set_link_train(struct intel_dp *intel_dp,
+		   UINT8 dp_train_pat)
+{
+	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(intel_dp->controller->OutputPath.Port));
+
+DP &= ~DP_LINK_TRAIN_MASK_CPT;
+
+	switch (dp_train_pat & DP_TRAINING_PATTERN_MASK) {
+	case DP_TRAINING_PATTERN_DISABLE:
+		DP |= DP_LINK_TRAIN_OFF_CPT;
+		break;
+	case DP_TRAINING_PATTERN_1:
+		DP |= DP_LINK_TRAIN_PAT_1_CPT;
+		break;
+	case DP_TRAINING_PATTERN_2:
+		DP |= DP_LINK_TRAIN_PAT_2_CPT;
+		break;
+	case DP_TRAINING_PATTERN_3:
+/* 		drm_dbg_kms(&dev_priv->drm,
+			    "TPS3 not supported, using TPS2 instead\n"); */
+		DP |= DP_LINK_TRAIN_PAT_2_CPT;
+		break;
+	}
+    intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);
+	
+}
+
+void
+intel_dp_program_link_training_pattern(struct intel_dp *intel_dp,
+				       UINT8 dp_train_pat)
+{
+//	UINT8 train_pat_mask = drm_dp_training_pattern_mask();
+
+
+
+	g4x_set_link_train(intel_dp, dp_train_pat);
+}
+
+static BOOLEAN
+intel_dp_set_link_train(struct intel_dp *intel_dp,
+			UINT8 dp_train_pat)
+{
+	UINT8 buf[sizeof(intel_dp->train_set) + 1];
+	int ret, len;
+
+	intel_dp_program_link_training_pattern(intel_dp, dp_train_pat);
+
+	buf[0] = dp_train_pat;
+	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
+	    DP_TRAINING_PATTERN_DISABLE) {
+		/* don't write DP_TRAINING_LANEx_SET on disable */
+		len = 1;
+	} else {
+        for (int i=0; i<intel_dp->lane_count; i++) {
+            buf[i+1] = intel_dp->train_set[i];
+        }
+		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
+		//memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
+		len = intel_dp->lane_count + 1;
+	}
+
+	ret = drm_dp_dpcd_write( DP_TRAINING_PATTERN_SET,
+				buf, len);
+
+	return ret == len;
+}
+
+static BOOLEAN
+intel_dp_reset_link_train(struct intel_dp *intel_dp,
+			UINT8 dp_train_pat)
+{
+	//memset(intel_dp->train_set, 0, sizeof(intel_dp->train_set));
+	//intel_dp_set_signal_levels(intel_dp);
+	return intel_dp_set_link_train(intel_dp, dp_train_pat);
+}
+
 UINT8 drm_dp_link_rate_to_bw_code(int link_rate)
 {
 	/* Spec says link_bw = link_rate / 0.27Gbps */
@@ -613,11 +682,22 @@ void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
 		*rate_select = 0;
 //	}
 }
+static BOOLEAN intel_dp_link_max_vswing_reached(struct intel_dp *intel_dp)
+{
+	int lane;
+
+	for (lane = 0; lane < intel_dp->lane_count; lane++)
+		if ((intel_dp->train_set[lane] &
+		     DP_TRAIN_MAX_SWING_REACHED) == 0)
+			return FALSE;
+
+	return TRUE;
+}
 /* Enable corresponding port and start training pattern 1 */
 static BOOLEAN
 intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 {
-	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
+	//struct drm_i915_private *i915 = dp_to_i915(intel_dp);
 	UINT8 voltage;
 	int voltage_tries, cr_tries, max_cr_tries;
 	BOOLEAN max_vswing_reached = FALSE;
@@ -677,7 +757,7 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 	voltage_tries = 1;
 	for (cr_tries = 0; cr_tries < max_cr_tries; ++cr_tries) {
 		UINT8 link_status[DP_LINK_STATUS_SIZE];
-        Stall(600);
+        gBS->Stall(600);
 		//drm_dp_link_train_clock_recovery_delay(intel_dp->dpcd);
 
 		if (!intel_dp_get_link_status( link_status)) {
@@ -725,7 +805,146 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 		"Failed clock recovery %d times, giving up!\n", max_cr_tries);
 	return FALSE;
 }
+/*
+ * Pick training pattern for channel equalization. Training pattern 4 for HBR3
+ * or for 1.4 devices that support it, training Pattern 3 for HBR2
+ * or 1.2 devices that support it, Training Pattern 2 otherwise.
+ */
+static UINT32 intel_dp_training_pattern(struct intel_dp *intel_dp)
+{
+	//BOOELAN source_tps3, sink_tps3, source_tps4, sink_tps4;
 
+	/*
+	 * Intel platforms that support HBR3 also support TPS4. It is mandatory
+	 * for all downstream devices that support HBR3. There are no known eDP
+	 * panels that support TPS4 as of Feb 2018 as per VESA eDP_v1.4b_E1
+	 * specification.
+	 */
+/* 	source_tps4 = intel_dp_source_supports_hbr3(intel_dp);
+	sink_tps4 = drm_dp_tps4_supported(intel_dp->dpcd);
+	if (source_tps4 && sink_tps4) {
+		return DP_TRAINING_PATTERN_4;
+	} else if (intel_dp->link_rate == 810000) {
+ 		if (!source_tps4)
+			drm_dbg_kms(&dp_to_i915(intel_dp)->drm,
+				    "8.1 Gbps link rate without source HBR3/TPS4 support\n");
+		if (!sink_tps4)
+			drm_dbg_kms(&dp_to_i915(intel_dp)->drm,
+				    "8.1 Gbps link rate without sink TPS4 support\n"); */
+	//} */
+	/*
+	 * Intel platforms that support HBR2 also support TPS3. TPS3 support is
+	 * also mandatory for downstream devices that support HBR2. However, not
+	 * all sinks follow the spec.
+	 */
+/* 	source_tps3 = intel_dp_source_supports_hbr2(intel_dp);
+	sink_tps3 = drm_dp_tps3_supported(intel_dp->dpcd);
+	if (source_tps3 && sink_tps3) {
+		return  DP_TRAINING_PATTERN_3;
+	} else if (intel_dp->link_rate >= 540000) {
+		 if (!source_tps3)
+			drm_dbg_kms(&dp_to_i915(intel_dp)->drm,
+				    ">=5.4/6.48 Gbps link rate without source HBR2/TPS3 support\n");
+		if (!sink_tps3)
+			drm_dbg_kms(&dp_to_i915(intel_dp)->drm,
+				    ">=5.4/6.48 Gbps link rate without sink TPS3 support\n"); */
+	//} */
+
+	return DP_TRAINING_PATTERN_2;
+}
+BOOLEAN drm_dp_channel_eq_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
+			  int lane_count)
+{
+	UINT8 lane_align;
+	UINT8 lane_status;
+	int lane;
+
+	lane_align = dp_link_status(link_status,
+				    DP_LANE_ALIGN_STATUS_UPDATED);
+	if ((lane_align & DP_INTERLANE_ALIGN_DONE) == 0)
+		return FALSE;
+	for (lane = 0; lane < lane_count; lane++) {
+		lane_status = dp_get_lane_status(link_status, lane);
+		if ((lane_status & DP_CHANNEL_EQ_BITS) != DP_CHANNEL_EQ_BITS)
+			return FALSE;
+	}
+	return TRUE;
+}
+static BOOLEAN
+intel_dp_link_training_channel_equalization(struct intel_dp *intel_dp)
+{
+	//struct drm_i915_private *i915 = dp_to_i915(intel_dp);
+	int tries;
+	UINT32 training_pattern;
+	UINT8 link_status[DP_LINK_STATUS_SIZE];
+	BOOLEAN channel_eq = FALSE;
+
+	training_pattern = intel_dp_training_pattern(intel_dp);
+	/* Scrambling is disabled for TPS2/3 and enabled for TPS4 */
+	if (training_pattern != DP_TRAINING_PATTERN_4)
+		training_pattern |= DP_LINK_SCRAMBLING_DISABLE;
+
+	/* channel equalization */
+	if (!intel_dp_set_link_train(intel_dp,
+				     training_pattern)) {
+		//drm_err(&i915->drm, "failed to start channel equalization\n");
+		return FALSE;
+	}
+
+	for (tries = 0; tries < 5; tries++) {
+        gBS->Stall(600);
+		//drm_dp_link_train_channel_eq_delay(intel_dp->dpcd);
+		if (!intel_dp_get_link_status(link_status)) {
+			//drm_err(&i915->drm,
+			//	"failed to get link status\n");
+			break;
+		}
+
+		/* Make sure clock is still ok */
+		if (!drm_dp_clock_recovery_ok(link_status,
+					      intel_dp->lane_count)) {
+			//intel_dp_dump_link_status(link_status);
+			/* drm_dbg_kms(&i915->drm,
+				    "Clock recovery check failed, cannot "
+				    "continue channel equalization\n"); */
+			break;
+		}
+
+		if (drm_dp_channel_eq_ok(link_status,
+					 intel_dp->lane_count)) {
+			channel_eq = TRUE;
+			/* drm_dbg_kms(&i915->drm, "Channel EQ done. DP Training "
+				    "successful\n"); */
+			break;
+		}
+
+		/* Update training set as requested by target */
+		intel_dp_get_adjust_train(intel_dp, link_status);
+		if (!intel_dp_update_link_train(intel_dp)) {
+			/* drm_err(&i915->drm,
+				"failed to update link training\n"); */
+			break;
+		}
+	}
+
+	/* Try 5 times, else fail and try at lower BW */
+	if (tries == 5) {
+		//intel_dp_dump_link_status(link_status);
+		/* drm_dbg_kms(&i915->drm,
+			    "Channel equalization failed 5 times\n"); */
+	}
+
+	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(intel_dp->controller->OutputPath.Port));
+
+        DP &= ~DP_LINK_TRAIN_MASK_CPT;
+
+	
+		DP |= DP_TP_CTL_LINK_TRAIN_IDLE;
+	
+    intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);	
+    return channel_eq;
+
+}
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     UINT32 port = controller->OutputPath.Port;
     UINT32 val = 0;
@@ -750,8 +969,20 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
                 break;
             }
         }
+    struct intel_dp intel_dp;
+    intel_dp.controller =controller;
+    intel_dp.lane_count = 4;
+    intel_dp_link_training_clock_recovery(&intel_dp);
+    intel_dp_link_training_channel_equalization(&intel_dp);
+    intel_dp_set_link_train(&intel_dp,
+				DP_TRAINING_PATTERN_DISABLE);
+                	UINT32 DP = controller->read32(DP_TP_CTL(port));
 
+        DP &= ~DP_LINK_TRAIN_MASK_CPT;
 
-    
+	
+		DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
+	
+    controller->write32(DP_TP_CTL(port), DP);	
     return EFI_SUCCESS;
 }

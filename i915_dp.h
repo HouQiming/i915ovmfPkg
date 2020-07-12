@@ -52,8 +52,8 @@
 #define _DP_TP_CTL_A			0x64040
 #define _DP_TP_CTL_B			0x64140
 #define _TGL_DP_TP_CTL_A		0x60540
-#define DP_TP_CTL(port) _MMIO_PORT(port, _DP_TP_CTL_A, _DP_TP_CTL_B)
-#define TGL_DP_TP_CTL(tran) _MMIO_TRANS2((tran), _TGL_DP_TP_CTL_A)
+#define DP_TP_CTL(port) _PORT(port, _DP_TP_CTL_A, _DP_TP_CTL_B)
+// #define TGL_DP_TP_CTL(tran) _MMIO_TRANS2((tran), _TGL_DP_TP_CTL_A)
 #define  DP_TP_CTL_ENABLE			(1 << 31)
 #define  DP_TP_CTL_FEC_ENABLE			(1 << 30)
 #define  DP_TP_CTL_MODE_SST			(0 << 27)
@@ -1194,31 +1194,7 @@
 #define EDP_SDP_HEADER_VALID_PAYLOAD_BYTES	0x1F
 #define DP_SDP_PPS_HEADER_PAYLOAD_BYTES_MINUS_1 0x7F
 
-/**
- * struct dp_sdp - DP secondary data packet
- * @sdp_header: DP secondary data packet header
- * @db: DP secondaray data packet data blocks
- * VSC SDP Payload for PSR
- * db[0]: Stereo Interface
- * db[1]: 0 - PSR State; 1 - Update RFB; 2 - CRC Valid
- * db[2]: CRC value bits 7:0 of the R or Cr component
- * db[3]: CRC value bits 15:8 of the R or Cr component
- * db[4]: CRC value bits 7:0 of the G or Y component
- * db[5]: CRC value bits 15:8 of the G or Y component
- * db[6]: CRC value bits 7:0 of the B or Cb component
- * db[7]: CRC value bits 15:8 of the B or Cb component
- * db[8] - db[31]: Reserved
- * VSC SDP Payload for Pixel Encoding/Colorimetry Format
- * db[0] - db[15]: Reserved
- * db[16]: Pixel Encoding and Colorimetry Formats
- * db[17]: Dynamic Range and Component Bit Depth
- * db[18]: Content Type
- * db[19] - db[31]: Reserved
- */
-struct dp_sdp {
-	struct dp_sdp_header sdp_header;
-	UINT8 db[32];
-} __packed;
+
 
 #define EDP_VSC_PSR_STATE_ACTIVE	(1<<0)
 #define EDP_VSC_PSR_UPDATE_RFB		(1<<1)
