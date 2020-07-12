@@ -60,3 +60,4 @@ struct skl_wrpll_context {
     UINT64 p;            /* chosen divider */
 };
 EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller);
+EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER* controller);

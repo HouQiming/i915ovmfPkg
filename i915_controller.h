@@ -70,10 +70,7 @@ typedef struct {
     UINT64 (*read64)(UINT64 reg);
     struct {
         UINT32 Port;
-        UINT8 DDI;
-        UINT8 Plane;
-        UINT8 Transcoder;
-        BOOLEAN isEDP;
+
         ConnectorType ConType;
         UINT8 DPLL;
     } OutputPath;

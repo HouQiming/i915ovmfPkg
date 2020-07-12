@@ -308,79 +308,34 @@ EFI_STATUS SetupIBoost()
 EFI_STATUS MapTranscoderDDI()
 {
         UINT32 port = controller->OutputPath.Port;
-
+    if (controller->OutputPath.ConType != eDP) {
     //intel_ddi_enable_pipe_clock(crtc_state);
     controller->write32(_TRANS_CLK_SEL_A, TRANS_CLK_SEL_PORT(port));
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, TRANS_CLK_SEL_PORT(port) is %08x\n", __LINE__,
                TRANS_CLK_SEL_PORT(port));
+    }
     return EFI_SUCCESS;
 }
 EFI_STATUS SetupTranscoderAndPipe()
 {
-    UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
-    UINT32 horz_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
-    UINT32 horz_sync_offset = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
-    UINT32 horz_sync_pulse = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse |
-                             (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
-
-    UINT32 horizontal_active = horz_active;
-    UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
-    UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
-    UINT32 horizontal_total = horz_active + horz_blank;
-
-    UINT32 vert_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
-    UINT32 vert_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
-    UINT32 vert_sync_offset = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4) | (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3)
-                                                                                                      << 4);
-    UINT32 vert_sync_pulse = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF) | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
-
-    UINT32 vertical_active = vert_active;
-    UINT32 vertical_syncStart = vert_active + vert_sync_offset;
-    UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
-    UINT32 vertical_total = vert_active + vert_blank;
-
-    controller->write32(VSYNCSHIFT_A, 0);
-
-    controller->write32(HTOTAL_A,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HBLANK_A,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HSYNC_A,
-                        (horizontal_syncStart - 1) |
-                            ((horizontal_syncEnd - 1) << 16));
-
-    controller->write32(VTOTAL_A,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VBLANK_A,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VSYNC_A,
-                        (vertical_syncStart - 1) |
-                            ((vertical_syncEnd - 1) << 16));
-
-    controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
-    UINT32 multiplier = 1;
-    controller->write32(PIPE_MULT_A, multiplier - 1);
-
-    DebugPrint(EFI_D_ERROR, "i915: HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: VTOTAL_A (%x) = %08x\n", VTOTAL_A, controller->read32(VTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: VBLANK_A (%x) = %08x\n", VBLANK_A, controller->read32(VBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNC_A (%x) = %08x\n", VSYNC_A, controller->read32(VSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
-    DebugPrint(EFI_D_ERROR, "i915: BCLRPAT_A (%x) = %08x\n", BCLRPAT_A, controller->read32(BCLRPAT_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNCSHIFT_A (%x) = %08x\n", VSYNCSHIFT_A, controller->read32(VSYNCSHIFT_A));
-    DebugPrint(EFI_D_ERROR, "i915: PIPE_MULT_A (%x) = %08x\n", PIPE_MULT_A, controller->read32(PIPE_MULT_A));
-
-    DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
+    switch (controller->OutputPath.ConType)
+    {
+    case HDMI:
+        SetupTranscoderAndPipeHDMI(controller);
+        break;
+        case DPSST:
+        SetupTranscoderAndPipeDP(controller);
+        break;
+        case DPMST:
+        SetupTranscoderAndPipeDP(controller);
+        break;
+        case eDP:
+        SetupTranscoderAndPipeEDP(controller);
+        break;
+    
+    default:
+        break;
+    }
     return EFI_SUCCESS;
 }
 EFI_STATUS ConfigurePipeGamma()
@@ -395,7 +350,11 @@ EFI_STATUS ConfigurePipeGamma()
     //DebugPrint(EFI_D_ERROR,"i915: _PIPEACONF: %08x\n",controller->read32(_PIPEACONF));
     //g_SystemTable->RuntimeServices->ResetSystem(EfiResetShutdown,0,0,NULL);
     //return EFI_UNSUPPORTED;
-    controller->write32(_PIPEACONF, PIPECONF_PROGRESSIVE | PIPECONF_GAMMA_MODE_8BIT);
+    UINT64 reg = _PIPEACONF;
+    if (controller->OutputPath.ConType == eDP) {
+reg = _PIPEEDPCONF;
+    }
+    controller->write32(reg, PIPECONF_PROGRESSIVE | PIPECONF_GAMMA_MODE_8BIT);
     //controller->write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
     //controller->write32(_SKL_BOTTOM_COLOR_A,0);
     //controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
@@ -405,21 +364,42 @@ EFI_STATUS ConfigurePipeGamma()
 }
 EFI_STATUS ConfigureTransMSAMISC()
 {
-    controller->write32(_TRANSA_MSA_MISC, TRANS_MSA_SYNC_CLK | TRANS_MSA_8_BPC); //Sets MSA MISC FIelds for DP
+        UINT64 reg = _TRANSA_MSA_MISC;
+    if (controller->OutputPath.ConType == eDP) {
+reg = _TRANS_EDP_MSA_MISC;
+    }
+    controller->write32(reg, TRANS_MSA_SYNC_CLK | TRANS_MSA_8_BPC); //Sets MSA MISC FIelds for DP
     return EFI_SUCCESS;
 }
 EFI_STATUS ConfigureTransDDI()
 {
         UINT32 port = controller->OutputPath.Port;
-
-    controller->write32(_TRANS_DDI_FUNC_CTL_A, (
+    switch (controller->OutputPath.ConType) {
+        case HDMI:
+            controller->write32(_TRANS_DDI_FUNC_CTL_A, (
                                                    TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_PORT(port) | TRANS_DDI_PHSYNC | TRANS_DDI_PVSYNC |
                                                    TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_HDMI));
+            break;
+        case eDP:
+            controller->write32(_TRANS_DDI_FUNC_CTL_EDP, (
+                                                   TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_PORT(port) | TRANS_DDI_PHSYNC | TRANS_DDI_PVSYNC |
+                                                   TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DP_SST));
+            break;
+        default:
+            controller->write32(_TRANS_DDI_FUNC_CTL_A, (
+                                                   TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_PORT(port) | TRANS_DDI_PHSYNC | TRANS_DDI_PVSYNC |
+                                                   TRANS_DDI_BPC_8 | TRANS_DDI_MODE_SELECT_DP_SST));
+            break;
+    }
     return EFI_SUCCESS;
 }
 EFI_STATUS EnablePipe()
 {
-    controller->write32(_PIPEACONF, PIPECONF_ENABLE | PIPECONF_PROGRESSIVE | PIPECONF_GAMMA_MODE_8BIT);
+        UINT64 reg = _PIPEACONF;
+    if (controller->OutputPath.ConType == eDP) {
+reg = _PIPEEDPCONF;
+    }
+    controller->write32(reg, PIPECONF_ENABLE | PIPECONF_PROGRESSIVE | PIPECONF_GAMMA_MODE_8BIT);
     return EFI_SUCCESS;
 }
 EFI_STATUS EnableDDI()
@@ -428,8 +408,7 @@ EFI_STATUS EnableDDI()
 
     /* Display WA #1143: skl,kbl,cfl */
     UINT32 saved_port_bits = controller->read32(DDI_BUF_CTL(port)) & (DDI_BUF_PORT_REVERSAL | DDI_A_4_LANES); //FOR HDMI, only port reversal and Lane count matter
-
-    //if (IS_GEN9_BC(dev_priv))
+    if (controller->OutputPath.ConType == HDMI)
     {
         /*
          * For some reason these chicken bits have been
@@ -525,12 +504,13 @@ EFI_STATUS SetupAndEnablePlane()
 }
 EFI_STATUS setOutputPath() {
     controller->OutputPath.ConType = HDMI;
-    controller->OutputPath.DDI=0;
     controller->OutputPath.DPLL=1;
-    controller->OutputPath.isEDP=FALSE;
-    controller->OutputPath.Plane=0;
-    controller->OutputPath.Port=0;
-    controller->OutputPath.Transcoder=0;
+
+    controller->OutputPath.Port=PORT_B;    
+/*     controller->OutputPath.ConType = eDP;
+    controller->OutputPath.DPLL=1;
+
+    controller->OutputPath.Port=PORT_A; */
     return EFI_SUCCESS;
 }
 EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
@@ -717,7 +697,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     UINT32 found = controller->read32(SFUSE_STRAP);
     DebugPrint(EFI_D_ERROR, "i915: SFUSE_STRAP = %08x\n", found);
         //UINT32* port = &controller->OutputPath.Port;
-        UINT32* port = &(controller->OutputPath.Port);
+/*         UINT32* port = &(controller->OutputPath.Port);
 
     *port = PORT_A;
     if (found & SFUSE_STRAP_DDIB_DETECTED)
@@ -731,7 +711,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     else if (found & SFUSE_STRAP_DDID_DETECTED)
     {
         *port = PORT_D; //intel_ddi_init(PORT_D);
-    }
+    } */
     //if (found & SFUSE_STRAP_DDIF_DETECTED)
     //	intel_ddi_init(dev_priv, PORT_F);
 

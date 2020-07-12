@@ -1333,3 +1333,5 @@ struct drm_dp_vsc_sdp {
 EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupClockDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller);
+EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller);
+EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller);

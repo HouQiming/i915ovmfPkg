@@ -14,32 +14,11 @@
 #define VGA_DISP_DISABLE            (1 << 31)
 #define VGA_2X_MODE                (1 << 30)
 
-/* Pipe A timing regs */
-#define HTOTAL_A    0x60000
-#define HBLANK_A    0x60004
-#define HSYNC_A    0x60008
-#define VTOTAL_A    0x6000c
-#define VBLANK_A    0x60010
-#define VSYNC_A    0x60014
-#define PIPEASRC    0x6001c
-#define BCLRPAT_A    0x60020
-#define VSYNCSHIFT_A    0x60028
-#define PIPE_MULT_A    0x6002c
 
-/* Pipe B timing regs */
-#define HTOTAL_B    0x61000
-#define HBLANK_B    0x61004
-#define HSYNC_B    0x61008
-#define VTOTAL_B    0x6100c
-#define VBLANK_B    0x61010
-#define VSYNC_B    0x61014
-#define PIPEBSRC    0x6101c
-#define BCLRPAT_B    0x61020
-#define VSYNCSHIFT_B    0x61028
-#define PIPE_MULT_B    0x6102c
 
 #define _PIPEACONF        0x70008
 #define _PIPEBCONF        0x71008
+#define _PIPEEDPCONF 0x7f008
 #define   PIPECONF_ENABLE    (1 << 31)
 #define   PIPECONF_DISABLE    0
 #define   PIPECONF_DOUBLE_WIDE    (1 << 30)

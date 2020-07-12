@@ -64,3 +64,38 @@
 #define  DPLL_CTRL2_DDI_CLK_SEL_SHIFT(port)    ((port) * 3 + 1)
 #define  DPLL_CTRL2_DDI_CLK_SEL(clk, port)    ((clk) << ((port) * 3 + 1))
 #define  DPLL_CTRL2_DDI_SEL_OVERRIDE(port)     (1 << ((port) * 3))
+
+/* Pipe A timing regs */
+#define HTOTAL_A    0x60000
+#define HBLANK_A    0x60004
+#define HSYNC_A    0x60008
+#define VTOTAL_A    0x6000c
+#define VBLANK_A    0x60010
+#define VSYNC_A    0x60014
+#define PIPEASRC    0x6001c
+#define BCLRPAT_A    0x60020
+#define VSYNCSHIFT_A    0x60028
+#define PIPE_MULT_A    0x6002c
+
+/* Pipe B timing regs */
+#define HTOTAL_B    0x61000
+#define HBLANK_B    0x61004
+#define HSYNC_B    0x61008
+#define VTOTAL_B    0x6100c
+#define VBLANK_B    0x61010
+#define VSYNC_B    0x61014
+#define PIPEBSRC    0x6101c
+#define BCLRPAT_B    0x61020
+#define VSYNCSHIFT_B    0x61028
+#define PIPE_MULT_B    0x6102c
+
+/* Pipe eDP timing regs */
+#define HTOTAL_EDP    0x6f000
+#define HBLANK_EDP    0x6f004
+#define HSYNC_EDP    0x6f008
+#define VTOTAL_EDP    0x6f00c
+#define VBLANK_EDP   0x6f010
+#define VSYNC_EDP    0x6f014
+#define PIPEEDPSRC    0x6f01c
+#define BCLRPAT_EDP  0x6f020
+#define VSYNCSHIFT_EDP    0x6f028
