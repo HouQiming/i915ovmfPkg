@@ -196,5 +196,8 @@ EFI_STATUS i915GraphicsSetupOutput(EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput,
     GraphicsOutput->SetMode = i915GraphicsOutputSetMode;
     GraphicsOutput->Blt = i915GraphicsOutputBlt;
     GraphicsOutput->Mode = &g_mode;
-    return GraphicsOutput->SetMode(GraphicsOutput, 0);;
+    EFI_STATUS stat = GraphicsOutput->SetMode(GraphicsOutput, 0);
+        DebugPrint(EFI_D_ERROR, "i915: progressed to gopline %d, status is %u\n",
+               __LINE__, stat);
+    return stat;
 }
