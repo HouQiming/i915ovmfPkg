@@ -432,7 +432,7 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
   }
   return EFI_SUCCESS;
 }
-
+////POWER EDP
 EFI_STATUS EFIAPI i915ControllerDriverStart(
     IN EFI_DRIVER_BINDING_PROTOCOL *This, IN EFI_HANDLE Controller,
     IN EFI_DEVICE_PATH_PROTOCOL *RemainingDevicePath) {

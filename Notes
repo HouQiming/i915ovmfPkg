@@ -202,3 +202,69 @@ Display Port Initialization:
 ENable Planes/Pipes for DP
   Similar to HDMI
 
+Panel power:
+		intel_dp_enable_port(intel_dp, pipe_config);
+
+		edp_panel_vdd_on(intel_dp);
+		edp_panel_on(intel_dp);
+		edp_panel_vdd_off(intel_dp, true);
+
+    	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	u32 pp;
+	i915_reg_t pp_ctrl_reg;
+
+	lockdep_assert_held(&dev_priv->pps_mutex);
+
+	if (!intel_dp_is_edp(intel_dp))
+		return;
+
+	drm_dbg_kms(&dev_priv->drm, "Turn [ENCODER:%d:%s] panel power on\n",
+		    dp_to_dig_port(intel_dp)->base.base.base.id,
+		    dp_to_dig_port(intel_dp)->base.base.name);
+
+	if (drm_WARN(&dev_priv->drm, edp_have_panel_power(intel_dp),
+		     "[ENCODER:%d:%s] panel power already on\n",
+		     dp_to_dig_port(intel_dp)->base.base.base.id,
+		     dp_to_dig_port(intel_dp)->base.base.name))
+		return;
+
+	wait_panel_power_cycle(intel_dp);
+
+	pp_ctrl_reg = _pp_ctrl_reg(intel_dp);
+	pp = ilk_get_pp_control(intel_dp);
+	if (IS_GEN(dev_priv, 5)) {
+		/* ILK workaround: disable reset around power sequence */
+		pp &= ~PANEL_POWER_RESET;
+		intel_de_write(dev_priv, pp_ctrl_reg, pp);
+		intel_de_posting_read(dev_priv, pp_ctrl_reg);
+	}
+
+	pp |= PANEL_POWER_ON;
+	if (!IS_GEN(dev_priv, 5))
+		pp |= PANEL_POWER_RESET;
+
+	intel_de_write(dev_priv, pp_ctrl_reg, pp);
+	intel_de_posting_read(dev_priv, pp_ctrl_reg);
+
+	wait_panel_on(intel_dp);
+	intel_dp->last_power_on = jiffies;
+
+	if (IS_GEN(dev_priv, 5)) {
+		pp |= PANEL_POWER_RESET; /* restore panel reset bit */
+		intel_de_write(dev_priv, pp_ctrl_reg, pp);
+		intel_de_posting_read(dev_priv, pp_ctrl_reg);
+	}
+  intel_dp_pps_init
+
+
+
+
+
+
+
+  		panel->backlight.setup = cnp_setup_backlight;
+		panel->backlight.enable = cnp_enable_backlight;
+		panel->backlight.disable = cnp_disable_backlight;
+		panel->backlight.set = bxt_set_backlight;
+		panel->backlight.get = bxt_get_backlight;
+		panel->backlight.hz_to_pwm = cnp_hz_to_pwm;

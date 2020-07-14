@@ -1,3 +1,32 @@
+
+#define PP_ON			(0xC7208)
+#define PP_OFF			(0xC720C)
+#define PP_DIVISOR 		(0xC7210)
+#define PP_STATUS		(0xC7200)
+#define PP_CONTROL		(0xC7204)
+//#define BUILD_BUG_ON_ZERO(e) ((int)(sizeof(struct { int:(-!!(e)); })))
+
+/*
+ * Local integer constant expression version of is_power_of_2().
+ */
+#define IS_POWER_OF_2(__x)		((__x) && (((__x) & ((__x) - 1)) == 0))
+
+/**
+ * REG_FIELD_PREP() - Prepare a u32 bitfield value
+ * @__mask: shifted mask defining the field's length and position
+ * @__val: value to put in the field
+ *
+ * Local copy of FIELD_PREP() to generate an integer constant expression, force
+ * u32 and for consistency with REG_FIELD_GET(), REG_BIT() and REG_GENMASK().
+ *
+ * @return: @__val masked and shifted into the field defined by @__mask.
+ */
+#define REG_FIELD_PREP(__mask, __val)						\
+	((UINT32)((((typeof(__mask))(__val) << __bf_shf(__mask)) & (__mask)) +	\
+	       (!__is_constexpr(__mask)) +		\
+	       ((__mask) == 0 || (__mask) > __UINT32_MAX__) +		\
+	       (!IS_POWER_OF_2((__mask) + (1ULL << __bf_shf(__mask)))) + \
+	       (__builtin_choose_expr(__is_constexpr(__val), (~((__mask) >> __bf_shf(__mask)) & (__val)), 0))))
 #define _PCH_DP_B        (0xe4100)
 #define _PCH_DPB_AUX_CH_CTL    (0xe4110)
 #define _PCH_DPB_AUX_CH_DATA1    (0xe4114)
@@ -887,8 +916,7 @@
 #define DP_SIDEBAND_MSG_DOWN_REP_BASE	    0x1400   /* 1.2 MST */
 #define DP_SIDEBAND_MSG_UP_REQ_BASE	    0x1600   /* 1.2 MST */
 
-#define DP_SINK_COUNT_ESI		    0x2002   /* 1.2 */
-/* 0-5 sink count */
+#define DP_SINK_COUNT_ESI		    0x2enum port /* 0-5 sink count */
 # define DP_SINK_COUNT_CP_READY             (1 << 6)
 
 #define DP_DEVICE_SERVICE_IRQ_VECTOR_ESI0   0x2003   /* 1.2 */
@@ -1335,3 +1363,4 @@ EFI_STATUS SetupClockDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller);
+void intel_dp_pps_init(i915_CONTROLLER* controller);

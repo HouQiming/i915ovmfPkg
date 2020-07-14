@@ -1,4 +1,5 @@
 #include <Uefi.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 #include "i915_display.h"
 
@@ -77,6 +78,7 @@ static EFI_STATUS ReadEDID(EDID *result)
     // %08x\n",controller->read32(_DPA_AUX_CH_CTL+(1<<8)));
     // DebugPrint(EFI_D_ERROR,"i915: PCH
     // %08x\n",controller->read32(_PCH_DP_B+(1<<8)));
+    DebugPrint(EFI_D_ERROR, "Reading PP_STATUS: %u \n", controller->read32(PP_STATUS) );
     for (pin = 0; pin <= 5; pin++)
     {
         DebugPrint(EFI_D_ERROR, "i915: trying DP aux %d\n", pin);
@@ -551,14 +553,14 @@ EFI_STATUS SetupAndEnablePlane()
 }
 EFI_STATUS setOutputPath()
 {
-    controller->OutputPath.ConType = HDMI;
+/*     controller->OutputPath.ConType = HDMI;
     controller->OutputPath.DPLL = 1;
 
-    controller->OutputPath.Port = PORT_B;
-    /*     controller->OutputPath.ConType = eDP;
+    controller->OutputPath.Port = PORT_B; */
+         controller->OutputPath.ConType = eDP;
     controller->OutputPath.DPLL=1;
 
-    controller->OutputPath.Port=PORT_A; */
+    controller->OutputPath.Port=PORT_A; 
     return EFI_SUCCESS;
 }
 
@@ -753,6 +755,8 @@ goto error;
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                __LINE__, status);
     g_already_set = 1;
+    controller->write32(PP_CONTROL, 15);
+    controller->write32(0xc8254, (1875 << 15) | (1875));
 
     return EFI_SUCCESS;
 
@@ -775,7 +779,15 @@ STATIC UINT8 edid_fallback[] = {
     // the test monitor
     // 0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
 };
-
+EFI_STATUS SetupPPS() {
+    intel_dp_pps_init(controller);
+    controller->write32(0xc8254, (1875 << 15) | (1875));
+    UINT32 val = controller->read32(0xc2000);
+    val |= 1;
+    controller->write32(0xc2000, val);
+    controller->write32(0xc8250, 1 << 31);
+    return EFI_SUCCESS;
+}
 EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
 {
     EFI_STATUS Status;
@@ -820,6 +832,9 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
             break;
         }
     }
+    SetupPPS();
+
+    controller->write32(PP_CONTROL, 15);
     // disable VGA
     UINT32 vgaword = controller->read32(VGACNTRL);
     controller->write32(VGACNTRL, (vgaword & ~VGA_2X_MODE) | VGA_DISP_DISABLE);

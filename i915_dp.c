@@ -8,6 +8,237 @@
 #include <Uefi.h>
 #include <Library/UefiBootServicesTableLib.h>
 
+/* Cedartrail */
+#define PP_ON_DELAYS		0x61208		/* Cedartrail */
+#define PANEL_PORT_SELECT_MASK 		(3 << 30)
+#define PANEL_PORT_SELECT_LVDS 		(0 << 30)
+#define PANEL_PORT_SELECT_EDP		(1 << 30)
+#define PANEL_POWER_UP_DELAY_MASK	(0x1fff0000)
+#define PANEL_POWER_UP_DELAY_SHIFT	16
+#define PANEL_LIGHT_ON_DELAY_MASK	(0x1fff)
+#define PANEL_LIGHT_ON_DELAY_SHIFT	0
+
+#define PP_OFF_DELAYS		0x6120c		/* Cedartrail */
+#define PANEL_POWER_DOWN_DELAY_MASK	(0x1fff0000)
+#define PANEL_POWER_DOWN_DELAY_SHIFT	16
+#define PANEL_LIGHT_OFF_DELAY_MASK	(0x1fff)
+#define PANEL_LIGHT_OFF_DELAY_SHIFT	0
+
+#define PP_DIVISOR		0x61210		/* Cedartrail */
+#define  PP_REFERENCE_DIVIDER_MASK	(0xffffff00)
+#define  PP_REFERENCE_DIVIDER_SHIFT	8
+#define  PANEL_POWER_CYCLE_DELAY_MASK	(0x1f)
+#define  PANEL_POWER_CYCLE_DELAY_SHIFT	0
+static int cnp_rawclk(i915_CONTROLLER* controller)
+{
+	UINT32 rawclk;
+	int divider, fraction;
+
+	if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY) {
+		/* 24 MHz */
+		divider = 24000;
+		fraction = 0;
+	} else {
+		/* 19.2 MHz */
+		divider = 19000;
+		fraction = 200;
+	}
+
+/* 	rawclk = CNP_RAWCLK_DIV(divider / 1000);
+	if (fraction) {
+		int numerator = 1;
+
+		rawclk |= CNP_RAWCLK_DEN(DIV_ROUND_CLOSEST(numerator * 1000,
+							   fraction) - 1);
+		if (INTEL_PCH_TYPE(dev_priv) >= PCH_ICP)
+			rawclk |= ICP_RAWCLK_NUM(numerator);
+	}
+
+	controller->write32(PCH_RAWCLK_FREQ, rawclk); */
+	return divider + fraction;
+}
+
+//WE CAN USE THIS TO GET BETTER DELAY VALUES
+// static void
+// intel_dp_init_panel_power_sequencer(struct intel_dp *intel_dp)
+// {
+// 	//struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+// 	//struct edp_power_seq cur, vbt, spec;
+// 		//*final = &intel_dp->pps_delays;
+
+// 	//lockdep_assert_held(&dev_priv->pps_mutex);
+
+// 	/* already initialized? */
+// 	if (final->t11_t12 != 0)
+// 		return;
+
+// 	intel_pps_readout_hw_state(intel_dp, &cur);
+
+// 	intel_pps_dump_state("cur", &cur);
+
+// 	vbt = dev_priv->vbt.edp.pps;
+// 	/* On Toshiba Satellite P50-C-18C system the VBT T12 delay
+// 	 * of 500ms appears to be too short. Ocassionally the panel
+// 	 * just fails to power back on. Increasing the delay to 800ms
+// 	 * seems sufficient to avoid this problem.
+// 	 */
+// 	if (dev_priv->quirks & QUIRK_INCREASE_T12_DELAY) {
+// 		vbt.t11_t12 = max_t(u16, vbt.t11_t12, 1300 * 10);
+// 		drm_dbg_kms(&dev_priv->drm,
+// 			    "Increasing T12 panel delay as per the quirk to %d\n",
+// 			    vbt.t11_t12);
+// 	}
+// 	/* T11_T12 delay is special and actually in units of 100ms, but zero
+// 	 * based in the hw (so we need to add 100 ms). But the sw vbt
+// 	 * table multiplies it with 1000 to make it in units of 100usec,
+// 	 * too. */
+// 	vbt.t11_t12 += 100 * 10;
+
+// 	/* Upper limits from eDP 1.3 spec. Note that we use the clunky units of
+// 	 * our hw here, which are all in 100usec. */
+// 	spec.t1_t3 = 210 * 10;
+// 	spec.t8 = 50 * 10; /* no limit for t8, use t7 instead */
+// 	spec.t9 = 50 * 10; /* no limit for t9, make it symmetric with t8 */
+// 	spec.t10 = 500 * 10;
+// 	/* This one is special and actually in units of 100ms, but zero
+// 	 * based in the hw (so we need to add 100 ms). But the sw vbt
+// 	 * table multiplies it with 1000 to make it in units of 100usec,
+// 	 * too. */
+// 	spec.t11_t12 = (510 + 100) * 10;
+
+// 	intel_pps_dump_state("vbt", &vbt);
+
+// 	/* Use the max of the register settings and vbt. If both are
+// 	 * unset, fall back to the spec limits. */
+// #define assign_final(field)	final->field = (max(cur.field, vbt.field) == 0 ? \
+// 				       spec.field : \
+// 				       max(cur.field, vbt.field))
+// 	assign_final(t1_t3);
+// 	assign_final(t8);
+// 	assign_final(t9);
+// 	assign_final(t10);
+// 	assign_final(t11_t12);
+// #undef assign_final
+
+// #define get_delay(field)	(DIV_ROUND_UP(final->field, 10))
+// 	intel_dp->panel_power_up_delay = get_delay(t1_t3);
+// 	intel_dp->backlight_on_delay = get_delay(t8);
+// 	intel_dp->backlight_off_delay = get_delay(t9);
+// 	intel_dp->panel_power_down_delay = get_delay(t10);
+// 	intel_dp->panel_power_cycle_delay = get_delay(t11_t12);
+// #undef get_delay
+
+// 	drm_dbg_kms(&dev_priv->drm,
+// 		    "panel power up delay %d, power down delay %d, power cycle delay %d\n",
+// 		    intel_dp->panel_power_up_delay,
+// 		    intel_dp->panel_power_down_delay,
+// 		    intel_dp->panel_power_cycle_delay);
+
+// 	drm_dbg_kms(&dev_priv->drm, "backlight on delay %d, off delay %d\n",
+// 		    intel_dp->backlight_on_delay,
+// 		    intel_dp->backlight_off_delay);
+
+// 	/*
+// 	 * We override the HW backlight delays to 1 because we do manual waits
+// 	 * on them. For T8, even BSpec recommends doing it. For T9, if we
+// 	 * don't do this, we'll end up waiting for the backlight off delay
+// 	 * twice: once when we do the manual sleep, and once when we disable
+// 	 * the panel and wait for the PP_STATUS bit to become zero.
+// 	 */
+// 	final->t8 = 1;
+// 	final->t9 = 1;
+
+// 	/*
+// 	 * HW has only a 100msec granularity for t11_t12 so round it up
+// 	 * accordingly.
+// 	 */
+// 	final->t11_t12 = roundup(final->t11_t12, 100 * 10);
+// }
+static void
+intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
+{
+	//struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	UINT32 pp_on, pp_off, port_sel = 0;
+	//int div = RUNTIME_INFO(dev_priv)->rawclk_freq / 1000;
+	int div = cnp_rawclk(controller); //Varies by generation
+	//struct pps_registers regs;
+	UINT32 port = controller->OutputPath.Port;
+	//const struct edp_power_seq *seq = &intel_dp->pps_delays;
+
+//	lockdep_assert_held(&dev_priv->pps_mutex);
+
+//	intel_pps_get_registers(intel_dp, &regs);
+
+
+	//units are 100us
+	pp_on = (160 << 15) |
+		(800);
+	pp_off = (160 << 15) |
+		(800);
+
+	/* /* Haswell doesn't have any port selection bits for the panel
+	 * power sequencer any more. 
+	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
+		port_sel = PANEL_PORT_SELECT_VLV(port);
+	} else if (HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)) {
+		switch (port) {
+		case PORT_A:
+			port_sel = PANEL_PORT_SELECT_DPA;
+			break;
+		case PORT_C:
+			port_sel = PANEL_PORT_SELECT_DPC;
+			break;
+		case PORT_D:
+			port_sel = PANEL_PORT_SELECT_DPD;
+			break;
+		default:
+			MISSING_CASE(port);
+			break;
+		}
+	}
+ */
+	pp_on |= port_sel;
+
+	controller->write32( PP_ON, pp_on);
+	controller->write32(PP_OFF, pp_off);
+
+	/*
+	 * Compute the divisor for the pp clock, simply match the Bspec formula.
+	 */
+	//if (i915_mmio_reg_valid(PP_DIVISOR)) {
+		controller->write32(PP_DIVISOR,
+			       (( (100 * div) / 2 - 1) << 7) |  11);
+/* 	} else {  USED FOR Gens where divisor is in cntrl var
+		UINT32 pp_ctl;
+
+		pp_ctl = intel_de_read(dev_priv, regs.pp_ctrl);
+		pp_ctl &= ~BXT_POWER_CYCLE_DELAY_MASK;
+		pp_ctl |= REG_FIELD_PREP(BXT_POWER_CYCLE_DELAY_MASK, DIV_ROUND_UP(seq->t11_t12, 1000));
+		controller->write32(regs.pp_ctrl, pp_ctl);
+	} */
+
+/* 	drm_dbg_kms(&dev_priv->drm,
+		    "panel power sequencer register settings: PP_ON %#x, PP_OFF %#x, PP_DIV %#x\n",
+		    intel_de_read(dev_priv, regs.pp_on),
+		    intel_de_read(dev_priv, regs.pp_off),
+		    i915_mmio_reg_valid(regs.pp_div) ?
+		    intel_de_read(dev_priv, regs.pp_div) :
+		    (intel_de_read(dev_priv, regs.pp_ctrl) & BXT_POWER_CYCLE_DELAY_MASK)); */
+}
+
+void intel_dp_pps_init(i915_CONTROLLER* controller)
+{
+	//struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+
+	// if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
+	// 	vlv_initial_power_sequencer_setup(intel_dp);
+	// } else {
+	//	intel_dp_init_panel_power_sequencer(intel_dp);
+		intel_dp_init_panel_power_sequencer_registers(controller);
+	//}
+}
+
+
 EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
     
     UINT32 ctrl1;

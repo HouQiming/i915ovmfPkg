@@ -99,3 +99,6 @@
 #define PIPEEDPSRC    0x6f01c
 #define BCLRPAT_EDP  0x6f020
 #define VSYNCSHIFT_EDP    0x6f028
+#define SFUSE_STRAP			0xc2014
+#define  SFUSE_STRAP_FUSE_LOCK		(1 << 13)
+#define  SFUSE_STRAP_RAW_FREQUENCY	(1 << 8)
