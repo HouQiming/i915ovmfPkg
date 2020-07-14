@@ -755,7 +755,7 @@ goto error;
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                __LINE__, status);
     g_already_set = 1;
-    controller->write32(PP_CONTROL, 15);
+  //  controller->write32(PP_CONTROL, 15);
     controller->write32(0xc8254, (1875 << 15) | (1875));
 
     return EFI_SUCCESS;
@@ -781,11 +781,20 @@ STATIC UINT8 edid_fallback[] = {
 };
 EFI_STATUS SetupPPS() {
     intel_dp_pps_init(controller);
-    controller->write32(0xc8254, (1875 << 15) | (1875));
+   // controller->write32(0xc8254, (1875 << 15) | (1875));
+    controller->write32(0x00048250, 0x80000000);
+    controller->write32(0x00048254, 0x00000000);
+    controller->write32(0x00048350, 0x00000000);
+    controller->write32(0x00048354, 0x00000000);
+    controller->write32(0x00048360, 0x00000000);
+    controller->write32(0x000c8250, 0x80000000);
+    controller->write32(0x000c8254, 0x00005eb2);
     UINT32 val = controller->read32(0xc2000);
     val |= 1;
-    controller->write32(0xc2000, val);
-    controller->write32(0xc8250, 1 << 31);
+    //controller->write32(0xc2000, val);
+//    controller->write32(0xc2000, val);
+   // controller->write32(0xc8250, 1 << 31);
+  //  controller->write32(0xc8250, 1 << 31);
     return EFI_SUCCESS;
 }
 EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
@@ -833,8 +842,18 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
         }
     }
     SetupPPS();
+        DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
-    controller->write32(PP_CONTROL, 15);
+    controller->write32(PP_CONTROL, 8);
+    controller->write32(PP_CONTROL,0);
+    controller->write32(PP_CONTROL, 8);
+    controller->write32(PP_CONTROL,0);
+    controller->write32(PP_CONTROL,67);
+        DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+
+    gBS->Stall(500000);
+    DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    //controller->write32(PP_CONTROL, 103);
     // disable VGA
     UINT32 vgaword = controller->read32(VGACNTRL);
     controller->write32(VGACNTRL, (vgaword & ~VGA_2X_MODE) | VGA_DISP_DISABLE);

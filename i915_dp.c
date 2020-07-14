@@ -171,10 +171,10 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 
 
 	//units are 100us
-	pp_on = (160 << 15) |
-		(800);
-	pp_off = (160 << 15) |
-		(800);
+	pp_on = (2100 << 15) |
+		(500);
+	pp_off = (5000 << 15) |
+		(500);
 
 	/* /* Haswell doesn't have any port selection bits for the panel
 	 * power sequencer any more. 
@@ -207,23 +207,23 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 	 */
 	//if (i915_mmio_reg_valid(PP_DIVISOR)) {
 		controller->write32(PP_DIVISOR,
-			       (( (100 * div) / 2 - 1) << 7) |  11);
+			       (( (100 * div) / 2 - 1) << 7) |  11);		
+				//   controller->write32(PP_DIVISOR,
+			    //  0xffffffff);
 /* 	} else {  USED FOR Gens where divisor is in cntrl var
 		UINT32 pp_ctl;
 
-		pp_ctl = intel_de_read(dev_priv, regs.pp_ctrl);
+		pp_ctl = controller->read32( regs.pp_ctrl);
 		pp_ctl &= ~BXT_POWER_CYCLE_DELAY_MASK;
 		pp_ctl |= REG_FIELD_PREP(BXT_POWER_CYCLE_DELAY_MASK, DIV_ROUND_UP(seq->t11_t12, 1000));
 		controller->write32(regs.pp_ctrl, pp_ctl);
 	} */
 
-/* 	drm_dbg_kms(&dev_priv->drm,
+ 	DebugPrint(EFI_D_ERROR,
 		    "panel power sequencer register settings: PP_ON %#x, PP_OFF %#x, PP_DIV %#x\n",
-		    intel_de_read(dev_priv, regs.pp_on),
-		    intel_de_read(dev_priv, regs.pp_off),
-		    i915_mmio_reg_valid(regs.pp_div) ?
-		    intel_de_read(dev_priv, regs.pp_div) :
-		    (intel_de_read(dev_priv, regs.pp_ctrl) & BXT_POWER_CYCLE_DELAY_MASK)); */
+		    controller->read32( PP_ON),
+		    controller->read32( PP_OFF),
+		    controller->read32( PP_DIVISOR));
 }
 
 void intel_dp_pps_init(i915_CONTROLLER* controller)
