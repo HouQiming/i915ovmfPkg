@@ -231,6 +231,7 @@ static EFI_STATUS ReadEDID(EDID *result)
         }
         if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
         {
+            controller->OutputPath.AuxCh = pin;
             return EFI_SUCCESS;
         }
     }
@@ -618,6 +619,8 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 
     if (controller->OutputPath.ConType == eDP)
     {
+                DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+
         status = TrainDisplayPort(controller);
         DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                    __LINE__, status);
@@ -842,17 +845,17 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
         }
     }
     SetupPPS();
-        DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+        DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
     controller->write32(PP_CONTROL, 8);
     controller->write32(PP_CONTROL,0);
     controller->write32(PP_CONTROL, 8);
     controller->write32(PP_CONTROL,0);
     controller->write32(PP_CONTROL,67);
-        DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+        DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
     gBS->Stall(500000);
-    DebugPrint(EFI_D_ERROR, "PP_CTL: %#x, PP_STAT %#x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+        DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
     //controller->write32(PP_CONTROL, 103);
     // disable VGA
     UINT32 vgaword = controller->read32(VGACNTRL);

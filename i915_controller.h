@@ -70,7 +70,7 @@ typedef struct {
     UINT64 (*read64)(UINT64 reg);
     struct {
         UINT32 Port;
-
+        UINT32 AuxCh;
         ConnectorType ConType;
         UINT8 DPLL;
     } OutputPath;
