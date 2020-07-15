@@ -1150,6 +1150,20 @@ struct intel_dp {
 	UINT8 train_set[4];
     int link_rate;
     i915_CONTROLLER* controller;
+	/* source rates */
+	int num_source_rates;
+	const int *source_rates;
+	/* sink rates as reported by DP_MAX_LINK_RATE/DP_SUPPORTED_LINK_RATES */
+	int num_sink_rates;
+	int sink_rates[DP_MAX_SUPPORTED_RATES];
+	//bool use_rate_select;
+	/* intersection of source and sink rates */
+	int num_common_rates;
+	int common_rates[DP_MAX_SUPPORTED_RATES];
+	/* Max lane count for the current link */
+	int max_link_lane_count;
+	/* Max rate for the current link */
+	int max_link_rate;
 	
 };
 
@@ -1440,16 +1454,17 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 	BOOLEAN max_vswing_reached = FALSE;
 	UINT8 link_config[2];
 	UINT8 link_bw, rate_select;
-
+	intel_dp_compute_rate(intel_dp, intel_dp->link_rate,
+			      &link_bw, &rate_select);
 	/* if (intel_dp->prepare_link_retrain)
 		intel_dp->prepare_link_retrain(intel_dp);
  */
-if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
+/* if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 			intel_dp_compute_rate(intel_dp, 162000,
 			      &link_bw, &rate_select);
 		else
 			intel_dp_compute_rate(intel_dp, 270000,
-			      &link_bw, &rate_select);
+			      &link_bw, &rate_select); */
 	 //WHAT RATE IS PLUGGED IN? Port Clock
 
 	if (link_bw)
@@ -1696,6 +1711,251 @@ intel_dp_link_training_channel_equalization(struct intel_dp *intel_dp)
     return channel_eq;
 
 }
+static int intersect_rates(const int *source_rates, int source_len,
+			   const int *sink_rates, int sink_len,
+			   int *common_rates)
+{
+	int i = 0, j = 0, k = 0;
+
+	while (i < source_len && j < sink_len) {
+		if (source_rates[i] == sink_rates[j]) {
+			if (k >= DP_MAX_SUPPORTED_RATES)
+				return k;
+			common_rates[k] = source_rates[i];
+			++k;
+			++i;
+			++j;
+		} else if (source_rates[i] < sink_rates[j]) {
+			++i;
+		} else {
+			++j;
+		}
+	}
+	return k;
+}
+int
+intel_dp_max_data_rate(int max_link_clock, int max_lanes)
+{
+	/* max_link_clock is the link symbol clock (LS_Clk) in kHz and not the
+	 * link rate that is generally expressed in Gbps. Since, 8 bits of data
+	 * is transmitted every LS_Clk per lane, there is no need to account for
+	 * the channel encoding that is done in the PHY layer here.
+	 */
+
+	return max_link_clock * max_lanes;
+}
+intel_dp_link_required(int pixel_clock, int bpp)
+{
+	/* pixel_clock is in kHz, divide bpp by 8 for bit to Byte conversion */
+	return DIV_ROUND_UP(pixel_clock * bpp, 8);
+}
+static BOOLEAN intel_dp_can_link_train_fallback_for_edp(struct intel_dp *intel_dp,
+						     int link_rate,
+						     UINT8 lane_count)
+{
+	/* const struct drm_display_mode *fixed_mode =
+		intel_dp->attached_connector->panel.fixed_mode; */
+	int mode_rate, max_rate;
+
+	mode_rate = intel_dp_link_required(intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock, 18);
+	max_rate = intel_dp_max_data_rate(link_rate, lane_count);
+	if (mode_rate > max_rate)
+		return FALSE;
+
+	return TRUE;
+}static void intel_dp_set_common_rates(struct intel_dp *intel_dp)
+{
+	//WARN_ON(!intel_dp->num_source_rates || !intel_dp->num_sink_rates);
+
+	intel_dp->num_common_rates = intersect_rates(intel_dp->source_rates,
+						     intel_dp->num_source_rates,
+						     intel_dp->sink_rates,
+						     intel_dp->num_sink_rates,
+						     intel_dp->common_rates);
+
+	/* Paranoia, there should always be something in common. */
+	if (intel_dp->num_common_rates == 0) {
+		intel_dp->common_rates[0] = 162000;
+		intel_dp->num_common_rates = 1;
+	}
+}
+static int intel_dp_rate_index(const int *rates, int len, int rate)
+{
+	int i;
+
+	for (i = 0; i < len; i++)
+		if (rate == rates[i])
+			return i;
+
+	return -1;
+}
+static int intel_dp_max_common_rate(struct intel_dp *intel_dp)
+{
+	return intel_dp->common_rates[intel_dp->num_common_rates - 1];
+}
+
+int intel_dp_get_link_train_fallback_values(struct intel_dp *intel_dp,
+					    int link_rate, UINT8 lane_count)
+{
+//	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
+	int index;
+
+	index = intel_dp_rate_index(intel_dp->common_rates,
+				    intel_dp->num_common_rates,
+				    link_rate);
+	if (index > 0) {
+		if (intel_dp->controller->OutputPath.ConType == eDP &&
+		    !intel_dp_can_link_train_fallback_for_edp(intel_dp,
+							      intel_dp->common_rates[index - 1],
+							      lane_count)) {
+			DebugPrint(EFI_D_ERROR,
+				    "Retrying Link training for eDP with same parameters\n");
+			return 0;
+		}
+		intel_dp->max_link_rate = intel_dp->common_rates[index - 1];
+		intel_dp->max_link_lane_count = lane_count;
+	} else if (lane_count > 1) {
+		if (intel_dp->controller->OutputPath.ConType == eDP &&
+		    !intel_dp_can_link_train_fallback_for_edp(intel_dp,
+							      intel_dp_max_common_rate(intel_dp),
+							      lane_count >> 1)) {
+			DebugPrint(EFI_D_ERROR,
+				    "Retrying Link training for eDP with same parameters\n");
+			return 0;
+		}
+		intel_dp->max_link_rate = intel_dp_max_common_rate(intel_dp);
+		intel_dp->max_link_lane_count = lane_count >> 1;
+	} else {
+		DebugPrint(EFI_D_ERROR,"Link Training Unsuccessful\n");
+		return -1;
+	}
+	intel_dp->lane_count = intel_dp->max_link_lane_count;
+		intel_dp->link_rate = intel_dp->max_link_rate;
+
+	return 0;
+}
+static void
+intel_dp_set_source_rates(struct intel_dp *intel_dp)
+{
+	/* The values must be in increasing order */
+	static const int cnl_rates[] = {
+		162000, 216000, 270000, 324000, 432000, 540000, 648000, 810000
+	};
+	static const int bxt_rates[] = {
+		162000, 216000, 243000, 270000, 324000, 432000, 540000
+	};
+	static const int skl_rates[] = {
+		162000, 216000, 270000, 324000, 432000, 540000
+	};
+	static const int hsw_rates[] = {
+		162000, 270000, 540000
+	};
+	static const int g4x_rates[] = {
+		162000, 270000
+	};
+/* 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+	struct intel_encoder *encoder = &dig_port->base;
+	struct drm_i915_private *dev_priv = to_i915(dig_port->base.base.dev); */
+	const int *source_rates;
+	int size, max_rate = 0, vbt_max_rate;
+
+	/* This should only be done once */
+	/* drm_WARN_ON(&dev_priv->drm,
+		    intel_dp->source_rates || intel_dp->num_source_rates);
+ */
+/* 	if (INTEL_GEN(dev_priv) >= 10) {
+		source_rates = cnl_rates;
+		size = ARRAY_SIZE(cnl_rates);
+		if (IS_GEN(dev_priv, 10))
+			max_rate = cnl_max_source_rate(intel_dp);
+		else
+			max_rate = icl_max_source_rate(intel_dp);
+	} else if (IS_GEN9_LP(dev_priv)) {
+		source_rates = bxt_rates;
+		size = ARRAY_SIZE(bxt_rates);
+	} else if (IS_GEN9_BC(dev_priv)) { */
+		source_rates = skl_rates;
+		size = ARRAY_SIZE(skl_rates);
+/* 	} else if ((IS_HASWELL(dev_priv) && !IS_HSW_ULX(dev_priv)) ||
+		   IS_BROADWELL(dev_priv)) {
+		source_rates = hsw_rates;
+		size = ARRAY_SIZE(hsw_rates);
+	} else {
+		source_rates = g4x_rates;
+		size = ARRAY_SIZE(g4x_rates);
+	} */
+
+	/* vbt_max_rate = intel_bios_dp_max_link_rate(encoder);
+	if (max_rate && vbt_max_rate)
+		max_rate = min(max_rate, vbt_max_rate);
+	else if (vbt_max_rate)
+		max_rate = vbt_max_rate; */
+
+/* 	if (max_rate)
+		size = intel_dp_rate_limit_len(source_rates, size, max_rate); */
+
+	intel_dp->source_rates = source_rates;
+	intel_dp->num_source_rates = size;
+}
+
+/* update sink rates from dpcd */
+static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
+{
+	static const int dp_rates[] = {
+		162000, 270000, 540000, 810000
+	};
+	int i, max_rate;
+
+	/* if (drm_dp_has_quirk(&intel_dp->desc, 0,
+			     DP_DPCD_QUIRK_CAN_DO_MAX_LINK_RATE_3_24_GBPS)) {
+		/* Needed, e.g., for Apple MBP 2017, 15 inch eDP Retina panel 
+		static const int quirk_rates[] = { 162000, 270000, 324000 };
+
+		memcpy(intel_dp->sink_rates, quirk_rates, sizeof(quirk_rates));
+		intel_dp->num_sink_rates = ARRAY_SIZE(quirk_rates);
+
+		return;
+	} */
+
+	max_rate = dp_rates[3];
+
+	for (i = 0; i < ARRAY_SIZE(dp_rates); i++) {
+		if (dp_rates[i] > max_rate)
+			break;
+		intel_dp->sink_rates[i] = dp_rates[i];
+	}
+
+	intel_dp->num_sink_rates = i;
+}
+EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
+    UINT32 port = intel_dp->controller->OutputPath.Port;
+
+    if (!intel_dp_link_training_clock_recovery(intel_dp))
+		goto failure_handling;
+    if (!intel_dp_link_training_channel_equalization(intel_dp))
+			goto failure_handling;
+    intel_dp_set_link_train(intel_dp,
+				DP_TRAINING_PATTERN_DISABLE);
+                	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(port));
+
+        DP &= ~DP_LINK_TRAIN_MASK_CPT;
+
+	
+		DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
+	
+     intel_dp->controller->write32(DP_TP_CTL(port), DP);	
+    return EFI_SUCCESS;
+	failure_handling:
+		DebugPrint(EFI_D_ERROR,
+		    " Link Training failed at link rate = %d, lane count = %d",
+		    intel_dp->link_rate, intel_dp->lane_count);
+		if (!intel_dp_get_link_train_fallback_values(intel_dp,
+						     intel_dp->link_rate,
+						     intel_dp->lane_count))
+		/* Schedule a Hotplug Uevent to userspace to start modeset */
+		_TrainDisplayPort(intel_dp);
+		return;
+}
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     UINT32 port = controller->OutputPath.Port;
     UINT32 val = 0;
@@ -1722,20 +1982,20 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
         }
     struct intel_dp intel_dp;
     intel_dp.controller =controller;
+	
     intel_dp.lane_count = 4;
-    intel_dp_link_training_clock_recovery(&intel_dp);
-    intel_dp_link_training_channel_equalization(&intel_dp);
-    intel_dp_set_link_train(&intel_dp,
-				DP_TRAINING_PATTERN_DISABLE);
-                	UINT32 DP = controller->read32(DP_TP_CTL(port));
+	if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
+		intel_dp.link_rate = 162000;
+	else 	
+		intel_dp.link_rate = 270000;
 
-        DP &= ~DP_LINK_TRAIN_MASK_CPT;
+		
+	intel_dp_set_source_rates(&intel_dp);
 
-	
-		DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
-	
-    controller->write32(DP_TP_CTL(port), DP);	
-    return EFI_SUCCESS;
+	intel_dp_set_sink_rates(&intel_dp);
+
+	intel_dp_set_common_rates(&intel_dp);
+	_TrainDisplayPort(&intel_dp);
 }
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
 {
@@ -1868,3 +2128,4 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
     DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
     return EFI_SUCCESS;
 }
+

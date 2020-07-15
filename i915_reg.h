@@ -14,7 +14,7 @@
 #define  DPLL_CTRL1_LINK_RATE_2160        5
 #define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
 #define _PORT(port, a, b)        _PICK_EVEN(port, a, b)
-
+#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 #define _DDI_BUF_TRANS_A        0x64E00
 #define _DDI_BUF_TRANS_B        0x64E60
 #define DDI_BUF_TRANS_LO(port, i)    (_PORT(port, _DDI_BUF_TRANS_A,_DDI_BUF_TRANS_B) + (i) * 8) //Writes to DWORD 0 At the specified Port and Entry Num
