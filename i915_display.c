@@ -564,7 +564,54 @@ EFI_STATUS setOutputPath()
     controller->OutputPath.Port=PORT_A; 
     return EFI_SUCCESS;
 }
+#define _BXT_BLC_PWM_CTL1			0xC8250
+#define   BXT_BLC_PWM_ENABLE			(1 << 31)
+#define   BXT_BLC_PWM_POLARITY			(1 << 29)
+#define _BXT_BLC_PWM_FREQ1			0xC8254
+#define _BXT_BLC_PWM_DUTY1			0xC8258
 
+#define _BXT_BLC_PWM_CTL2			0xC8350
+#define _BXT_BLC_PWM_FREQ2			0xC8354
+#define _BXT_BLC_PWM_DUTY2			0xC8358
+static int cnp_rawclk(i915_CONTROLLER* controller)
+{
+	UINT32 rawclk;
+	int divider, fraction;
+
+	if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY) {
+		/* 24 MHz */
+		divider = 24000;
+		fraction = 0;
+	} else {
+		/* 19.2 MHz */
+		divider = 19000;
+		fraction = 200;
+	}
+
+/* 	rawclk = CNP_RAWCLK_DIV(divider / 1000);
+	if (fraction) {
+		int numerator = 1;
+
+		rawclk |= CNP_RAWCLK_DEN(DIV_ROUND_CLOSEST(numerator * 1000,
+							   fraction) - 1);
+		if (INTEL_PCH_TYPE(dev_priv) >= PCH_ICP)
+			rawclk |= ICP_RAWCLK_NUM(numerator);
+	}
+
+	controller->write32(PCH_RAWCLK_FREQ, rawclk); */
+	return divider + fraction;
+}
+#define KHz(x) (1000 * (x))
+#define DIV_ROUND_CLOSEST(x, divisor)(			\
+{							\
+	typeof(x) __x = x;				\
+	typeof(divisor) __d = divisor;			\
+	(((typeof(x))-1) > 0 ||				\
+	 ((typeof(divisor))-1) > 0 || (__x) > 0) ?	\
+		(((__x) + ((__d) / 2)) / (__d)) :	\
+		(((__x) - ((__d) / 2)) / (__d));	\
+}							\
+)
 EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 {
     EFI_STATUS status;
@@ -715,6 +762,11 @@ goto error;
     }
     status = RETURN_ABORTED;
       UINT32 counter = 0;
+       UINT64 reg = _PIPEACONF;
+    if (controller->OutputPath.ConType == eDP)
+    {
+        reg = _PIPEEDPCONF;
+    }
       for (;;)
       {
           counter += 1;
@@ -723,7 +775,7 @@ goto error;
               DebugPrint(EFI_D_ERROR, "i915: failed to enable PIPE\n");
               break;
           }
-          if (controller->read32(_PIPEACONF) & I965_PIPECONF_ACTIVE)
+          if (controller->read32(reg) & I965_PIPECONF_ACTIVE)
           {
               DebugPrint(EFI_D_ERROR, "i915: pipe enabled\n");
               break;
@@ -758,8 +810,34 @@ goto error;
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                __LINE__, status);
     g_already_set = 1;
-  //  controller->write32(PP_CONTROL, 15);
-    controller->write32(0xc8254, (1875 << 15) | (1875));
+    controller->write32(PP_CONTROL, 0);
+    gBS->Stall(6000);
+        UINT32 max= DIV_ROUND_CLOSEST(KHz(cnp_rawclk(controller)),
+				 200);
+    controller->write32(_BXT_BLC_PWM_FREQ1, max);
+        controller->write32(_BXT_BLC_PWM_DUTY1, max);
+
+   /*  controller->write32(0x00048250, 0x80000000);
+    controller->write32(0x00048254, 0x00000000);
+    controller->write32(0x00048350, 0x00000000);
+    controller->write32(0x00048354, 0x00000000);
+    controller->write32(0x00048360, 0x00000000);
+    controller->write32(0x000c8250, 0x80000000);
+    controller->write32(0x000c8254, 0x00005eb2); */
+    UINT32 val = controller->read32(0xc2000);
+    val |= 1;
+    controller->write32(0xc2000, val);
+//    controller->write32(0xc2000, val);
+    controller->write32(0xc8250, (1 << 31) | (0 << 29));
+        gBS->Stall(6000);
+
+        controller->write32(PP_CONTROL, 7);
+    controller->write32(PP_CONTROL, 0);
+    controller->write32(PP_CONTROL, 7);
+    controller->write32(_BXT_BLC_PWM_FREQ1, max);
+        controller->write32(_BXT_BLC_PWM_DUTY1, max);
+  //  controller->write32(0xc8254, (1875 << 15) | (1875));
+                DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
     return EFI_SUCCESS;
 
@@ -782,21 +860,11 @@ STATIC UINT8 edid_fallback[] = {
     // the test monitor
     // 0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
 };
+
+
 EFI_STATUS SetupPPS() {
     intel_dp_pps_init(controller);
-   // controller->write32(0xc8254, (1875 << 15) | (1875));
-    controller->write32(0x00048250, 0x80000000);
-    controller->write32(0x00048254, 0x00000000);
-    controller->write32(0x00048350, 0x00000000);
-    controller->write32(0x00048354, 0x00000000);
-    controller->write32(0x00048360, 0x00000000);
-    controller->write32(0x000c8250, 0x80000000);
-    controller->write32(0x000c8254, 0x00005eb2);
-    UINT32 val = controller->read32(0xc2000);
-    val |= 1;
-    //controller->write32(0xc2000, val);
-//    controller->write32(0xc2000, val);
-   // controller->write32(0xc8250, 1 << 31);
+
   //  controller->write32(0xc8250, 1 << 31);
     return EFI_SUCCESS;
 }
