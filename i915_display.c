@@ -383,13 +383,13 @@ EFI_STATUS ConfigurePipeGamma()
         reg = _PIPEEDPCONF;
     }
     DebugPrint(EFI_D_ERROR, "REGISTER %x", reg);
-    /*    controller->write32(reg, PIPECONF_PROGRESSIVE |
+        controller->write32(reg, PIPECONF_PROGRESSIVE |
    PIPECONF_GAMMA_MODE_8BIT);
     //controller->write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
     //controller->write32(_SKL_BOTTOM_COLOR_A,0);
     //controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
     controller->write32(_SKL_BOTTOM_COLOR_A, 0);
-    controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT); */
+    controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT); 
     return EFI_SUCCESS;
 }
 EFI_STATUS ConfigureTransMSAMISC()
@@ -418,8 +418,8 @@ EFI_STATUS ConfigureTransDDI()
     case eDP:
         controller->write32(_TRANS_DDI_FUNC_CTL_EDP,
                             (TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_PORT(port) |
-                             TRANS_DDI_PHSYNC | TRANS_DDI_PVSYNC | TRANS_DDI_BPC_8 |
-                             TRANS_DDI_MODE_SELECT_DP_SST));
+                              TRANS_DDI_BPC_8 |
+                             TRANS_DDI_MODE_SELECT_DP_SST | ((controller->OutputPath.LaneCount - 1) << 1) ) );
         break;
     default:
         controller->write32(_TRANS_DDI_FUNC_CTL_A,
@@ -428,6 +428,7 @@ EFI_STATUS ConfigureTransDDI()
                              TRANS_DDI_MODE_SELECT_DP_SST));
         break;
     }
+    DebugPrint(EFI_D_ERROR, "REG TransDDI: %08x\n", controller->read32(_TRANS_DDI_FUNC_CTL_EDP));
     return EFI_SUCCESS;
 }
 EFI_STATUS EnablePipe()
@@ -446,10 +447,12 @@ EFI_STATUS EnableDDI()
     UINT32 port = controller->OutputPath.Port;
 
     /* Display WA #1143: skl,kbl,cfl */
+        DebugPrint(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
+               controller->read32(DDI_BUF_CTL(port)));
     UINT32 saved_port_bits =
         controller->read32(DDI_BUF_CTL(port)) &
         (DDI_BUF_PORT_REVERSAL |
-         DDI_A_4_LANES); // FOR HDMI, only port reversal and Lane count matter
+         DDI_A_4_LANES | (15 <<24) ); // FOR HDMI, only port reversal and Lane count matter
     if (controller->OutputPath.ConType == HDMI)
     {
         /*
@@ -511,6 +514,10 @@ EFI_STATUS EnableDDI()
    * are ignored so nothing special needs to be done besides
    * enabling the port.
    */
+  DebugPrint(EFI_D_ERROR, "SAVED BTIS %08x \n", saved_port_bits);
+    if (controller->OutputPath.ConType == eDP) {
+         saved_port_bits |= ((controller->OutputPath.LaneCount - 1) << 1);
+    }
     controller->write32(DDI_BUF_CTL(port), saved_port_bits | DDI_BUF_CTL_ENABLE);
     DebugPrint(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
                controller->read32(DDI_BUF_CTL(port)));
@@ -781,7 +788,6 @@ goto error;
               break;
           }
       }
-      if (controller->OutputPath.ConType == HDMI) {
           status = EnableDDI();
               DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is%u\n",
                __LINE__, status);
@@ -790,7 +796,7 @@ goto error;
 goto error;
     }
     status = RETURN_ABORTED;
-      }
+      
       status = SetupAndEnablePlane();
           DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                __LINE__, status);

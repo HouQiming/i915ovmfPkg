@@ -258,7 +258,7 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
 
     //it's clock id!
     //how's port clock comptued?
-    UINT64 clock_khz=(UINT64)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock)*10;
+    UINT64 clock_khz=controller->OutputPath.LinkRate;
     UINT32 linkrate=DPLL_CTRL1_LINK_RATE_810;
     if(clock_khz>>1 >=135000){
     	linkrate=DPLL_CTRL1_LINK_RATE_1350;
@@ -1173,7 +1173,7 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 	UINT8 v = 0;
 	UINT8 p = 0;
 	int lane;
-/* 	UINT8 voltage_max;
+ 	UINT8 voltage_max;
 	UINT8 preemph_max;
 
 	for (lane = 0; lane < intel_dp->lane_count; lane++) {
@@ -1194,13 +1194,13 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 	if (p >= preemph_max)
 		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
 		DebugPrint(EFI_D_ERROR, "v:%u  p:%u \n", v, p);
- */
+ 
 	UINT8 val = intel_dp->train_set[0];
 	if (val < 8) {
 		val++;
 	}
 	for (lane = 0; lane < 4; lane++) {
-		intel_dp->train_set[lane] = val;
+		intel_dp->train_set[lane] = v | p;
 		DebugPrint(EFI_D_ERROR, "TrainSet[%u]: %u \n",lane,  intel_dp->train_set[lane]);
 	}
 
@@ -1298,7 +1298,7 @@ g4x_set_signal_levels(struct intel_dp *intel_dp)
 		    signal_levels);
 	UINT32 DP = intel_dp->controller->read32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port));
 	DP &= ~(15 << 24);
-	DP |= train_set;
+	DP |= signal_levels;
 
 intel_dp->controller->write32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port), DP);
 	//intel_de_posting_read(dev_priv, intel_dp->output_reg);
@@ -1944,6 +1944,11 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 		DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
 	
      intel_dp->controller->write32(DP_TP_CTL(port), DP);	
+	 DebugPrint(EFI_D_ERROR, "Link Rate: %d, lane count: %d",
+		    intel_dp->link_rate, intel_dp->lane_count);
+			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
+						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
+
     return EFI_SUCCESS;
 	failure_handling:
 		DebugPrint(EFI_D_ERROR,

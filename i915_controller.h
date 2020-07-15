@@ -73,5 +73,7 @@ typedef struct {
         UINT32 AuxCh;
         ConnectorType ConType;
         UINT8 DPLL;
+        UINT32 LinkRate;
+        UINT8 LaneCount;
     } OutputPath;
 } i915_CONTROLLER;
