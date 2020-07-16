@@ -1493,9 +1493,9 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 	 //WHAT RATE IS PLUGGED IN? Port Clock
 
 	if (link_bw)
-		DebugPrint(EFI_D_ERROR, "Using LINK_BW_SET value %02x\n", link_bw);
+		DebugPrint(EFI_D_ERROR, "Using LINK_BW_SET value %u\n", link_bw);
 	else
-		DebugPrint(EFI_D_ERROR, "Using LINK_RATE_SET value %02x\n", rate_select);
+		DebugPrint(EFI_D_ERROR, "Using LINK_RATE_SET value %u\n", rate_select);
 
 	/* Write the link configuration data */
 	link_config[0] = link_bw;
@@ -1782,8 +1782,9 @@ static BOOLEAN intel_dp_can_link_train_fallback_for_edp(struct intel_dp *intel_d
 		intel_dp->attached_connector->panel.fixed_mode; */
 	int mode_rate, max_rate;
 
-	mode_rate = intel_dp_link_required(intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock, 18);
+	mode_rate = intel_dp_link_required(intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10, 24);
 	max_rate = intel_dp_max_data_rate(link_rate, lane_count);
+	DebugPrint(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
 	if (mode_rate > max_rate)
 		return FALSE;
 
@@ -2002,7 +2003,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 	
      intel_dp->controller->write32(DP_TP_CTL(port), DP);	
 	 DebugPrint(EFI_D_ERROR, "Link Rate: %d, lane count: %d",
-		    intel_dp->link_rate, intel_dp->lane_count);
+		    intel_dp->controller->OutputPath.LinkRate, intel_dp->lane_count);
 			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
 						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
 
@@ -2016,7 +2017,8 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 						     intel_dp->lane_count)) {
 								 			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
 						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
-							SetupClockeDP(intel_dp->controller);	 
+							SetupClockeDP(intel_dp->controller);	
+							 
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
 		_TrainDisplayPort(intel_dp); 
 							 }
@@ -2025,7 +2027,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     UINT32 port = controller->OutputPath.Port;
     UINT32 val = 0;
-
+	EFI_STATUS status = EFI_SUCCESS;
     val |= DP_TP_CTL_ENABLE;
     val |= DP_TP_CTL_MODE_SST;
     val |= DP_TP_CTL_LINK_TRAIN_PAT1;
@@ -2062,7 +2064,19 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
 	intel_dp_set_sink_rates(&intel_dp);
 
 	intel_dp_set_common_rates(&intel_dp);
-	_TrainDisplayPort(&intel_dp);
+	status = _TrainDisplayPort(&intel_dp);
+	UINT8 count =0;
+	while (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count) && count < 4) {
+		DebugPrint(EFI_D_ERROR, "Higher rate than configured, Trying Lower Pixel Clock\n");
+		controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
+		count ++;
+	}
+	if (count =4 && !intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count)) {
+				DebugPrint(EFI_D_ERROR, "Error: Higher rate than configured\n");
+
+		status = EFI_UNSUPPORTED;
+	}
+	return status;
 }
 /* Transfer unit size for display port - 1, default is 0x3f (for TU size 64) */
 #define  TU_SIZE(x)             (((x) - 1) << 25) /* default size 64 */
@@ -2240,8 +2254,8 @@ EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
 
     controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
 	struct intel_link_m_n *m_n;
-	intel_link_compute_m_n(18, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
+	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
+	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
 			controller->write32( PIPEA_DATA_M1,
 			       TU_SIZE(m_n->tu) | m_n->gmch_m);
 		controller->write32( PIPEA_DATA_N1,
@@ -2320,7 +2334,7 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
         controller->write32(0x6f044, 0x00080000); */
 	struct intel_link_m_n *m_n;
 	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock * 10,270000, m_n, FALSE, FALSE);
+	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
     DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n->tu) | m_n->gmch_m);
     DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_N1 (%x) = %08x\n", PIPEEDP_DATA_N1, m_n->gmch_n);
     DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_M1 (%x) = %08x\n", PIPEEDP_LINK_M1, m_n->link_m);
