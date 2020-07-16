@@ -40,6 +40,21 @@
 #define DPLL_STATUS    (0x6C060)
 #define  DPLL_LOCK(id) (1 << ((id) * 8))
 
+#define PIPEA_DATA_M1		0x60030
+#define PIPEA_DATA_N1		0x60034
+#define PIPEA_LINK_M1		0x60040
+#define PIPEA_LINK_N1		0x60044
+
+#define PIPEEDP_DATA_M1		0x6f030
+#define PIPEEDP_DATA_N1		0x6f034
+#define PIPEEDP_LINK_M1		0x6f040
+#define PIPEEDP_LINK_N1		0x6f044
+
+
+
+
+
+
 #define LCPLL1_CTL        (0x46010)
 #define LCPLL2_CTL        (0x46014)
 #define  LCPLL_PLL_ENABLE    (1 << 31)
