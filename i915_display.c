@@ -311,13 +311,13 @@ EFI_STATUS SetupIBoost()
 
     // if (IS_GEN9_BC(dev_priv))
     //	skl_ddi_set_iboost(encoder, level, INTEL_OUTPUT_HDMI);
-   // if (controller->OutputPath.ConType == HDMI)
+    if (controller->OutputPath.ConType == HDMI)
     {
         UINT32 tmp;
 
         tmp = controller->read32(DISPIO_CR_TX_BMU_CR0);
         tmp &= ~(BALANCE_LEG_MASK(port) | BALANCE_LEG_DISABLE(port));
-        tmp |= 1 << 24; // temp
+      //  tmp |= 1 << 24; // temp
         tmp |= 1 << BALANCE_LEG_SHIFT(port);
         controller->write32(DISPIO_CR_TX_BMU_CR0, tmp);
     }
@@ -387,8 +387,8 @@ EFI_STATUS ConfigurePipeGamma()
         controller->write32(reg, PIPECONF_PROGRESSIVE |
    PIPECONF_GAMMA_MODE_8BIT);
     //controller->write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
-    //controller->write32(_SKL_BOTTOM_COLOR_A,0);
-    controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
+    controller->write32(_SKL_BOTTOM_COLOR_A,0);
+  //  controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
     //controller->write32(_SKL_BOTTOM_COLOR_A, 0);
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT); 
     return EFI_SUCCESS;
@@ -546,10 +546,10 @@ EFI_STATUS SetupAndEnablePlane()
     controller->write32(_DSPAPOS, 0);
     controller->write32(_DSPASTRIDE, stride >> 6);
     controller->write32(_DSPASIZE, (horz_active - 1) | ((vert_active - 1) << 16));
-/*     controller->write32(_DSPACNTR, DISPLAY_PLANE_ENABLE |
+    controller->write32(_DSPACNTR, DISPLAY_PLANE_ENABLE |
                                        PLANE_CTL_FORMAT_XRGB_8888 |
-                                       PLANE_CTL_PLANE_GAMMA_DISABLE); */
-    controller->write32(_DSPACNTR, 0xC4042400);
+                                       PLANE_CTL_PLANE_GAMMA_DISABLE); 
+ //   controller->write32(_DSPACNTR, 0xC4042400);
 
     controller->write32(_DSPASURF, controller->gmadr);
     controller->fbsize = stride * vert_active;
@@ -692,7 +692,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
             goto error;
         }
     }
-        status = SetupClocks();
+      //  status = SetupClocks();
 
     status = RETURN_ABORTED;
 
@@ -869,11 +869,11 @@ PrintReg(_DSPASTRIDE, "_DSPASTRIDE");
         controller->OutputPath.LinkRate, controller->OutputPath.LaneCount, 
         controller->OutputPath.Port, controller->OutputPath.ConType, controller->OutputPath.DPLL);
 
- controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
+/*  controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
     controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) & ~(LCPLL_PLL_ENABLE));
     gBS->Stall(6000);
     controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
-    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
+    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE); */
 /* 			UINT32 val=controller->read32(DDI_BUF_CTL(port));
             	val &= ~(0xF << 24);
 
