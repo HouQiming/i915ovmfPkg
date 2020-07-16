@@ -242,7 +242,8 @@ void intel_dp_pps_init(i915_CONTROLLER* controller)
 EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
     
     UINT32 ctrl1;
-    
+        UINT32 port = controller->OutputPath.Port;
+
     UINT8 id = controller->OutputPath.DPLL;
     /*
      * See comment in intel_dpll_hw_state to understand why we always use 0
@@ -252,13 +253,37 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
     ctrl1 |= DPLL_CTRL1_SSC(id);
     // ctrl1 |= DPLL_CTRL1_HDMI_MODE(0); //Set Mode to HDMI
 
-    
+            UINT32 val = controller->read32(DPLL_CTRL2);
 
-    UINT32 val = controller->read32(DPLL_CTRL1);
+        //val &= ~(DPLL_CTRL2_DDI_CLK_OFF(PORT_A) |
+        //	 DPLL_CTRL2_DDI_CLK_SEL_MASK(PORT_A));
+        //val |= (DPLL_CTRL2_DDI_CLK_SEL(id, PORT_A) |
+        //	DPLL_CTRL2_DDI_SEL_OVERRIDE(PORT_A));
 
+        val &= ~(DPLL_CTRL2_DDI_CLK_OFF(port));
+        val |= (DPLL_CTRL2_DDI_CLK_OFF(port));
+
+        controller->write32(DPLL_CTRL2, val);
+    controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
+    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) & ~(LCPLL_PLL_ENABLE));
+    val = controller->read32(DPLL_CTRL1);
+ for (UINT32 counter = 0;; counter++)
+    {
+        if (controller->read32(DPLL_STATUS) & DPLL_LOCK(id))
+        {
+            DebugPrint(EFI_D_ERROR, "i915: DPLL %d locked\n", id);
+            break;
+        }
+        if (counter > 16384)
+        {
+            DebugPrint(EFI_D_ERROR, "i915: DPLL %d not locked\n", id);
+            break;
+        }
+    }
     //it's clock id!
     //how's port clock comptued?
     UINT64 clock_khz=controller->OutputPath.LinkRate;
+	DebugPrint(EFI_D_ERROR, "Link Rate: %u\n", clock_khz);
     UINT32 linkrate=DPLL_CTRL1_LINK_RATE_810;
     if(clock_khz>>1 >=135000){
     	linkrate=DPLL_CTRL1_LINK_RATE_1350;
@@ -285,6 +310,7 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
 
     /* the enable bit is always bit 31 */
     controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
+    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
 
     for (UINT32 counter = 0;; counter++)
     {
@@ -303,7 +329,6 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
     //intel_encoders_pre_enable(crtc, pipe_config, old_state);
     //could be intel_ddi_pre_enable_hdmi
     //intel_ddi_clk_select(encoder, crtc_state);
-    UINT32 port = controller->OutputPath.Port;
     DebugPrint(EFI_D_ERROR, "i915: port is %d\n", port);
     {
         UINT32 val = controller->read32(DPLL_CTRL2);
@@ -1929,7 +1954,39 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 }
 EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
     UINT32 port = intel_dp->controller->OutputPath.Port;
+	UINT32 val=intel_dp->controller->read32(DP_TP_CTL(port));
+	val &= ~(DP_TP_CTL_ENABLE);
+   // val |= DP_TP_CTL_MODE_SST;
+   // val |= DP_TP_CTL_LINK_TRAIN_PAT1;
+	//val |= DP_TP_CTL_ENHANCED_FRAME_ENABLE;
+    intel_dp->controller->write32(DP_TP_CTL(port), val);
+	val=intel_dp->controller->read32(DDI_BUF_CTL(port));
+	val &= ~(DDI_PORT_WIDTH_MASK | DDI_BUF_CTL_ENABLE);
+    //val |= DDI_BUF_TRANS_SELECT(0);
+    //val |= DDI_A_4_LANES;
+    val |= DDI_PORT_WIDTH(intel_dp->lane_count);
+    intel_dp->controller->write32(DDI_BUF_CTL(port), val);
 
+     for (UINT32 counter = 0;;)
+        {
+            //controller->read32(reg);
+            counter += 1;
+            if (counter >= 16384)
+            {
+                break;
+            }
+        }
+		val=intel_dp->controller->read32(DP_TP_CTL(port));
+		val |= DP_TP_CTL_ENABLE;
+		    intel_dp->controller->write32(DP_TP_CTL(port), val);
+
+			val=intel_dp->controller->read32(DDI_BUF_CTL(port));
+		val |= DDI_BUF_CTL_ENABLE;
+
+		   
+
+
+    intel_dp->controller->write32(DDI_BUF_CTL(port), val);
     if (!intel_dp_link_training_clock_recovery(intel_dp))
 		goto failure_handling;
     if (!intel_dp_link_training_channel_equalization(intel_dp))
@@ -1956,9 +2013,13 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 		    intel_dp->link_rate, intel_dp->lane_count);
 		if (!intel_dp_get_link_train_fallback_values(intel_dp,
 						     intel_dp->link_rate,
-						     intel_dp->lane_count))
+						     intel_dp->lane_count)) {
+								 			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
+						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
+							SetupClockeDP(intel_dp->controller);	 
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
-		_TrainDisplayPort(intel_dp);
+		_TrainDisplayPort(intel_dp); 
+							 }
 		return;
 }
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
@@ -1968,12 +2029,13 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     val |= DP_TP_CTL_ENABLE;
     val |= DP_TP_CTL_MODE_SST;
     val |= DP_TP_CTL_LINK_TRAIN_PAT1;
+	val |= DP_TP_CTL_ENHANCED_FRAME_ENABLE;
     controller->write32(DP_TP_CTL(port), val);
                     val = DDI_BUF_CTL_ENABLE;
 
     val |= DDI_BUF_TRANS_SELECT(0);
     val |= DDI_A_4_LANES;
-    val |= DDI_PORT_WIDTH(4);
+    val |= DDI_PORT_WIDTH(2);
     controller->write32(DDI_BUF_CTL(port), val);
 
      for (UINT32 counter = 0;;)
@@ -1988,7 +2050,7 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     struct intel_dp intel_dp;
     intel_dp.controller =controller;
 	
-    intel_dp.lane_count = 4;
+    intel_dp.lane_count = 2;
 	if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 		intel_dp.link_rate = 162000;
 	else 	
@@ -2118,6 +2180,10 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
                             ((vertical_syncEnd - 1) << 16));
 
     controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
+        controller->write32(0x6f030, 0x7e6cf53b);
+        controller->write32(0x6f034, 0x00800000);
+        controller->write32(0x6f040, 0x00048a37);
+        controller->write32(0x6f044, 0x00080000);
 
     DebugPrint(EFI_D_ERROR, "i915: HTOTAL_EDP (%x) = %08x\n", HTOTAL_EDP, controller->read32(HTOTAL_EDP));
     DebugPrint(EFI_D_ERROR, "i915: HBLANK_EDP (%x) = %08x\n", HBLANK_EDP, controller->read32(HBLANK_EDP));

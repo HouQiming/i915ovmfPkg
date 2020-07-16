@@ -33,7 +33,10 @@
 #define  DDI_PORT_WIDTH_MASK            (7 << 1)
 #define  DDI_PORT_WIDTH_SHIFT            1
 #define  DDI_INIT_DISPLAY_DETECTED        (1 << 0)
-
+#define _DP_TP_CTL_A			0x64040
+#define _DP_TP_CTL_B			0x64140
+#define _TGL_DP_TP_CTL_A		0x60540
+#define DP_TP_CTL(port) _PORT(port, _DP_TP_CTL_A, _DP_TP_CTL_B)
 #define DPLL_STATUS    (0x6C060)
 #define  DPLL_LOCK(id) (1 << ((id) * 8))
 

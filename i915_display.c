@@ -311,12 +311,13 @@ EFI_STATUS SetupIBoost()
 
     // if (IS_GEN9_BC(dev_priv))
     //	skl_ddi_set_iboost(encoder, level, INTEL_OUTPUT_HDMI);
-    if (controller->OutputPath.ConType == HDMI)
+   // if (controller->OutputPath.ConType == HDMI)
     {
         UINT32 tmp;
 
         tmp = controller->read32(DISPIO_CR_TX_BMU_CR0);
         tmp &= ~(BALANCE_LEG_MASK(port) | BALANCE_LEG_DISABLE(port));
+        tmp |= 1 << 24; // temp
         tmp |= 1 << BALANCE_LEG_SHIFT(port);
         controller->write32(DISPIO_CR_TX_BMU_CR0, tmp);
     }
@@ -387,8 +388,8 @@ EFI_STATUS ConfigurePipeGamma()
    PIPECONF_GAMMA_MODE_8BIT);
     //controller->write32(_SKL_BOTTOM_COLOR_A,SKL_BOTTOM_COLOR_GAMMA_ENABLE);
     //controller->write32(_SKL_BOTTOM_COLOR_A,0);
-    //controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
-    controller->write32(_SKL_BOTTOM_COLOR_A, 0);
+    controller->write32(_SKL_BOTTOM_COLOR_A,0x335577);
+    //controller->write32(_SKL_BOTTOM_COLOR_A, 0);
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT); 
     return EFI_SUCCESS;
 }
@@ -545,9 +546,11 @@ EFI_STATUS SetupAndEnablePlane()
     controller->write32(_DSPAPOS, 0);
     controller->write32(_DSPASTRIDE, stride >> 6);
     controller->write32(_DSPASIZE, (horz_active - 1) | ((vert_active - 1) << 16));
-    controller->write32(_DSPACNTR, DISPLAY_PLANE_ENABLE |
+/*     controller->write32(_DSPACNTR, DISPLAY_PLANE_ENABLE |
                                        PLANE_CTL_FORMAT_XRGB_8888 |
-                                       PLANE_CTL_PLANE_GAMMA_DISABLE);
+                                       PLANE_CTL_PLANE_GAMMA_DISABLE); */
+    controller->write32(_DSPACNTR, 0xC4042400);
+
     controller->write32(_DSPASURF, controller->gmadr);
     controller->fbsize = stride * vert_active;
     // controller->write32(_DSPAADDR,0);
@@ -561,14 +564,14 @@ EFI_STATUS SetupAndEnablePlane()
 }
 EFI_STATUS setOutputPath()
 {
-/*     controller->OutputPath.ConType = HDMI;
+    /*  controller->OutputPath.ConType = HDMI;
     controller->OutputPath.DPLL = 1;
 
-    controller->OutputPath.Port = PORT_B; */
-         controller->OutputPath.ConType = eDP;
+    controller->OutputPath.Port = PORT_B;  */
+          controller->OutputPath.ConType = eDP;
     controller->OutputPath.DPLL=1;
 
-    controller->OutputPath.Port=PORT_A; 
+    controller->OutputPath.Port=PORT_A;  
     return EFI_SUCCESS;
 }
 #define _BXT_BLC_PWM_CTL1			0xC8250
@@ -619,11 +622,15 @@ static int cnp_rawclk(i915_CONTROLLER* controller)
 		(((__x) - ((__d) / 2)) / (__d));	\
 }							\
 )
+static void PrintReg(UINT64 reg, const char* name){
+   // DebugPrint(EFI_D_ERROR, "%a\n", name);
+    DebugPrint(EFI_D_ERROR, "i915: Reg %a(%08x), val: %08x\n", name, reg, controller->read32(reg));
+}
 EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 {
     EFI_STATUS status;
     DebugPrint(EFI_D_ERROR, "i915: set mode %u\n", ModeNumber);
-    if (g_already_set)
+    if (g_already_set > 1)
     {
         DebugPrint(EFI_D_ERROR, "i915: mode already set\n");
         goto error;
@@ -631,6 +638,8 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d\n", __LINE__);
 
     controller->write32(_PIPEACONF, 0);
+        controller->write32(_PIPEEDPCONF, 0);
+
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d\n", __LINE__);
 
     status = SetupClocks();
@@ -683,6 +692,8 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
             goto error;
         }
     }
+        status = SetupClocks();
+
     status = RETURN_ABORTED;
 
     status = SetupIBoost();
@@ -815,36 +826,64 @@ goto error;
     status = RETURN_ABORTED; 
     DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
                __LINE__, status);
-    g_already_set = 1;
-    controller->write32(PP_CONTROL, 0);
-    gBS->Stall(6000);
-        UINT32 max= DIV_ROUND_CLOSEST(KHz(cnp_rawclk(controller)),
-				 200);
-    controller->write32(_BXT_BLC_PWM_FREQ1, max);
-        controller->write32(_BXT_BLC_PWM_DUTY1, max);
+   // controller->write32(PP_CONTROL, 0);
 
-   /*  controller->write32(0x00048250, 0x80000000);
-    controller->write32(0x00048254, 0x00000000);
-    controller->write32(0x00048350, 0x00000000);
-    controller->write32(0x00048354, 0x00000000);
-    controller->write32(0x00048360, 0x00000000);
-    controller->write32(0x000c8250, 0x80000000);
-    controller->write32(0x000c8254, 0x00005eb2); */
-    UINT32 val = controller->read32(0xc2000);
-    val |= 1;
-    controller->write32(0xc2000, val);
-//    controller->write32(0xc2000, val);
-    controller->write32(0xc8250, (1 << 31) | (0 << 29));
-        gBS->Stall(6000);
-
+    UINT32 port = controller->OutputPath.Port;
         controller->write32(PP_CONTROL, 7);
-    controller->write32(PP_CONTROL, 0);
-    controller->write32(PP_CONTROL, 7);
-    controller->write32(_BXT_BLC_PWM_FREQ1, max);
-        controller->write32(_BXT_BLC_PWM_DUTY1, max);
+   // controller->write32(PP_CONTROL, 0);
+   // controller->write32(PP_CONTROL, 7);
+    //controller->write32(_BXT_BLC_PWM_FREQ1, max);
+  //      controller->write32(_BXT_BLC_PWM_DUTY1, max);
   //  controller->write32(0xc8254, (1875 << 15) | (1875));
-                DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+   // DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+  //  DebugPrint(EFI_D_ERROR, "DP_TP_CTL:  %08x\n",controller->read32(DP_TP_CTL(controller->OutputPath.Port)));
+    PrintReg(PP_CONTROL, "PP_CONTROL");
+        PrintReg(_BXT_BLC_PWM_FREQ1, "_BXT_BLC_PWM_FREQ1");
+    PrintReg(_BXT_BLC_PWM_DUTY1, "_BXT_BLC_PWM_DUTY1");
+    PrintReg(PP_STATUS, "PP_STATUS");
+    PrintReg(DP_TP_CTL(controller->OutputPath.Port), "DP_TP_CTL");
+    PrintReg(_PIPEEDPCONF, "_PIPEEDPCONF");
+    PrintReg(_PIPEACONF, "_PIPEACONF");
+    PrintReg(_DSPAOFFSET, "_DSPAOFFSET");
+    PrintReg(_DSPAPOS, "_DSPAPOS");
 
+PrintReg(_DSPASTRIDE, "_DSPASTRIDE");
+    PrintReg(_DSPASIZE, "_DSPASIZE");
+    PrintReg(_DSPACNTR, "_DSPACNTR");
+    PrintReg(_DSPASURF, "_DSPASURF");
+    PrintReg(DDI_BUF_CTL(port), "DDI_BUF_CTL");
+    PrintReg(_TRANS_DDI_FUNC_CTL_EDP, "_TRANS_DDI_FUNC_CTL_EDP");
+    PrintReg(_TRANS_EDP_MSA_MISC, "_TRANS_EDP_MSA_MISC");
+    PrintReg(_SKL_BOTTOM_COLOR_A, "_SKL_BOTTOM_COLOR_A");
+    PrintReg(_GAMMA_MODE_A, "_GAMMA_MODE_A");
+    PrintReg(_LGC_PALETTE_A, "_LGC_PALETTE_A");
+    PrintReg(DISPIO_CR_TX_BMU_CR0, "DISPIO_CR_TX_BMU_CR0");
+    PrintReg(PP_ON, "PP_ON");
+    PrintReg(PP_OFF, "PP_OFF");
+    PrintReg(PP_DIVISOR, "PP_DIVISOR");
+    PrintReg(DPLL_CTRL1, "DPLL_CTRL1");
+    PrintReg(LCPLL2_CTL, "LCPLL2_CTL");
+    PrintReg(LCPLL1_CTL, "LCPLL1_CTL");
+    PrintReg(DPLL_CTRL2, "DPLL_CTRL2");
+    DebugPrint(EFI_D_ERROR, "i195: Controller: LR: %u, LC: %u, Port: %u, ContType: %u, DPLL: %u\n",
+        controller->OutputPath.LinkRate, controller->OutputPath.LaneCount, 
+        controller->OutputPath.Port, controller->OutputPath.ConType, controller->OutputPath.DPLL);
+
+ controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
+    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) & ~(LCPLL_PLL_ENABLE));
+    gBS->Stall(6000);
+    controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
+    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
+/* 			UINT32 val=controller->read32(DDI_BUF_CTL(port));
+            	val &= ~(0xF << 24);
+
+		val |= DDI_BUF_TRANS_SELECT(8);
+
+
+    controller->write32(DDI_BUF_CTL(port), val); */
+
+        g_already_set++;
+  //  setDisplayGraphicsMode(ModeNumber);
     return EFI_SUCCESS;
 
 error:
@@ -869,6 +908,25 @@ STATIC UINT8 edid_fallback[] = {
 
 
 EFI_STATUS SetupPPS() {
+        gBS->Stall(6000);
+        UINT32 max= DIV_ROUND_CLOSEST(KHz(cnp_rawclk(controller)),
+				 200);
+    controller->write32(_BXT_BLC_PWM_FREQ1, max);
+        controller->write32(_BXT_BLC_PWM_DUTY1, max);
+
+   /*  controller->write32(0x00048250, 0x80000000);
+    controller->write32(0x00048254, 0x00000000);
+    controller->write32(0x00048350, 0x00000000);
+    controller->write32(0x00048354, 0x00000000);
+    controller->write32(0x00048360, 0x00000000);
+    controller->write32(0x000c8250, 0x80000000);
+    controller->write32(0x000c8254, 0x00005eb2); */
+    UINT32 val = controller->read32(0xc2000);
+    val |= 1;
+    controller->write32(0xc2000, val);
+//    controller->write32(0xc2000, val);
+    controller->write32(0xc8250, (1 << 31) | (0 << 29));
+        gBS->Stall(6000);
     intel_dp_pps_init(controller);
 
   //  controller->write32(0xc8250, 1 << 31);
@@ -940,8 +998,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     ///* 5. Enable CDCLK. */
     // icl_init_cdclk(dev_priv);
     // 080002a1 on test machine
-    // DebugPrint(EFI_D_ERROR,"i915: CDCLK =
-    // %08x\n",controller->read32(CDCLK_CTL)); there seems no need to do so
+     DebugPrint(EFI_D_ERROR,"i915: CDCLK = %08x\n",controller->read32(CDCLK_CTL)); //there seems no need to do so
 
     ///* 6. Enable DBUF. */
     // icl_dbuf_enable(dev_priv);

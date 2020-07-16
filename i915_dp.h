@@ -78,10 +78,7 @@
 #define AUX_I2C_MOT                0x4
 #define AUX_I2C_REPLY_ACK            0x0
 /* DisplayPort Transport Control */
-#define _DP_TP_CTL_A			0x64040
-#define _DP_TP_CTL_B			0x64140
-#define _TGL_DP_TP_CTL_A		0x60540
-#define DP_TP_CTL(port) _PORT(port, _DP_TP_CTL_A, _DP_TP_CTL_B)
+
 // #define TGL_DP_TP_CTL(tran) _MMIO_TRANS2((tran), _TGL_DP_TP_CTL_A)
 #define  DP_TP_CTL_ENABLE			(1 << 31)
 #define  DP_TP_CTL_FEC_ENABLE			(1 << 30)
