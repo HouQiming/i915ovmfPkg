@@ -164,8 +164,8 @@ EFI_STATUS Status = FrameBufferBlt(
         Height,
         Delta
 );
-DebugPrint(EFI_D_ERROR,
-"i915: blt %d %d,%d %dx%d\n",Status,DestinationX,DestinationY,Width,Height);
+//DebugPrint(EFI_D_ERROR,
+//"i915: blt %d %d,%d %dx%d\n",Status,DestinationX,DestinationY,Width,Height);
 return
 Status;
 }

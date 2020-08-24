@@ -61,3 +61,4 @@ struct skl_wrpll_context {
 };
 EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER* controller);
+EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller);

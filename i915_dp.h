@@ -1361,3 +1361,4 @@ EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller);
 void intel_dp_pps_init(i915_CONTROLLER* controller);
+EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller);

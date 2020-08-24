@@ -29,6 +29,171 @@
 #define  PP_REFERENCE_DIVIDER_SHIFT	8
 #define  PANEL_POWER_CYCLE_DELAY_MASK	(0x1f)
 #define  PANEL_POWER_CYCLE_DELAY_SHIFT	0
+EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller) {
+      UINT32 pin = 0;
+
+        UINT32 *p = (UINT32 *)result;
+
+    for (pin = 0; pin <= 5; pin++)
+    {
+        DebugPrint(EFI_D_ERROR, "i915: trying DP aux %d\n", pin);
+        // aux message header is 3-4 bytes: ctrl8 addr16 len8
+        // the data is big endian
+        // len is receive buffer size-1
+        // i2c init
+        UINT32 send_ctl =
+            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+             DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+        /* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
+        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+                            ((AUX_I2C_MOT | AUX_I2C_WRITE) << 28) | (0x50 << 8) |
+                                0);
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+        UINT32 aux_status;
+        UINT32 counter = 0;
+        for (;;)
+        {
+            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+            {
+                break;
+            }
+            counter += 1;
+            if (counter >= 16384)
+            {
+                DebugPrint(EFI_D_ERROR, "i915:DP AUX channel timeout");
+                break;
+            }
+        }
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+                            aux_status | DP_AUX_CH_CTL_DONE |
+                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
+                                DP_AUX_CH_CTL_RECEIVE_ERROR);
+        // i2c send 1 byte
+        send_ctl =
+            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+             DP_AUX_CH_CTL_RECEIVE_ERROR | (5 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+                            (AUX_I2C_WRITE << 28) | (0x50 << 8) | 0);
+        controller->write32(_DPA_AUX_CH_DATA2 + (pin << 8), 0);
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+        counter = 0;
+        for (;;)
+        {
+            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+            {
+                break;
+            }
+            counter += 1;
+            if (counter >= 16384)
+            {
+                DebugPrint(EFI_D_ERROR, "i915:DP AUX channel timeout");
+                break;
+            }
+        }
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+                            aux_status | DP_AUX_CH_CTL_DONE |
+                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
+                                DP_AUX_CH_CTL_RECEIVE_ERROR);
+        if (aux_status &
+            (DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_RECEIVE_ERROR))
+        {
+            continue;
+        }
+        // i2c read 1 byte * 128
+        DebugPrint(EFI_D_ERROR, "i915: reading DP aux %d\n", pin);
+        // aux message header is 3-4 bytes: ctrl8 addr16 len8
+        // the data is big endian
+        // len is receive buffer size-1
+        // i2c init
+        send_ctl =
+            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+             DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+        /* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
+        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+                            ((AUX_I2C_MOT | AUX_I2C_READ) << 28) | (0x50 << 8) | 0);
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+        counter = 0;
+        for (;;)
+        {
+            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+            {
+                break;
+            }
+            counter += 1;
+            if (counter >= 16384)
+            {
+                DebugPrint(EFI_D_ERROR, "i915: DP AUX channel timeout");
+                break;
+            }
+        }
+        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+                            aux_status | DP_AUX_CH_CTL_DONE |
+                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
+                                DP_AUX_CH_CTL_RECEIVE_ERROR);
+        UINT32 i = 0;
+        for (i = 0; i < 128; i++)
+        {
+            send_ctl = (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+                        DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+                        DP_AUX_CH_CTL_RECEIVE_ERROR |
+                        (4 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+                        DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+                        DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+            controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+                                (AUX_I2C_READ << 28) | (0x50 << 8) | 0);
+            controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+            counter = 0;
+            for (;;)
+            {
+                aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+                if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+                {
+                    break;
+                }
+                counter += 1;
+                if (counter >= 16384)
+                {
+                    DebugPrint(EFI_D_ERROR, "i915: DP AUX channel timeout");
+                    break;
+                }
+            }
+            controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+                                aux_status | DP_AUX_CH_CTL_DONE |
+                                    DP_AUX_CH_CTL_TIME_OUT_ERROR |
+                                    DP_AUX_CH_CTL_RECEIVE_ERROR);
+            UINT32 word = controller->read32(_DPA_AUX_CH_DATA1 + (pin << 8));
+            ((UINT8 *)p)[i] = (word >> 16) & 0xff;
+        }
+        for (UINT32 i = 0; i < 16; i++)
+        {
+            for (UINT32 j = 0; j < 8; j++)
+            {
+                DebugPrint(EFI_D_ERROR, "%02x ", ((UINT8 *)(p))[i * 8 + j]);
+            }
+            DebugPrint(EFI_D_ERROR, "\n");
+        }
+        if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
+        {
+            controller->OutputPath.AuxCh = pin;
+            return EFI_SUCCESS;
+        }
+    }
+        return EFI_NOT_FOUND;
+
+}
+
 static int cnp_rawclk(i915_CONTROLLER* controller)
 {
 	UINT32 rawclk;

@@ -384,28 +384,8 @@
 #define HSW_PWR_WELL_CTL2            (0x45404)
 #define HSW_PWR_WELL_CTL3            (0x45408)
 #define HSW_PWR_WELL_CTL4            (0x4540C)
-struct dpll {
-    /* given values */
-    int n;
-    int m1, m2;
-    int p1, p2;
-    /* derived values */
-    int dot;
-    int vco;
-    int m;
-    int p;
-};
 
-struct intel_limit {
-    struct {
-        int min, max;
-    } dot, vco, n, m, m1, m2, p, p1;
-
-    struct {
-        int dot_limit;
-        int p2_slow, p2_fast;
-    } p2;
-};
+#define CHECK_STATUS_ERROR(status)  if (status != EFI_SUCCESS) goto error;
 
 //intel_limits_i9xx_sdvo
 //static const struct intel_limit g_limits = {

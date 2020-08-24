@@ -50,10 +50,28 @@
 #define PIPEEDP_LINK_M1		0x6f040
 #define PIPEEDP_LINK_N1		0x6f044
 
+#define BKL_GRAN_CTL        0xc2000
+#define SBLC_PWM_CTL1       0xc8250
+#define _BXT_BLC_PWM_CTL1 0xC8250
+#define BXT_BLC_PWM_ENABLE (1 << 31)
+#define BXT_BLC_PWM_POLARITY (1 << 29)
+#define _BXT_BLC_PWM_FREQ1 0xC8254
+#define _BXT_BLC_PWM_DUTY1 0xC8258
 
+#define _BXT_BLC_PWM_CTL2 0xC8350
+#define _BXT_BLC_PWM_FREQ2 0xC8354
+#define _BXT_BLC_PWM_DUTY2 0xC8358
 
-
-
+#define KHz(x) (1000 * (x))
+#define DIV_ROUND_CLOSEST(x, divisor) (            \
+    {                                              \
+        typeof(x) __x = x;                         \
+        typeof(divisor) __d = divisor;             \
+        (((typeof(x)) - 1) > 0 ||                  \
+         ((typeof(divisor)) - 1) > 0 || (__x) > 0) \
+            ? (((__x) + ((__d) / 2)) / (__d))      \
+            : (((__x) - ((__d) / 2)) / (__d));     \
+    })
 
 #define LCPLL1_CTL        (0x46010)
 #define LCPLL2_CTL        (0x46014)

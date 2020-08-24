@@ -6,6 +6,59 @@
 #include "i915_hdmi.h"
 #include "i915_reg.h"
 #include <Uefi.h>
+EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller) {
+  UINT32 pin = 0;
+    // it's an INTEL GPU, there's no way we could be big endian
+    UINT32 *p = (UINT32 *)result;
+    // try all the pins on GMBUS
+    for (pin = 1; pin <= 6; pin++)
+    {
+        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        controller->write32(gmbusSelect, pin);
+        if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
+        {
+            continue;
+        }
+        // set read offset: i2cWrite(0x50, &offset, 1);
+        controller->write32(gmbusData, 0);
+        controller->write32(gmbusCommand, (0x50 << GMBUS_SLAVE_ADDR_SHIFT) |
+                                              (1 << GMBUS_BYTE_COUNT_SHIFT) |
+                                              GMBUS_SLAVE_WRITE | GMBUS_CYCLE_WAIT |
+                                              GMBUS_SW_RDY);
+        // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
+        gmbusWait(controller, GMBUS_HW_RDY);
+        // read the edid: i2cRead(0x50, &edid, 128);
+        // note that we could fail here!
+        controller->write32(gmbusCommand, (0x50 << GMBUS_SLAVE_ADDR_SHIFT) |
+                                              (128 << GMBUS_BYTE_COUNT_SHIFT) |
+                                              GMBUS_SLAVE_READ | GMBUS_CYCLE_WAIT |
+                                              GMBUS_SW_RDY);
+        UINT32 i = 0;
+        for (i = 0; i < 128; i += 4)
+        {
+            if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
+            {
+                break;
+            }
+            p[i >> 2] = controller->read32(gmbusData);
+        }
+        // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
+        gmbusWait(controller, GMBUS_HW_RDY);
+        for (UINT32 i = 0; i < 16; i++)
+        {
+            for (UINT32 j = 0; j < 8; j++)
+            {
+                DebugPrint(EFI_D_ERROR, "%02x ", ((UINT8 *)(p))[i * 8 + j]);
+            }
+            DebugPrint(EFI_D_ERROR, "\n");
+        }
+        if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
+        {
+            return EFI_SUCCESS;
+        }
+    }
+    return EFI_NOT_FOUND;
+}
 static void skl_wrpll_get_multipliers(UINT64 p,
                                       UINT64 *p0 /* out */,
                                       UINT64 *p1 /* out */,
@@ -182,111 +235,7 @@ static void skl_wrpll_try_divider(struct skl_wrpll_context *ctx,
 }
 
 EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller) {
-     /*     //setup DPLL (old GPU, doesn't apply here)
-    //UINT32 refclock = 96000;
-    //UINT32 pixel_clock = (UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock) * 10;
-    //UINT32 multiplier = 1;
-    ////if(pixel_clock >= 100000) {
-    ////	multiplier = 1;
-    ////}else if(pixel_clock >= 50000) {
-    ////	multiplier = 2;
-    ////}else{
-    ////	//assert(pixel_clock >= 25000);
-    ////	multiplier = 4;
-    ////}
-    //struct dpll final_params,params;
-    //INT32 target=(INT32)(pixel_clock * multiplier);
-    //INT32 best_err=target;
-    //DebugPrint(EFI_D_ERROR,"i915: before DPLL compute\n");
-    //for(params.n=g_limits.n.min;params.n<=g_limits.n.max;params.n++)
-    //for(params.m1=g_limits.m1.max;params.m1>=g_limits.m1.min;params.m1--)
-    //for(params.m2=g_limits.m2.max;params.m2>=g_limits.m2.min;params.m2--)
-    //for(params.p1=g_limits.p1.max;params.p1>=g_limits.p1.min;params.p1--)
-    //for(params.p2=g_limits.p2.p2_slow;params.p2>=g_limits.p2.p2_fast;params.p2-=5){
-    //	if(params.p2!=5&&params.p2!=7&&params.p2!=10&&params.p2!=14){continue;}
-    //	params.m = 5 * (params.m1 + 2) + (params.m2 + 2);
-    //	params.p = params.p1*params.p2;
-    //	if(params.m < g_limits.m.min || params.m > g_limits.m.max){continue;}
-    //	if(params.p < g_limits.p.min || params.p > g_limits.p.max){continue;}
-    //	params.vco = (refclock * params.m + (params.n + 2) / 2) / (params.n + 2);
-    //	params.dot = (params.vco + params.p / 2) / params.p;
-    //	if(params.dot < g_limits.dot.min || params.dot > g_limits.dot.max){continue;}
-    //	if(params.vco < g_limits.vco.min || params.vco > g_limits.vco.max){continue;}
-    //	INT32 err=(INT32)params.dot-target;
-    //	if(err<0){err=-err;}
-    //	if(best_err>err){
-    //		best_err=err;
-    //		final_params=params;
-    //	}
-    //}
 
-    //params=final_params;
-
-    //DebugPrint(EFI_D_ERROR,"i915: DPLL params: n=%d m1=%d m2=%d p1=%d p2=%d\n",
-    //	params.n,params.m1,params.m2,params.p1,params.p2);
-    //DebugPrint(EFI_D_ERROR,"i915: DPLL params: m=%d p=%d vco=%d dot=%d, target=%d\n",
-    //	params.m,params.p,params.vco,params.dot,target);
-
-    //controller->write32(_FPA0, params.n << 16 | params.m1 << 8 | params.m2);
-    //controller->write32(_FPA1, params.n << 16 | params.m1 << 8 | params.m2);
-
-    //controller->write32(_DPLL_A, 0);
-
-    ////UINT32 dplla=DPLLB_MODE_DAC_SERIAL | DPLL_VGA_MODE_DIS | DPLL_SDVO_HIGH_SPEED | DPLL_VCO_ENABLE;
-    //UINT32 dplla=DPLLB_MODE_DAC_SERIAL | DPLL_VGA_MODE_DIS | DPLL_VCO_ENABLE;
-    //dplla |= (1 << (params.p1 - 1)) << DPLL_FPA01_P1_POST_DIV_SHIFT;
-    //switch (params.p2) {
-    //case 5:
-    //	dplla |= DPLL_DAC_SERIAL_P2_CLOCK_DIV_5;
-    //	break;
-    //case 7:
-    //	dplla |= DPLLB_LVDS_P2_CLOCK_DIV_7;
-    //	break;
-    //case 10:
-    //	dplla |= DPLL_DAC_SERIAL_P2_CLOCK_DIV_10;
-    //	break;
-    //case 14:
-    //	dplla |= DPLLB_LVDS_P2_CLOCK_DIV_14;
-    //	break;
-    //}
-    //dplla |= (6 << PLL_LOAD_PULSE_PHASE_SHIFT);
-    ////this is 0 anyway
-    //dplla |= PLL_REF_INPUT_DREFCLK;
-
-    //controller->write32(_DPLL_A, dplla);
-    //read32(_DPLL_A);
-    //DebugPrint(EFI_D_ERROR,"i915: DPLL set %08x, read %08x\n",dplla,read32(_DPLL_A));
-
-    ////it's pointless to wait in GVT-g
-    //if(!controller->is_gvt){
-    //	//MicroSecondDelay is unusable
-    //	for(UINT32 counter=0;counter<16384;counter++){
-    //		read32(_DPLL_A);
-    //	}
-    //}
-
-    //controller->write32(_DPLL_A_MD, (multiplier-1)<<DPLL_MD_UDI_MULTIPLIER_SHIFT);
-    //DebugPrint(EFI_D_ERROR,"i915: DPLL_MD set\n");
-
-    //for(int i = 0; i < 3; i++) {
-    //	controller->write32(_DPLL_A, dplla);
-    //	controller->read32(_DPLL_A);
-
-    //	if(!controller->is_gvt){
-    //		for(UINT32 counter=0;counter<16384;counter++){
-    //			controller->read32(_DPLL_A);
-    //		}
-    //	}
-    //}
-    //DebugPrint(EFI_D_ERROR,"i915: DPLL all set %08x, read %08x\n",dplla,controller->read32(_DPLL_A));
-
-    //SkyLake shared DPLL sequence: it's completely different!
-    // DPLL 1
-    //.ctl = LCPLL2_CTL,
-    //.cfgcr1 = _DPLL1_CFGCR1,
-    //.cfgcr2 = _DPLL1_CFGCR2,
-    //intel_encoders_pre_pll_enable(crtc, pipe_config, old_state);
- */
     UINT32 ctrl1, cfgcr1, cfgcr2;
     struct skl_wrpll_params wrpll_params = {
         0,
