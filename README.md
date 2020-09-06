@@ -11,7 +11,7 @@ The OpRegion code comes from IgdAssignmentDxe and should work everywhere. The bo
 ## How to build
 
 1. Make a workspace folder, for example: `i915-development`
-2. Clone the EDK II, EDKII-Packages, and this repo into the folder you just created
+2. Clone the EDK II, EDKII-Platforms, and this repo into the folder you just created
 3. In the EDK II folder, run `git submodule update --init` to download the submodules
 4. In the workspace folder, make a new folder called `Conf`
 5. Run `cp i915ovmfPkg/target.txt Conf/target.txt`

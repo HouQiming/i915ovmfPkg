@@ -337,6 +337,12 @@ EFI_STATUS SetupAndEnablePlane()
 }
 EFI_STATUS setOutputPath()
 {
+
+    /*
+    DDI_BUF_CTL_A bit 0 detects presence of DP for DDIA/eDP
+    SFUSE_STRAP FOR REST
+
+    */
     //TODO: Dynamicly get these
     /*  controller->OutputPath.ConType = HDMI;
     controller->OutputPath.DPLL = 1;

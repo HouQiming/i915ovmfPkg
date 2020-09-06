@@ -2354,19 +2354,7 @@ intel_link_compute_m_n(UINT16 bits_per_pixel, int nlanes,
 		    &m_n->link_m, &m_n->link_n,
 		    constant_n);
 }
-EFI_STATUS SetM_N(i915_CONTROLLER* controller, UINT32 transcoder) {
-	struct intel_link_m_n *m_n;
-	intel_link_compute_m_n(18, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
-			controller->write32( PIPE_DATA_M1(transcoder),
-			       TU_SIZE(m_n->tu) | m_n->gmch_m);
-		controller->write32( PIPE_DATA_N1(transcoder),
-			       m_n->gmch_n);
-		controller->write32( PIPE_LINK_M1(transcoder),
-			       m_n->link_m);
-		controller->write32( PIPE_LINK_N1(transcoder),
-			       m_n->link_n);
-}
+
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
 {
     UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
