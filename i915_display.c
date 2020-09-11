@@ -85,7 +85,7 @@ EFI_STATUS SetupDDIBuffer()
         break;
     }
 
-    return EFI_SUCCESS;
+    return status;
 }
 EFI_STATUS SetupIBoost()
 {
@@ -357,7 +357,6 @@ EFI_STATUS setOutputPath()
 
 static int cnp_rawclk(i915_CONTROLLER *controller)
 {
-    UINT32 rawclk;
     int divider, fraction;
 
     if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY)
@@ -556,7 +555,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 
 
     controller->write32(PP_CONTROL, 7);
-
+    PrintAllRegs();
 
     g_already_set++;
     return EFI_SUCCESS;

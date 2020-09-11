@@ -1,7 +1,7 @@
 
 #define PP_ON			(0xC7208)
 #define PP_OFF			(0xC720C)
-#define PP_DIVISOR 		(0xC7210)
+#define PP_DIVISOR		0x61210		/* Cedartrail */
 #define PP_STATUS		(0xC7200)
 #define PP_CONTROL		(0xC7204)
 //#define BUILD_BUG_ON_ZERO(e) ((int)(sizeof(struct { int:(-!!(e)); })))

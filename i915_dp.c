@@ -24,7 +24,7 @@
 #define PANEL_LIGHT_OFF_DELAY_MASK	(0x1fff)
 #define PANEL_LIGHT_OFF_DELAY_SHIFT	0
 
-#define PP_DIVISOR		0x61210		/* Cedartrail */
+//#define PP_DIVISOR		0x61210		/* Cedartrail */
 #define  PP_REFERENCE_DIVIDER_MASK	(0xffffff00)
 #define  PP_REFERENCE_DIVIDER_SHIFT	8
 #define  PANEL_POWER_CYCLE_DELAY_MASK	(0x1f)
@@ -196,7 +196,6 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller) {
 
 static int cnp_rawclk(i915_CONTROLLER* controller)
 {
-	UINT32 rawclk;
 	int divider, fraction;
 
 	if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY) {
@@ -275,9 +274,7 @@ static int cnp_rawclk(i915_CONTROLLER* controller)
 
 // 	/* Use the max of the register settings and vbt. If both are
 // 	 * unset, fall back to the spec limits. */
-// #define assign_final(field)	final->field = (max(cur.field, vbt.field) == 0 ? \
-// 				       spec.field : \
-// 				       max(cur.field, vbt.field))
+// #define assign_final(field)	final->field = (max(cur.field, vbt.field) == 0 ? spec.field : max(cur.field, vbt.field))
 // 	assign_final(t1_t3);
 // 	assign_final(t8);
 // 	assign_final(t9);
@@ -327,7 +324,7 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 	//int div = RUNTIME_INFO(dev_priv)->rawclk_freq / 1000;
 	int div = cnp_rawclk(controller); //Varies by generation
 	//struct pps_registers regs;
-	UINT32 port = controller->OutputPath.Port;
+	//UINT32 port = controller->OutputPath.Port;
 	//const struct edp_power_seq *seq = &intel_dp->pps_delays;
 
 //	lockdep_assert_held(&dev_priv->pps_mutex);
@@ -340,9 +337,9 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 		(500);
 	pp_off = (5000 << 15) |
 		(500);
-
-	/* /* Haswell doesn't have any port selection bits for the panel
-	 * power sequencer any more. 
+/* Haswell doesn't have any port selection bits for the panel
+	 * power sequencer any more. */
+	/* 
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		port_sel = PANEL_PORT_SELECT_VLV(port);
 	} else if (HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)) {
@@ -822,7 +819,7 @@ intel_dp_aux_xfer(i915_CONTROLLER* controller,
 	int try, clock = 0;
 	UINT32 val;
 	UINT32 status;
-	BOOLEAN vdd;
+	//BOOLEAN vdd;
 	UINT32 pin = controller->OutputPath.AuxCh;
 	ch_ctl =_DPA_AUX_CH_CTL + (pin << 8);
 	#define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
@@ -1383,7 +1380,8 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 	preemph_max = intel_dp_pre_emphasis_max(v);
 	if (p >= preemph_max)
 		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
-		DebugPrint(EFI_D_ERROR, "v:%u  p:%u \n", v, p);
+	
+	DebugPrint(EFI_D_ERROR, "v:%u  p:%u \n", v, p);
  
 	UINT8 val = intel_dp->train_set[0];
 	if (val < 8) {
@@ -1934,7 +1932,7 @@ intel_dp_max_data_rate(int max_link_clock, int max_lanes)
 
 	return max_link_clock * max_lanes;
 }
-intel_dp_link_required(int pixel_clock, int bpp)
+INT32 intel_dp_link_required(int pixel_clock, int bpp)
 {
 	/* pixel_clock is in kHz, divide bpp by 8 for bit to Byte conversion */
 	return DIV_ROUND_UP(pixel_clock * bpp, 8);
@@ -2029,26 +2027,29 @@ static void
 intel_dp_set_source_rates(struct intel_dp *intel_dp)
 {
 	/* The values must be in increasing order */
-	static const int cnl_rates[] = {
+/* 	static const int cnl_rates[] = {
 		162000, 216000, 270000, 324000, 432000, 540000, 648000, 810000
 	};
 	static const int bxt_rates[] = {
 		162000, 216000, 243000, 270000, 324000, 432000, 540000
 	};
-	static const int skl_rates[] = {
-		162000, 216000, 270000, 324000, 432000, 540000
-	};
+
 	static const int hsw_rates[] = {
 		162000, 270000, 540000
 	};
 	static const int g4x_rates[] = {
 		162000, 270000
+	}; */
+
+	static const int skl_rates[] = {
+		162000, 216000, 270000, 324000, 432000, 540000
 	};
 /* 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct intel_encoder *encoder = &dig_port->base;
 	struct drm_i915_private *dev_priv = to_i915(dig_port->base.base.dev); */
 	const int *source_rates;
-	int size, max_rate = 0, vbt_max_rate;
+	int size;
+	//int max_rate = 0, vbt_max_rate;
 
 	/* This should only be done once */
 	/* drm_WARN_ON(&dev_priv->drm,
@@ -2098,7 +2099,7 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 	int i, max_rate;
 
 	/* if (drm_dp_has_quirk(&intel_dp->desc, 0,
-			     DP_DPCD_QUIRK_CAN_DO_MAX_LINK_RATE_3_24_GBPS)) {
+			     DP_DPCD_QUIRK_CAN_DO_MAX_LINK_RATE_3_24_GBPS)) { */
 		/* Needed, e.g., for Apple MBP 2017, 15 inch eDP Retina panel 
 		static const int quirk_rates[] = { 162000, 270000, 324000 };
 
@@ -2187,7 +2188,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
 		_TrainDisplayPort(intel_dp); 
 							 }
-		return;
+		return EFI_ABORTED;
 }
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
     UINT32 port = controller->OutputPath.Port;
@@ -2233,10 +2234,10 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
 	UINT8 count =0;
 	while (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count) && count < 4) {
 		DebugPrint(EFI_D_ERROR, "Higher rate than configured, Trying Lower Pixel Clock\n");
-		controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
+		controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock >>= 1;
 		count ++;
 	}
-	if (count =4 && !intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count)) {
+	if ((count ==4) && (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count))) {
 				DebugPrint(EFI_D_ERROR, "Error: Higher rate than configured\n");
 
 		status = EFI_UNSUPPORTED;
@@ -2406,7 +2407,8 @@ EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
                             ((vertical_syncEnd - 1) << 16));
 
     controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
-	struct intel_link_m_n *m_n;
+	struct intel_link_m_n *m_n = {0};
+	
 	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
 	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
 			controller->write32( PIPEA_DATA_M1,
@@ -2485,7 +2487,7 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
         controller->write32(0x6f034, 0x00800000);
         controller->write32(0x6f040, 0x00048a37);
         controller->write32(0x6f044, 0x00080000); */
-	struct intel_link_m_n *m_n;
+	struct intel_link_m_n *m_n= {0};
 	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
 	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
     DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n->tu) | m_n->gmch_m);

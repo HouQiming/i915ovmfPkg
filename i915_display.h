@@ -318,7 +318,6 @@
 #define  GAMMA_MODE_MODE_12BIT    (2 << 0)
 #define  GAMMA_MODE_MODE_SPLIT    (3 << 0)
 
-#define SFUSE_STRAP            (0xc2014)
 #define  SFUSE_STRAP_FUSE_LOCK        (1 << 13)
 #define  SFUSE_STRAP_RAW_FREQUENCY    (1 << 8)
 #define  SFUSE_STRAP_DISPLAY_DISABLED    (1 << 7)
