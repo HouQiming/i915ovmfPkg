@@ -14,11 +14,11 @@ static EFI_STATUS ReadEDID(EDID *result)
         status = ReadEDIDHDMI(result, controller);
         break;
     case eDP:
-        status = ReadEDIDHDMI(result, controller);
+        status = ReadEDIDDP(result, controller);
 
         break;
     case DPSST:
-        status = ReadEDIDHDMI(result, controller);
+        status = ReadEDIDDP(result, controller);
 
         break;
     default:
@@ -436,7 +436,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 
     CHECK_STATUS_ERROR(status);
 
-    // intel_hdmi_prepare(encoder, pipe_config);
+    // intel_hdmi_prepare(encoder, pipe_config);set
     // hdmi_reg=DDI_BUF_CTL(port)
 
     // it's Type C

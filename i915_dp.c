@@ -2186,7 +2186,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
 							SetupClockeDP(intel_dp->controller);	
 							 
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
-		_TrainDisplayPort(intel_dp); 
+		return _TrainDisplayPort(intel_dp); 
 							 }
 		return EFI_ABORTED;
 }
@@ -2318,10 +2318,15 @@ static void compute_m_n(unsigned int m, unsigned int n,
 	 * specified fixed N value for asynchronous clock mode,
 	 * which the devices expect also in synchronous clock mode.
 	 */
+	          DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 	if (constant_n)
 		*ret_n = 0x8000;
 	else
 		*ret_n = min_t(unsigned int, roundup_pow_of_two(n), DATA_LINK_N_MAX);
+
+	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 	DebugPrint(EFI_D_ERROR, "m: %u, n: %u, ret_n: %u\n", m, n, *ret_n);
 	*ret_m = div_UINT64(mul_UINT32_UINT32(m, *ret_n), n);
 	intel_reduce_m_n_ratio(ret_m, ret_n);
@@ -2345,15 +2350,22 @@ intel_link_compute_m_n(UINT16 bits_per_pixel, int nlanes,
 	/* if (fec_enable)
 		data_clock = intel_dp_mode_to_fec_clock(data_clock);
  */
+         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 	m_n->tu = 64;
+	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 	compute_m_n(data_clock,
 		    link_clock * nlanes * 8,
-		    &m_n->gmch_m, &m_n->gmch_n,
+		    &(m_n->gmch_m), &(m_n->gmch_n),
 		    constant_n);
-
+         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 	compute_m_n(pixel_clock, link_clock,
 		    &m_n->link_m, &m_n->link_n,
 		    constant_n);
+			         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
 }
 
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
@@ -2407,18 +2419,18 @@ EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
                             ((vertical_syncEnd - 1) << 16));
 
     controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
-	struct intel_link_m_n *m_n = {0};
+	struct intel_link_m_n m_n = {0};
 	
 	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
+	].pixelClock * 10,controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
 			controller->write32( PIPEA_DATA_M1,
-			       TU_SIZE(m_n->tu) | m_n->gmch_m);
+			       TU_SIZE(m_n.tu) | m_n.gmch_m);
 		controller->write32( PIPEA_DATA_N1,
-			       m_n->gmch_n);
+			       m_n.gmch_n);
 		controller->write32( PIPEA_LINK_M1,
-			       m_n->link_m);
+			       m_n.link_m);
 		controller->write32( PIPEA_LINK_N1,
-			       m_n->link_n);  
+			       m_n.link_n);  
 				    DebugPrint(EFI_D_ERROR, "i915: HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
     DebugPrint(EFI_D_ERROR, "i915: HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
     DebugPrint(EFI_D_ERROR, "i915: HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
@@ -2487,22 +2499,25 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
         controller->write32(0x6f034, 0x00800000);
         controller->write32(0x6f040, 0x00048a37);
         controller->write32(0x6f044, 0x00080000); */
-	struct intel_link_m_n *m_n= {0};
+		struct intel_link_m_n m_n = {0};
+	//struct intel_link_m_n *m_n= &m_n
 	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock * 10,controller->OutputPath.LinkRate, m_n, FALSE, FALSE);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n->tu) | m_n->gmch_m);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_N1 (%x) = %08x\n", PIPEEDP_DATA_N1, m_n->gmch_n);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_M1 (%x) = %08x\n", PIPEEDP_LINK_M1, m_n->link_m);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_N1 (%x) = %08x\n", PIPEEDP_LINK_N1, m_n->link_n);
+	].pixelClock * 10,controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
+	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
+                   __LINE__);
+    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n.tu) | m_n.gmch_m);
+    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_N1 (%x) = %08x\n", PIPEEDP_DATA_N1, m_n.gmch_n);
+    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_M1 (%x) = %08x\n", PIPEEDP_LINK_M1, m_n.link_m);
+    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_N1 (%x) = %08x\n", PIPEEDP_LINK_N1, m_n.link_n);
 
   			controller->write32( PIPEEDP_DATA_M1,
-			       TU_SIZE(m_n->tu) | m_n->gmch_m);
+			       TU_SIZE(m_n.tu) | m_n.gmch_m);
 		controller->write32( PIPEEDP_DATA_N1,
-			       m_n->gmch_n);
+			       m_n.gmch_n);
 		controller->write32( PIPEEDP_LINK_M1,
-			       m_n->link_m);
+			       m_n.link_m);
 		controller->write32( PIPEEDP_LINK_N1,
-			       m_n->link_n);    
+			       m_n.link_n);    
     DebugPrint(EFI_D_ERROR, "i915: HTOTAL_EDP (%x) = %08x\n", HTOTAL_EDP, controller->read32(HTOTAL_EDP));
     DebugPrint(EFI_D_ERROR, "i915: HBLANK_EDP (%x) = %08x\n", HBLANK_EDP, controller->read32(HBLANK_EDP));
     DebugPrint(EFI_D_ERROR, "i915: HSYNC_EDP (%x) = %08x\n", HSYNC_EDP, controller->read32(HSYNC_EDP));
