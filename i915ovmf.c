@@ -21,6 +21,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/UefiLib.h>
+#include "intel_opregion.h"
 
 i915_CONTROLLER g_private = {SIGNATURE_32('i', '9', '1', '5')};
 
@@ -252,7 +253,7 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   EFI_STATUS Status;
   EFI_PHYSICAL_ADDRESS Address;
   UINT8 *BytePointer;
-
+  struct intel_opregion OpRegion;
   if (mOpRegionSize == 0) {
     return EFI_INVALID_PARAMETER;
   }
@@ -282,6 +283,17 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   if (OpRegionResidual) {
     ZeroMem(BytePointer + mOpRegionSize, OpRegionResidual);
   }
+
+  OpRegion.header=(struct opregion_header *) BytePointer;
+  OpRegion.vbt =(struct vbt_header *) (BytePointer + 1024);
+
+  Status = decodeVBT(OpRegion.vbt, BytePointer);
+  if (EFI_ERROR(Status)) {
+    DEBUG((EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status));
+    return Status;
+  }
+
 
   // for(int i=0;i<sizeof(OPREGION_SIGNATURE);i++){
   //    BytePointer[i]=(UINT8)OPREGION_SIGNATURE[i];
