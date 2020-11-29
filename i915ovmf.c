@@ -287,7 +287,7 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   OpRegion.header=(struct opregion_header *) BytePointer;
   OpRegion.vbt =(struct vbt_header *) (BytePointer + 1024);
 
-  Status = decodeVBT(OpRegion.vbt, BytePointer);
+  Status = decodeVBT(OpRegion.vbt, 1024, BytePointer);
   if (EFI_ERROR(Status)) {
     DEBUG((EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
            __FUNCTION__, GetPciName(PciInfo), Status));

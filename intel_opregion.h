@@ -30,6 +30,7 @@
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/PciIo.h>
 #include <Uefi.h>
+#include <Library/MemoryAllocationLib.h>
 
 #include "QemuFwCfgLib.h"
 #include "i915_display.h"
@@ -1234,4 +1235,4 @@ struct bdb_compression_parameters
 	struct dsc_compression_parameters_entry data[16];
 } __packed;
 
-EFI_STATUS decodeVBT( struct vbt_header *vbt, UINT8 *VBIOS);
+EFI_STATUS decodeVBT( struct vbt_header *vbt, int vbt_off, UINT8 *VBIOS);
