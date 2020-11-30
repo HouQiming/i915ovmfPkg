@@ -2,13 +2,13 @@
 #include <Library/UefiBootServicesTableLib.h>
 
 #include "i915_display.h"
-
+#include "intel_opregion.h"
 static i915_CONTROLLER *controller;
 
 static EFI_STATUS ReadEDID(EDID *result)
 {
-    EFI_STATUS status;
-    switch (controller->OutputPath.ConType)
+    EFI_STATUS status = EFI_SUCCESS;
+    /* switch (controller->OutputPath.ConType)
     {
     case HDMI:
         status = ReadEDIDHDMI(result, controller);
@@ -24,7 +24,7 @@ static EFI_STATUS ReadEDID(EDID *result)
     default:
         status = EFI_NOT_FOUND;
         break;
-    }
+    } */
 
     DebugPrint(EFI_D_ERROR, "Reading PP_STATUS: %u \n", controller->read32(PP_STATUS));
 
@@ -308,7 +308,9 @@ EFI_STATUS SetupAndEnablePlane()
     UINT32 horz_active =
         controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION]
-                      .horzActiveBlankMsb >> 4) << 8);
+                      .horzActiveBlankMsb >>
+                  4)
+         << 8);
     UINT32 vert_active =
         controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
@@ -335,9 +337,87 @@ EFI_STATUS SetupAndEnablePlane()
                controller->read32(_DSPACNTR), controller->FbBase);
     return EFI_SUCCESS;
 }
-EFI_STATUS setOutputPath()
+static BOOLEAN isCurrentPortPresent(enum port port, UINT32 found)
 {
+    switch (port)
+    {
+    case PORT_A:
 
+        return controller->read32(DDI_BUF_CTL(PORT_A)) && DDI_INIT_DISPLAY_DETECTED;
+    case PORT_B:
+        return found & SFUSE_STRAP_DDIB_DETECTED;
+    case PORT_C:
+        return found & SFUSE_STRAP_DDIC_DETECTED;
+    case PORT_D:
+        return found & SFUSE_STRAP_DDID_DETECTED;
+    default:
+        return false;
+    }
+}
+static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+
+    if (controller->is_gvt)
+    {
+
+        EDID *result;
+        controller->OutputPath.ConType = HDMI;
+        controller->OutputPath.DPLL = 1;
+
+        controller->OutputPath.Port = PORT_B;
+        for (int i = 1; i <= 6; i++)
+        {
+            Status = ReadEDIDHDMI(result, controller, i);
+            if (!Status)
+            {
+                controller->edid = *result;
+                return Status;
+            }
+        }
+        return EFI_NOT_FOUND;
+    }
+    for (int i = 0; i < controller->opRegion->numChildren; i++)
+    {
+        EDID *result;
+
+        struct ddi_vbt_port_info ddi_port_info = controller->vbt.ddi_port_info[i];
+
+        // UINT32* port = &controller->OutputPath.Port;
+        if (!isCurrentPortPresent(ddi_port_info.port, found))
+        {
+            continue;
+        }
+        if (ddi_port_info.supports_dp || ddi_port_info.supports_edp)
+        {
+            Status = ReadEDIDDP(result, controller, intel_bios_port_aux_ch(controller, ddi_port_info.port));
+            if (!Status)
+            {
+                controller->OutputPath.ConType = ddi_port_info.port == PORT_A ? eDP : DPSST;
+                controller->OutputPath.DPLL = 1;
+                controller->edid = *result;
+                controller->OutputPath.Port = ddi_port_info.port;
+                DebugPrint(EFI_D_ERROR, "I915: DUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
+
+                return Status;
+            }
+        }
+        if (ddi_port_info.supports_dvi || ddi_port_info.supports_hdmi)
+        {
+            Status = ReadEDIDHDMI(result, controller, ddi_port_info.alternate_ddc_pin);
+            if (!Status)
+            {
+                controller->OutputPath.ConType = HDMI;
+                controller->OutputPath.DPLL = 1;
+                controller->edid = *result;
+
+                controller->OutputPath.Port = ddi_port_info.port;
+                DebugPrint(EFI_D_ERROR, "I915: HUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
+
+                return Status;
+            }
+        }
+    }
     /*
     DDI_BUF_CTL_A bit 0 detects presence of DP for DDIA/eDP
     SFUSE_STRAP FOR REST
@@ -348,11 +428,8 @@ EFI_STATUS setOutputPath()
     controller->OutputPath.DPLL = 1;
 
     controller->OutputPath.Port = PORT_B;  */
-    controller->OutputPath.ConType = eDP;
-    controller->OutputPath.DPLL = 1;
 
-    controller->OutputPath.Port = PORT_A;
-    return EFI_SUCCESS;
+    return Status;
 }
 
 static int cnp_rawclk(i915_CONTROLLER *controller)
@@ -379,8 +456,9 @@ static void PrintReg(UINT64 reg, const char *name)
     // DebugPrint(EFI_D_ERROR, "%a\n", name);
     DebugPrint(EFI_D_ERROR, "i915: Reg %a(%08x), val: %08x\n", name, reg, controller->read32(reg));
 }
-static void PrintAllRegs() {
-        UINT32 port = controller->OutputPath.Port;
+static void PrintAllRegs()
+{
+    UINT32 port = controller->OutputPath.Port;
 
     PrintReg(PP_CONTROL, "PP_CONTROL");
     PrintReg(_BXT_BLC_PWM_FREQ1, "_BXT_BLC_PWM_FREQ1");
@@ -430,7 +508,6 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     status = SetupClocks();
 
     CHECK_STATUS_ERROR(status);
-
 
     status = SetupDDIBuffer();
 
@@ -553,7 +630,6 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     }
     status = RETURN_ABORTED;
 
-
     controller->write32(PP_CONTROL, 7);
     PrintAllRegs();
 
@@ -565,7 +641,7 @@ error:
     return status;
 }
 
-STATIC UINT8 edid_fallback[] = {
+ STATIC UINT8 edid_fallback[] = {
     // generic 1280x720
     0, 255, 255, 255, 255, 255, 255, 0, 34, 240, 84, 41, 1, 0, 0,
     0, 4, 23, 1, 4, 165, 52, 32, 120, 35, 252, 129, 164, 85, 77,
@@ -578,7 +654,7 @@ STATIC UINT8 edid_fallback[] = {
     50, 48, 112, 10, 32, 32, 0, 161
     // the test monitor
     // 0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
-};
+}; 
 
 EFI_STATUS SetupPPS()
 {
@@ -588,7 +664,6 @@ EFI_STATUS SetupPPS()
     controller->write32(_BXT_BLC_PWM_FREQ1, max);
     controller->write32(_BXT_BLC_PWM_DUTY1, max);
 
-\
     UINT32 val = controller->read32(BKL_GRAN_CTL);
     val |= 1;
     controller->write32(BKL_GRAN_CTL, val);
@@ -603,7 +678,6 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     EFI_STATUS Status;
 
     controller = iController;
-    setOutputPath();
     /* 1. Enable PCH reset handshake. */
     // intel_pch_reset_handshake(dev_priv, !HAS_PCH_NOP(dev_priv));
     controller->write32(HSW_NDE_RSTWRN_OPT,
@@ -710,6 +784,11 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     // intel_ddi_init(PORT_A);
     UINT32 found = controller->read32(SFUSE_STRAP);
     DebugPrint(EFI_D_ERROR, "i915: SFUSE_STRAP = %08x\n", found);
+    Status = setOutputPath(controller, found);
+    if (EFI_ERROR(Status))
+    {
+        DebugPrint(EFI_D_ERROR, "i915: failed to Set OutputPath\n");
+    }
     // UINT32* port = &controller->OutputPath.Port;
     /*         UINT32* port = &(controller->OutputPath.Port);
 
@@ -738,14 +817,17 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     // it somehow fails on real hardware
     // Verified functional on i7-10710U
     Status = ReadEDID(&controller->edid);
-    if (EFI_ERROR(Status))
-    {
-        DebugPrint(EFI_D_ERROR, "i915: failed to read EDID\n");
-        for (UINT32 i = 0; i < 128; i++)
+    if (*(UINT64 *)controller->edid.magic != 0x00FFFFFFFFFFFF00uLL) {
+for (UINT32 i = 0; i < 128; i++)
         {
             ((UINT8 *)&controller->edid)[i] = edid_fallback[i];
         }
     }
+    /*  if (EFI_ERROR(Status))
+    {
+        DebugPrint(EFI_D_ERROR, "i915: failed to read EDID\n");
+        
+    } */
     DebugPrint(EFI_D_ERROR, "i915: got EDID:\n");
     for (UINT32 i = 0; i < 16; i++)
     {

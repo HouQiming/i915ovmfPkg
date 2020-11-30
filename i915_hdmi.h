@@ -1,3 +1,5 @@
+#ifndef i915_HDMIH
+#define i915_HDMIH
 #define  DPLL_CTRL1_HDMI_MODE(id)        (1 << ((id) * 6 + 5))
 #define _DPLL1_CFGCR1    0x6C040
 #define _DPLL2_CFGCR1    0x6C048
@@ -61,4 +63,5 @@ struct skl_wrpll_context {
 };
 EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER* controller);
-EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller);
+EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller, UINT8 pin);
+#endif

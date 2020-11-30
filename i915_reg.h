@@ -1,3 +1,5 @@
+#ifndef i915_REGH
+#define i915_REGH
 #define PCH_DISPLAY_BASE    0xc0000u
 #define DETAIL_TIME_SELCTION 0
 #define DPLL_CTRL1        (0x6C058)
@@ -138,3 +140,31 @@
 #define SFUSE_STRAP			0xc2014
 #define  SFUSE_STRAP_FUSE_LOCK		(1 << 13)
 #define  SFUSE_STRAP_RAW_FREQUENCY	(1 << 8)
+enum port {
+	PORT_NONE = -1,
+
+	PORT_A = 0,
+	PORT_B,
+	PORT_C,
+	PORT_D,
+	PORT_E,
+	PORT_F,
+	PORT_G,
+	PORT_H,
+	PORT_I,
+
+	I915_MAX_PORTS
+};
+
+typedef UINT8 u8;
+typedef UINT16 u16;
+
+typedef UINT32 u32;
+typedef UINT64 u64;
+typedef BOOLEAN bool;
+#define true TRUE
+#define false FALSE
+#define __packed __attribute__((packed))
+
+
+#endif

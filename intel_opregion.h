@@ -34,7 +34,6 @@
 
 #include "QemuFwCfgLib.h"
 #include "i915_display.h"
-#include "i915_gop.h"
 #include "i915ovmf.h"
 #include <IndustryStandard/Acpi.h>
 #include <IndustryStandard/Pci.h>
@@ -48,6 +47,11 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/UefiLib.h>
+#include "i915_controller.h"
+
+#ifndef INTEL_OPREGION
+#define INTEL_OPREGION
+
 #define OPREGION_HEADER_OFFSET 0
 #define OPREGION_ACPI_OFFSET 0x100
 #define ACPI_CLID 0x01ac /* current lid state indicator */
@@ -62,162 +66,27 @@
 #define MBOX_SWSCI (1 << 1)
 #define MBOX_ASLE (1 << 2)
 #define MBOX_ASLE_EXT (1 << 4)
-#define __packed __attribute__((packed))
-struct opregion_header
-{
-	UINT8 signature[16];
-	UINT32 size;
-	struct
-	{
-		UINT8 rsvd;
-		UINT8 revision;
-		UINT8 minor;
-		UINT8 major;
-	} __packed over;
-	UINT8 bios_ver[32];
-	UINT8 vbios_ver[16];
-	UINT8 driver_ver[16];
-	UINT32 mboxes;
-	UINT32 driver_model;
-	UINT32 pcon;
-	UINT8 dver[32];
-	UINT8 rsvd[124];
-} __packed;
 
-/* OpRegion mailbox #1: public ACPI methods */
-struct opregion_acpi
+struct context
 {
-	UINT32 drdy; /* driver readiness */
-	UINT32 csts; /* notification status */
-	UINT32 cevt; /* current event */
-	UINT8 rsvd1[20];
-	UINT32 didl[8]; /* supported display devices ID list */
-	UINT32 cpdl[8]; /* currently presented display list */
-	UINT32 cadl[8]; /* currently active display list */
-	UINT32 nadl[8]; /* next active devices list */
-	UINT32 aslp;	/* ASL sleep time-out */
-	UINT32 tidx;	/* toggle table index */
-	UINT32 chpd;	/* current hotplug enable indicator */
-	UINT32 clid;	/* current lid state*/
-	UINT32 cdck;	/* current docking state */
-	UINT32 sxsw;	/* Sx state resume */
-	UINT32 evts;	/* ASL supported events */
-	UINT32 cnot;	/* current OS notification */
-	UINT32 nrdy;	/* driver status */
-	UINT32 did2[7]; /* extended supported display devices ID list */
-	UINT32 cpd2[7]; /* extended attached display devices list */
-	UINT8 rsvd2[4];
-} __packed;
-
-/* OpRegion mailbox #2: SWSCI */
-struct opregion_swsci
-{
-	UINT32 scic; /* SWSCI command|status|data */
-	UINT32 parm; /* command parameters */
-	UINT32 dslp; /* driver sleep time-out */
-	UINT8 rsvd[244];
-} __packed;
-
-/* OpRegion mailbox #3: ASLE */
-struct opregion_asle
-{
-	UINT32 ardy;	 /* driver readiness */
-	UINT32 aslc;	 /* ASLE interrupt command */
-	UINT32 tche;	 /* technology enabled indicator */
-	UINT32 alsi;	 /* current ALS illuminance reading */
-	UINT32 bclp;	 /* backlight brightness to set */
-	UINT32 pfit;	 /* panel fitting state */
-	UINT32 cblv;	 /* current brightness level */
-	UINT16 bclm[20]; /* backlight level duty cycle mapping table */
-	UINT32 cpfm;	 /* current panel fitting mode */
-	UINT32 epfm;	 /* enabled panel fitting modes */
-	UINT8 plut[74];	 /* panel LUT and identifier */
-	UINT32 pfmb;	 /* PWM freq and min brightness */
-	UINT32 cddv;	 /* color correction default values */
-	UINT32 pcft;	 /* power conservation features */
-	UINT32 srot;	 /* supported rotation angles */
-	UINT32 iuer;	 /* IUER events */
-	UINT64 fdss;
-	UINT32 fdsp;
-	UINT32 stat;
-	UINT64 rvda; /* Physical (2.0) or relative from opregion (2.1+)
-			 * address of raw VBT data. */
-	UINT32 rvds; /* Size of raw vbt data */
-	UINT8 rsvd[58];
-} __packed;
-
-/* OpRegion mailbox #5: ASLE ext */
-struct opregion_asle_ext
-{
-	UINT32 phed;	 /* Panel Header */
-	UINT8 bddc[256]; /* Panel EDID */
-	UINT8 rsvd[764];
-} __packed;
-/**
- * struct vbt_header - VBT Header structure
- * @signature:		VBT signature, always starts with "$VBT"
- * @version:		Version of this structure
- * @header_size:	Size of this structure
- * @vbt_size:		Size of VBT (VBT Header, BDB Header and data blocks)
- * @vbt_checksum:	Checksum
- * @reserved0:		Reserved
- * @bdb_offset:		Offset of &struct bdb_header from beginning of VBT
- * @aim_offset:		Offsets of add-in data blocks from beginning of VBT
- */
-struct vbt_header
-{
-	UINT8 signature[20];
-	UINT16 version;
-	UINT16 header_size;
-	UINT16 vbt_size;
-	UINT8 vbt_checksum;
-	UINT8 reserved0;
-	UINT32 bdb_offset;
-	UINT32 aim_offset[4];
-} __packed;
-
-/**
- * struct bdb_header - BDB Header structure
- * @signature:		BDB signature "BIOS_DATA_BLOCK"
- * @version:		Version of the data block definitions
- * @header_size:	Size of this structure
- * @bdb_size:		Size of BDB (BDB Header and data blocks)
- */
-struct bdb_header
-{
-	UINT8 signature[16];
-	UINT16 version;
-	UINT16 header_size;
-	UINT16 bdb_size;
-} __packed;
-
-struct intel_opregion
-{
-	struct opregion_header *header;
-	struct opregion_acpi *acpi;
-	struct opregion_swsci *swsci;
-	struct opregion_asle *asle;
-	struct vbt_header *vbt;
-	struct bdb_header *bdb;
-	struct opregion_asle_ext *asle_ext;
+	const struct vbt_header *vbt;
+	const struct bdb_header *bdb;
+	int size;
+	struct child_device_config * children;
+	UINT8 numChildren;
+	UINT32 devid;
+	int panel_type;
+	BOOLEAN dump_all_panel_types;
+	BOOLEAN hexdump;
 };
+
 struct bdb_block
 {
 	UINT8 id;
 	UINT32 size;
 	const void *data;
 };
-struct context
-{
-	const struct vbt_header *vbt;
-	const struct bdb_header *bdb;
-	int size;
 
-	UINT32 devid;
-	int panel_type;
-	BOOLEAN dump_all_panel_types;
-	BOOLEAN hexdump;
-};
 
 struct dumper
 {
@@ -266,7 +135,11 @@ enum bdb_block_id
 	BDB_COMPRESSION_PARAMETERS = 56,
 	BDB_SKIP = 254, /* VBIOS private block, ignore */
 };
+#define port_name(p) ((p) + 'A')
 
+
+#define for_each_port(__port) \
+	for ((__port) = PORT_A; (__port) < I915_MAX_PORTS; (__port)++)
 
 
 /* Get to bdb section of vbt. THen Scan through to read off the ids of the blocks until we find general definitions or legacy child devices. THen read them
@@ -587,27 +460,32 @@ struct bdb_general_features
 #define DEVICE_PORT_DVOC 0x02
 
 /* dvo_port BDB 155+ */
-#define DVO_PORT_HDMIA 0
-#define DVO_PORT_HDMIB 1
-#define DVO_PORT_HDMIC 2
-#define DVO_PORT_HDMID 3
-#define DVO_PORT_LVDS 4
-#define DVO_PORT_TV 5
-#define DVO_PORT_CRT 6
-#define DVO_PORT_DPB 7
-#define DVO_PORT_DPC 8
-#define DVO_PORT_DPD 9
-#define DVO_PORT_DPA 10
-#define DVO_PORT_DPE 11	  /* 193 */
-#define DVO_PORT_HDMIE 12 /* 193 */
-#define DVO_PORT_DPF 13	  /* N/A */
-#define DVO_PORT_HDMIF 14 /* N/A */
-#define DVO_PORT_DPG 15
-#define DVO_PORT_HDMIG 16
-#define DVO_PORT_MIPIA 21 /* 171 */
-#define DVO_PORT_MIPIB 22 /* 171 */
-#define DVO_PORT_MIPIC 23 /* 171 */
-#define DVO_PORT_MIPID 24 /* 171 */
+/* dvo_port BDB 155+ */
+#define DVO_PORT_HDMIA		0
+#define DVO_PORT_HDMIB		1
+#define DVO_PORT_HDMIC		2
+#define DVO_PORT_HDMID		3
+#define DVO_PORT_LVDS		4
+#define DVO_PORT_TV		5
+#define DVO_PORT_CRT		6
+#define DVO_PORT_DPB		7
+#define DVO_PORT_DPC		8
+#define DVO_PORT_DPD		9
+#define DVO_PORT_DPA		10
+#define DVO_PORT_DPE		11				/* 193 */
+#define DVO_PORT_HDMIE		12				/* 193 */
+#define DVO_PORT_DPF		13				/* N/A */
+#define DVO_PORT_HDMIF		14				/* N/A */
+#define DVO_PORT_DPG		15				/* 217 */
+#define DVO_PORT_HDMIG		16				/* 217 */
+#define DVO_PORT_DPH		17				/* 217 */
+#define DVO_PORT_HDMIH		18				/* 217 */
+#define DVO_PORT_DPI		19				/* 217 */
+#define DVO_PORT_HDMII		20				/* 217 */
+#define DVO_PORT_MIPIA		21				/* 171 */
+#define DVO_PORT_MIPIB		22				/* 171 */
+#define DVO_PORT_MIPIC		23				/* 171 */
+#define DVO_PORT_MIPID		24				/* 171 */
 
 #define HDMI_MAX_DATA_RATE_PLATFORM 0 /* 204 */
 #define HDMI_MAX_DATA_RATE_297 1	  /* 204 */
@@ -845,6 +723,18 @@ struct bdb_sdvo_panel_dtds
 /*
  * Block 27 - eDP VBT Block
  */
+enum aux_ch {
+	AUX_CH_A,
+	AUX_CH_B,
+	AUX_CH_C,
+	AUX_CH_D,
+	AUX_CH_E, /* ICL+ */
+	AUX_CH_F,
+	AUX_CH_G,
+	AUX_CH_H,
+	AUX_CH_I,
+};
+#define aux_ch_name(a) ((a) + 'A')
 
 #define EDP_18BPP 0
 #define EDP_24BPP 1
@@ -1235,4 +1125,8 @@ struct bdb_compression_parameters
 	struct dsc_compression_parameters_entry data[16];
 } __packed;
 
-EFI_STATUS decodeVBT( struct vbt_header *vbt, int vbt_off, UINT8 *VBIOS);
+EFI_STATUS decodeVBT(struct intel_opregion * opRegion, int vbt_off);
+void parse_ddi_ports(i915_CONTROLLER *dev_priv, UINT8 bdb_version);
+enum aux_ch intel_bios_port_aux_ch(i915_CONTROLLER *dev_priv,
+				   enum port port);
+#endif

@@ -29,13 +29,11 @@
 #define  PP_REFERENCE_DIVIDER_SHIFT	8
 #define  PANEL_POWER_CYCLE_DELAY_MASK	(0x1f)
 #define  PANEL_POWER_CYCLE_DELAY_SHIFT	0
-EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller) {
-      UINT32 pin = 0;
+EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller, UINT8 pin) {
 
         UINT32 *p = (UINT32 *)result;
 
-    for (pin = 0; pin <= 5; pin++)
-    {
+    
         DebugPrint(EFI_D_ERROR, "i915: trying DP aux %d\n", pin);
         // aux message header is 3-4 bytes: ctrl8 addr16 len8
         // the data is big endian
@@ -105,7 +103,7 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller) {
         if (aux_status &
             (DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_RECEIVE_ERROR))
         {
-            continue;
+        return EFI_NOT_FOUND;
         }
         // i2c read 1 byte * 128
         DebugPrint(EFI_D_ERROR, "i915: reading DP aux %d\n", pin);
@@ -189,7 +187,7 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller) {
             controller->OutputPath.AuxCh = pin;
             return EFI_SUCCESS;
         }
-    }
+    
         return EFI_NOT_FOUND;
 
 }

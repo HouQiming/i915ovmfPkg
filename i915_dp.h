@@ -1,4 +1,5 @@
-
+#ifndef i915_DPH
+#define i915_DPH
 #define PP_ON			(0xC7208)
 #define PP_OFF			(0xC720C)
 #define PP_DIVISOR		0x61210		/* Cedartrail */
@@ -1361,4 +1362,5 @@ EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller);
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller);
 void intel_dp_pps_init(i915_CONTROLLER* controller);
-EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller);
+EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller, UINT8 pin);
+#endif

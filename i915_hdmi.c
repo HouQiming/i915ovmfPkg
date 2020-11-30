@@ -6,18 +6,65 @@
 #include "i915_hdmi.h"
 #include "i915_reg.h"
 #include <Uefi.h>
-EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller) {
-  UINT32 pin = 0;
+static int intel_hdmi_source_max_tmds_clock()
+{
+    // struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+    int max_tmds_clock;
+    //, vbt_max_tmds_clock;
+
+    // if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+    // 	max_tmds_clock = 594000;
+    // else if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv))
+    max_tmds_clock = 300000;
+    // else if (INTEL_GEN(dev_priv) >= 5)
+    // 	max_tmds_clock = 225000;
+    // else
+    // 	max_tmds_clock = 165000;
+
+    // vbt_max_tmds_clock = intel_bios_max_tmds_clock(encoder);
+    // if (vbt_max_tmds_clock)
+    // 	max_tmds_clock = min(max_tmds_clock, vbt_max_tmds_clock);
+
+    return max_tmds_clock;
+}
+static int hdmi_port_clock_limit()
+{
+    //struct intel_encoder *encoder = &hdmi_to_dig_port(hdmi)->base;
+    int max_tmds_clock = intel_hdmi_source_max_tmds_clock();
+
+    return max_tmds_clock;
+}
+INT32 intel_hdmi_link_required(int pixel_clock, int bpp)
+{
+    /* pixel_clock is in kHz, divide bpp by 8 for bit to Byte conversion */
+    return DIV_ROUND_UP(pixel_clock * bpp, 8);
+}
+static BOOLEAN intel_hdmi_valid_link_rate(UINT32 pixelClock)
+{
+    /* const struct drm_display_mode *fixed_mode =
+		intel_dp->attached_connector->panel.fixed_mode; */
+    int mode_rate, max_rate;
+
+    mode_rate = intel_hdmi_link_required(pixelClock * 10, 8);
+    max_rate = hdmi_port_clock_limit();
+    DebugPrint(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
+    if (mode_rate > max_rate)
+        return FALSE;
+
+    return TRUE;
+}
+EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
+{
     // it's an INTEL GPU, there's no way we could be big endian
     UINT32 *p = (UINT32 *)result;
     // try all the pins on GMBUS
-    for (pin = 1; pin <= 6; pin++)
     {
         DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
         controller->write32(gmbusSelect, pin);
         if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
         {
-            continue;
+
+            return EFI_NOT_FOUND;
         }
         // set read offset: i2cWrite(0x50, &offset, 1);
         controller->write32(gmbusData, 0);
@@ -27,6 +74,8 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller) {
                                               GMBUS_SW_RDY);
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
+                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+
         // read the edid: i2cRead(0x50, &edid, 128);
         // note that we could fail here!
         controller->write32(gmbusCommand, (0x50 << GMBUS_SLAVE_ADDR_SHIFT) |
@@ -38,12 +87,16 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller) {
         {
             if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
             {
+                        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+
                 break;
             }
             p[i >> 2] = controller->read32(gmbusData);
         }
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
+                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+
         for (UINT32 i = 0; i < 16; i++)
         {
             for (UINT32 j = 0; j < 8; j++)
@@ -54,6 +107,32 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER* controller) {
         }
         if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
         {
+            if (!intel_hdmi_valid_link_rate(result->detailTimings[DETAIL_TIME_SELCTION].pixelClock))
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    if (result->detailTimings[j].pixelClock > 0 && intel_hdmi_valid_link_rate(result->detailTimings[j].pixelClock))
+                    {
+                        result->detailTimings[DETAIL_TIME_SELCTION] = result->detailTimings[j];
+                        return EFI_SUCCESS;
+                    }
+                }
+                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+
+                for (int j = 0; j < 4; j++)
+                {
+                    if (result->detailTimings[j].pixelClock >> 1 > 0 && intel_hdmi_valid_link_rate(result->detailTimings[j].pixelClock >> 1))
+                    {
+                        result->detailTimings[j].pixelClock = result->detailTimings[j].pixelClock >> 1;
+                        result->detailTimings[DETAIL_TIME_SELCTION] = result->detailTimings[j];
+                        return EFI_SUCCESS;
+                    }
+                }
+                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+            }
+            // if (result->detailTimings[DETAIL_TIME_SELCTION].pixelClock > 3) {
+            //     result->detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
+            // }
             return EFI_SUCCESS;
         }
     }
@@ -234,7 +313,8 @@ static void skl_wrpll_try_divider(struct skl_wrpll_context *ctx,
     }
 }
 
-EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller) {
+EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
+{
 
     UINT32 ctrl1, cfgcr1, cfgcr2;
     struct skl_wrpll_params wrpll_params = {
@@ -245,7 +325,7 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller) {
      * See comment in intel_dpll_hw_state to understand why we always use 0
      * as the DPLL id in this function. Basically, we put them in the first 6 bits then shift them into place for easier comparison
      */
-    ctrl1 = DPLL_CTRL1_OVERRIDE(0); //Enable Programming
+    ctrl1 = DPLL_CTRL1_OVERRIDE(0);   //Enable Programming
     ctrl1 |= DPLL_CTRL1_HDMI_MODE(0); //Set Mode to HDMI
 
     {
@@ -392,7 +472,7 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER* controller) {
     DebugPrint(EFI_D_ERROR, "i915: DPLL_CTRL2 = %08x\n", controller->read32(DPLL_CTRL2));
     return EFI_SUCCESS;
 }
-EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER* controller)
+EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER *controller)
 {
     UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
                          ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
