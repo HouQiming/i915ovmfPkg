@@ -1,5 +1,6 @@
 #pragma once
-
+#ifndef i915_DISPLAYH
+#define i915_DISPLAYH
 #include <Uefi.h>
 #include "i915_controller.h"
 #include <Library/DebugLib.h>
@@ -410,3 +411,4 @@ EFI_STATUS setDisplayGraphicsMode(
         UINT32 ModeNumber
 );
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller);
+#endif

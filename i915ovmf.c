@@ -21,6 +21,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/UefiLib.h>
+#include "intel_opregion.h"
 
 i915_CONTROLLER g_private = {SIGNATURE_32('i', '9', '1', '5')};
 
@@ -252,7 +253,7 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   EFI_STATUS Status;
   EFI_PHYSICAL_ADDRESS Address;
   UINT8 *BytePointer;
-
+  struct intel_opregion OpRegion;
   if (mOpRegionSize == 0) {
     return EFI_INVALID_PARAMETER;
   }
@@ -282,6 +283,19 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   if (OpRegionResidual) {
     ZeroMem(BytePointer + mOpRegionSize, OpRegionResidual);
   }
+
+  OpRegion.header=(struct opregion_header *) BytePointer;
+  OpRegion.vbt =(struct vbt_header *) (BytePointer + 1024);
+
+  Status = decodeVBT(&OpRegion, 1024);
+
+  g_private.opRegion = &OpRegion;
+  if (EFI_ERROR(Status)) {
+    DEBUG((EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status));
+    return Status;
+  }
+
 
   // for(int i=0;i<sizeof(OPREGION_SIGNATURE);i++){
   //    BytePointer[i]=(UINT8)OPREGION_SIGNATURE[i];
@@ -515,6 +529,35 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   g_private.read32 = read32;
   g_private.read64 = read64;
 
+
+
+
+  // setup OpRegion from fw_cfg (IgdAssignmentDxe)
+  DebugPrint(EFI_D_ERROR, "i915: before QEMU shenanigans\n");
+
+  QemuFwCfgInitialize();
+
+  if (
+
+      QemuFwCfgIsAvailable()
+
+  ) {
+    // setup opregion
+    Status = SetupFwcfgStuff(Private->PciIo);
+    DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff returns %d\n", Status);
+  }
+  DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n");
+
+  parse_ddi_ports(&g_private, 228); //TODO Dyn bdb Version
+
+  g_private.gmadr = 0;
+  g_private.is_gvt = 0;
+  if (read64(0x78000) == 0x4776544776544776ULL) {
+    DebugPrint(EFI_D_ERROR, "GVT-G Enabled\n");
+    g_private.gmadr = read32(0x78040);
+    g_private.is_gvt = 1;
+    // apertureSize=read32(0x78044);
+  }
   // BEGIN IG AND DISPLAY CONFIG
   DisplayInit(&g_private);
 
@@ -540,13 +583,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   // (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&bar_work);
   // DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %016x\n",bar_work);
   // GVT-g gmadr issue
-  g_private.gmadr = 0;
-  g_private.is_gvt = 0;
-  if (read64(0x78000) == 0x4776544776544776ULL) {
-    g_private.gmadr = read32(0x78040);
-    g_private.is_gvt = 1;
-    // apertureSize=read32(0x78044);
-  }
+
   DebugPrint(EFI_D_ERROR,
              "i915: gmadr = %08x, size = %08x, hgmadr = %08x, hsize = %08x\n",
              g_private.gmadr, read32(0x78044), read32(0x78048),
@@ -596,7 +633,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
         ((UINT32)(addr >> 32) & 0x7F0u) | ((UINT32)addr & 0xFFFFF000u) | 11;
   }
 
-  // setup OpRegion from fw_cfg (IgdAssignmentDxe)
+/*   // setup OpRegion from fw_cfg (IgdAssignmentDxe)
   DebugPrint(EFI_D_ERROR, "i915: before QEMU shenanigans\n");
 
   QemuFwCfgInitialize();
@@ -610,7 +647,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
     Status = SetupFwcfgStuff(Private->PciIo);
     DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff returns %d\n", Status);
   }
-  DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n");
+  DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n"); */
 
   // TODO: turn on backlight if found in OpRegion, need eDP initialization
   // first...

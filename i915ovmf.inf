@@ -47,6 +47,8 @@
   i915_gop.h
   i915_gmbus.c
   i915_gmbus.h
+  intel_opregion.h
+  intel_opregion.c
 
 [Packages]
   MdePkg/MdePkg.dec

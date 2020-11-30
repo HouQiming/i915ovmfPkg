@@ -1,3 +1,5 @@
+#ifndef i915_OVMFH
+#define i915_OVMFH
 #include "i915_reg.h"
 //registers are in bar 0
 //frame buffer is in bar 2
@@ -10,3 +12,4 @@
 
 #define I915_READ read32
 #define I915_WRITE write32
+#endif
