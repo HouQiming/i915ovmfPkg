@@ -162,12 +162,17 @@ EFI_STATUS ConfigurePipeGamma()
     {
         reg = _PIPEEDPCONF;
     }
-    DebugPrint(EFI_D_ERROR, "REGISTER %x", reg);
+    DebugPrint(EFI_D_ERROR, "REGISTER %x \n", reg);
     controller->write32(reg, PIPECONF_PROGRESSIVE |
                                  PIPECONF_GAMMA_MODE_8BIT);
+        DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+                             
     controller->write32(_SKL_BOTTOM_COLOR_A, 0);
+        DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
 
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT);
+            DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+
     return EFI_SUCCESS;
 }
 EFI_STATUS ConfigureTransMSAMISC()
