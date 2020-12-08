@@ -269,8 +269,8 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
                                              1, // AlignmentInPages
                                              &Address);
   if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_ERROR, "%a: %a: failed to allocate OpRegion: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status));
+   DebugPrint(EFI_D_ERROR, "%a: %a: failed to allocate OpRegion: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
 
@@ -291,8 +291,8 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
 
   g_private.opRegion = &OpRegion;
   if (EFI_ERROR(Status)) {
-    DEBUG((EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status));
+    DebugPrint(EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
 
@@ -310,8 +310,8 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
                        1, // Count
                        &Address);
   if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_ERROR, "%a: %a: failed to write OpRegion address: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status));
+   DebugPrint(EFI_D_ERROR, "%a: %a: failed to write OpRegion address: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status);
     goto FreeOpRegion;
   }
 
@@ -357,8 +357,8 @@ SetupStolenMemory(IN EFI_PCI_IO_PROTOCOL *PciIo,
       EfiReservedMemoryType, //
       BdsmPages, EFI_SIZE_TO_PAGES((UINTN)ASSIGNED_IGD_BDSM_ALIGN), &Address);
   if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_ERROR, "%a: %a: failed to allocate stolen memory: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status));
+   DebugPrint(EFI_D_ERROR, "%a: %a: failed to allocate stolen memory: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
 
@@ -375,13 +375,13 @@ SetupStolenMemory(IN EFI_PCI_IO_PROTOCOL *PciIo,
                        1, // Count
                        &Address);
   if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_ERROR, "%a: %a: failed to write stolen memory address: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status));
+   DebugPrint(EFI_D_ERROR, "%a: %a: failed to write stolen memory address: %r\n",
+           __FUNCTION__, GetPciName(PciInfo), Status);
     goto FreeStolenMemory;
   }
 
-  DEBUG((DEBUG_INFO, "%a: %a: stolen memory @ 0x%Lx size 0x%Lx\n", __FUNCTION__,
-         GetPciName(PciInfo), Address, (UINT64)mBdsmSize));
+  DebugPrint(EFI_D_ERROR, "%a: %a: stolen memory @ 0x%Lx size 0x%Lx\n", __FUNCTION__,
+         GetPciName(PciInfo), Address, (UINT64)mBdsmSize);
   return EFI_SUCCESS;
 
 FreeStolenMemory:
@@ -399,7 +399,10 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
   //
   // If neither fw_cfg file is available, assume no IGD is assigned.
   //
+
   if (EFI_ERROR(OpRegionStatus) && EFI_ERROR(BdsmStatus)) {
+    DebugPrint(EFI_D_ERROR, "%a: bdsmStatus: %d  OpRegionStatus: %d\n", __FUNCTION__,
+             BdsmStatus, OpRegionStatus);
     return EFI_UNSUPPORTED;
   }
 
@@ -407,8 +410,8 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
   // Require all fw_cfg files that are present to be well-formed.
   //
   if (!EFI_ERROR(OpRegionStatus) && mOpRegionSize == 0) {
-    DEBUG((DEBUG_ERROR, "%a: %a: zero size\n", __FUNCTION__,
-           ASSIGNED_IGD_FW_CFG_OPREGION));
+   DebugPrint(EFI_D_ERROR, "%a: %a: zero size\n", __FUNCTION__,
+           ASSIGNED_IGD_FW_CFG_OPREGION);
     return EFI_PROTOCOL_ERROR;
   }
 
@@ -416,23 +419,23 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
     UINT64 BdsmSize;
 
     if (BdsmItemSize != sizeof BdsmSize) {
-      DEBUG((DEBUG_ERROR, "%a: %a: invalid fw_cfg size: %Lu\n", __FUNCTION__,
-             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, (UINT64)BdsmItemSize));
+     DebugPrint(EFI_D_ERROR, "%a: %a: invalid fw_cfg size: %Lu\n", __FUNCTION__,
+             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, (UINT64)BdsmItemSize);
       return EFI_PROTOCOL_ERROR;
     }
     QemuFwCfgSelectItem(BdsmItem);
     QemuFwCfgReadBytes(BdsmItemSize, &BdsmSize);
 
     if (BdsmSize == 0 || BdsmSize > MAX_UINTN) {
-      DEBUG((DEBUG_ERROR, "%a: %a: invalid value: %Lu\n", __FUNCTION__,
-             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, BdsmSize));
+     DebugPrint(EFI_D_ERROR, "%a: %a: invalid value: %Lu\n", __FUNCTION__,
+             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, BdsmSize);
       return EFI_PROTOCOL_ERROR;
     }
-    DEBUG((DEBUG_INFO, "BdsmSize=%Lu\n", BdsmSize));
+    DebugPrint(EFI_D_ERROR, "BdsmSize=%Lu\n", BdsmSize);
     mBdsmSize = (UINTN)BdsmSize;
   } else {
     // assume 64M
-    DEBUG((DEBUG_INFO, "BdsmSize not found\n"));
+    DebugPrint(EFI_D_ERROR, "BdsmSize not found\n");
     // mBdsmSize = (UINTN)(64<<20);
   }
 
@@ -544,6 +547,11 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   ) {
     // setup opregion
     Status = SetupFwcfgStuff(Private->PciIo);
+    if (EFI_ERROR(Status)) {
+          DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff Error. Please see https://github.com/RotatingFans/i915ovmfPkg/wiki/Qemu-FwCFG-Workaround for more information\n", Status);
+
+      return Status; //TODO Better cleanup
+    }
     DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff returns %d\n", Status);
   }
   DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n");

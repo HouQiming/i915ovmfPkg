@@ -25,7 +25,6 @@
 
 #include "QemuFwCfgLibInternal.h"
 
-
 /**
   Selects a firmware configuration item for reading.
   
@@ -36,16 +35,15 @@
 
 **/
 VOID
-        EFIAPI
-QemuFwCfgSelectItem (
+    EFIAPI
+    QemuFwCfgSelectItem(
         IN
-FIRMWARE_CONFIG_ITEM QemuFwCfgItem
-)
+            FIRMWARE_CONFIG_ITEM QemuFwCfgItem)
 {
-DEBUG ((EFI_D_INFO,
-"Select Item: 0x%x\n", (UINT16)(UINTN) QemuFwCfgItem));
-IoWrite16 (FW_CFG_IO_SELECTOR, (UINT16)(UINTN)
-QemuFwCfgItem);
+        DEBUG((EFI_D_INFO,
+               "Select Item: 0x%x\n", (UINT16)(UINTN)QemuFwCfgItem));
+        IoWrite16(FW_CFG_IO_SELECTOR, (UINT16)(UINTN)
+                                          QemuFwCfgItem);
 }
 
 /**
@@ -56,28 +54,27 @@ QemuFwCfgItem);
 
 **/
 VOID
-        EFIAPI
-InternalQemuFwCfgReadBytes (
+    EFIAPI
+    InternalQemuFwCfgReadBytes(
         IN
-UINTN Size,
+            UINTN Size,
         IN
-VOID *Buffer
-OPTIONAL
-)
+            VOID *Buffer
+                OPTIONAL)
 {
-if (
+        if (
 
-InternalQemuFwCfgDmaIsAvailable()
+            InternalQemuFwCfgDmaIsAvailable()
 
-&& Size <= MAX_UINT32) {
-InternalQemuFwCfgDmaBytes ((UINT32)
-Size, Buffer, FW_CFG_DMA_CTL_READ);
-return;
+            && Size <= MAX_UINT32)
+        {
+                InternalQemuFwCfgDmaBytes((UINT32)
+                                              Size,
+                                          Buffer, FW_CFG_DMA_CTL_READ);
+                return;
+        }
+        IoReadFifo8(FW_CFG_IO_DATA, Size, Buffer);
 }
-IoReadFifo8 (FW_CFG_IO_DATA, Size, Buffer
-);
-}
-
 
 /**
   Reads firmware configuration bytes into a buffer
@@ -91,25 +88,25 @@ IoReadFifo8 (FW_CFG_IO_DATA, Size, Buffer
 
 **/
 VOID
-        EFIAPI
-QemuFwCfgReadBytes (
+    EFIAPI
+    QemuFwCfgReadBytes(
         IN
-UINTN Size,
+            UINTN Size,
         IN
-VOID *Buffer
-)
+            VOID *Buffer)
 {
-if (
+        if (
 
-InternalQemuFwCfgIsAvailable()
+            InternalQemuFwCfgIsAvailable()
 
-) {
-InternalQemuFwCfgReadBytes (Size, Buffer
-);
-} else {
-ZeroMem (Buffer, Size
-);
-}
+        )
+        {
+                InternalQemuFwCfgReadBytes(Size, Buffer);
+        }
+        else
+        {
+                ZeroMem(Buffer, Size);
+        }
 }
 
 /**
@@ -124,33 +121,33 @@ ZeroMem (Buffer, Size
 
 **/
 VOID
-        EFIAPI
-QemuFwCfgWriteBytes (
+    EFIAPI
+    QemuFwCfgWriteBytes(
         IN
-UINTN Size,
+            UINTN Size,
         IN
-VOID *Buffer
-)
+            VOID *Buffer)
 {
-if (
+        if (
 
-InternalQemuFwCfgIsAvailable()
+            InternalQemuFwCfgIsAvailable()
 
-) {
-if (
+        )
+        {
+                if (
 
-InternalQemuFwCfgDmaIsAvailable()
+                    InternalQemuFwCfgDmaIsAvailable()
 
-&& Size <= MAX_UINT32) {
-InternalQemuFwCfgDmaBytes ((UINT32)
-Size, Buffer, FW_CFG_DMA_CTL_WRITE);
-return;
+                    && Size <= MAX_UINT32)
+                {
+                        InternalQemuFwCfgDmaBytes((UINT32)
+                                                      Size,
+                                                  Buffer, FW_CFG_DMA_CTL_WRITE);
+                        return;
+                }
+                IoWriteFifo8(FW_CFG_IO_DATA, Size, Buffer);
+        }
 }
-IoWriteFifo8 (FW_CFG_IO_DATA, Size, Buffer
-);
-}
-}
-
 
 /**
   Skip bytes in the firmware configuration item.
@@ -162,51 +159,52 @@ IoWriteFifo8 (FW_CFG_IO_DATA, Size, Buffer
   @param[in] Size  Number of bytes to skip.
 **/
 VOID
-        EFIAPI
-QemuFwCfgSkipBytes (
+    EFIAPI
+    QemuFwCfgSkipBytes(
         IN
-UINTN Size
-)
+            UINTN Size)
 {
-UINTN ChunkSize;
-UINT8 SkipBuffer[256];
+        UINTN ChunkSize;
+        UINT8 SkipBuffer[256];
 
-if (!
+        if (!
 
-InternalQemuFwCfgIsAvailable()
+            InternalQemuFwCfgIsAvailable()
 
-) {
-return;
+        )
+        {
+                return;
+        }
+
+        if (
+
+            InternalQemuFwCfgDmaIsAvailable()
+
+            && Size <= MAX_UINT32)
+        {
+                InternalQemuFwCfgDmaBytes((UINT32)
+                                              Size,
+                                          NULL, FW_CFG_DMA_CTL_SKIP);
+                return;
+        }
+
+        //
+        // Emulate the skip by reading data in chunks, and throwing it away. The
+        // implementation below is suitable even for phases where RAM or dynamic
+        // allocation is not available or appropriate. It also doesn't affect the
+        // static data footprint for client modules. Large skips are not expected,
+        // therefore this fallback is not performance critical. The size of
+        // SkipBuffer is thought not to exert a large pressure on the stack in any
+        // phase.
+        //
+        while (Size > 0)
+        {
+                ChunkSize = MIN(Size, sizeof SkipBuffer);
+                IoReadFifo8(FW_CFG_IO_DATA, ChunkSize, SkipBuffer);
+                Size -=
+                    ChunkSize;
+        }
 }
-
-if (
-
-InternalQemuFwCfgDmaIsAvailable()
-
-&& Size <= MAX_UINT32) {
-InternalQemuFwCfgDmaBytes ((UINT32)
-Size, NULL, FW_CFG_DMA_CTL_SKIP);
-return;
-}
-
-//
-// Emulate the skip by reading data in chunks, and throwing it away. The
-// implementation below is suitable even for phases where RAM or dynamic
-// allocation is not available or appropriate. It also doesn't affect the
-// static data footprint for client modules. Large skips are not expected,
-// therefore this fallback is not performance critical. The size of
-// SkipBuffer is thought not to exert a large pressure on the stack in any
-// phase.
-//
-while (Size > 0) {
-ChunkSize = MIN(Size, sizeof SkipBuffer);
-IoReadFifo8 (FW_CFG_IO_DATA, ChunkSize, SkipBuffer
-);
-Size -=
-ChunkSize;
-}
-}
-
 
 /**
   Reads a UINT8 firmware configuration value
@@ -215,18 +213,16 @@ ChunkSize;
 
 **/
 UINT8
-        EFIAPI
-QemuFwCfgRead8 (
-        VOID
-)
-        {
-                UINT8 Result;
+EFIAPI
+QemuFwCfgRead8(
+    VOID)
+{
+        UINT8 Result;
 
-        QemuFwCfgReadBytes (sizeof(Result), &Result);
+        QemuFwCfgReadBytes(sizeof(Result), &Result);
 
         return Result;
-        }
-
+}
 
 /**
   Reads a UINT16 firmware configuration value
@@ -235,18 +231,16 @@ QemuFwCfgRead8 (
 
 **/
 UINT16
-        EFIAPI
-QemuFwCfgRead16 (
-        VOID
-)
-        {
-                UINT16 Result;
+EFIAPI
+QemuFwCfgRead16(
+    VOID)
+{
+        UINT16 Result;
 
-        QemuFwCfgReadBytes (sizeof(Result), &Result);
+        QemuFwCfgReadBytes(sizeof(Result), &Result);
 
         return Result;
-        }
-
+}
 
 /**
   Reads a UINT32 firmware configuration value
@@ -255,18 +249,16 @@ QemuFwCfgRead16 (
 
 **/
 UINT32
-        EFIAPI
-QemuFwCfgRead32 (
-        VOID
-)
-        {
-                UINT32 Result;
+EFIAPI
+QemuFwCfgRead32(
+    VOID)
+{
+        UINT32 Result;
 
-        QemuFwCfgReadBytes (sizeof(Result), &Result);
+        QemuFwCfgReadBytes(sizeof(Result), &Result);
 
         return Result;
-        }
-
+}
 
 /**
   Reads a UINT64 firmware configuration value
@@ -275,18 +267,16 @@ QemuFwCfgRead32 (
 
 **/
 UINT64
-        EFIAPI
-QemuFwCfgRead64 (
-        VOID
-)
-        {
-                UINT64 Result;
+EFIAPI
+QemuFwCfgRead64(
+    VOID)
+{
+        UINT64 Result;
 
-        QemuFwCfgReadBytes (sizeof(Result), &Result);
+        QemuFwCfgReadBytes(sizeof(Result), &Result);
 
         return Result;
-        }
-
+}
 
 /**
   Find the configuration item corresponding to the firmware configuration file.
@@ -302,60 +292,56 @@ QemuFwCfgRead64 (
 
 **/
 RETURN_STATUS
-        EFIAPI
-QemuFwCfgFindFile (
-        IN
-CONST CHAR8
-*Name,
-OUT FIRMWARE_CONFIG_ITEM
-*Item,
-OUT UINTN
-*Size
-)
+EFIAPI
+QemuFwCfgFindFile(
+    IN
+        CONST CHAR8
+            *Name,
+    OUT FIRMWARE_CONFIG_ITEM
+        *Item,
+    OUT UINTN
+        *Size)
 {
-UINT32 Count;
-UINT32 Idx;
+        UINT32 Count;
+        UINT32 Idx;
 
-if (!
+        if (!
 
-InternalQemuFwCfgIsAvailable()
+            InternalQemuFwCfgIsAvailable()
 
-) {
-return
-RETURN_UNSUPPORTED;
-}
+        )
+        {
+                return RETURN_UNSUPPORTED;
+        }
 
-QemuFwCfgSelectItem (QemuFwCfgItemFileDir);
-Count = SwapBytes32(QemuFwCfgRead32());
+        QemuFwCfgSelectItem(QemuFwCfgItemFileDir);
+        Count = SwapBytes32(QemuFwCfgRead32());
 
-for (
-Idx = 0;
-Idx<Count;
-++Idx) {
-UINT32 FileSize;
-UINT16 FileSelect;
-UINT16 FileReserved;
-CHAR8 FName[QEMU_FW_CFG_FNAME_SIZE];
+        for (
+            Idx = 0;
+            Idx < Count;
+            ++Idx)
+        {
+                UINT32 FileSize;
+                UINT16 FileSelect;
+                UINT16 FileReserved;
+                CHAR8 FName[QEMU_FW_CFG_FNAME_SIZE];
 
-FileSize = QemuFwCfgRead32();
-FileSelect = QemuFwCfgRead16();
-FileReserved = QemuFwCfgRead16();
-(VOID)
-FileReserved; /* Force a do-nothing reference. */
-InternalQemuFwCfgReadBytes (sizeof (FName), FName);
+                FileSize = QemuFwCfgRead32();
+                FileSelect = QemuFwCfgRead16();
+                FileReserved = QemuFwCfgRead16();
+                (VOID)
+                    FileReserved; /* Force a do-nothing reference. */
+                InternalQemuFwCfgReadBytes(sizeof(FName), FName);
 
-if (
-AsciiStrCmp (Name, FName
-) == 0) {
-*
-Item = SwapBytes16(FileSelect);
-*
-Size = SwapBytes32(FileSize);
-return
-RETURN_SUCCESS;
-}
-}
+                if (
+                    AsciiStrCmp(Name, FName) == 0)
+                {
+                        *Item = SwapBytes16(FileSelect);
+                        *Size = SwapBytes32(FileSize);
+                        return RETURN_SUCCESS;
+                }
+        }
 
-return
-RETURN_NOT_FOUND;
+        return RETURN_NOT_FOUND;
 }
