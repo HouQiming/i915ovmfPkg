@@ -548,7 +548,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
     // setup opregion
     Status = SetupFwcfgStuff(Private->PciIo);
     if (EFI_ERROR(Status)) {
-          DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff Error. Please see https://github.com/RotatingFans/i915ovmfPkg/wiki/Qemu-FwCFG-Workaround for more information\n", Status);
+          DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff Error %d. Please see https://github.com/RotatingFans/i915ovmfPkg/wiki/Qemu-FwCFG-Workaround for more information\n", Status);
 
       return Status; //TODO Better cleanup
     }
@@ -567,8 +567,12 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
     // apertureSize=read32(0x78044);
   }
   // BEGIN IG AND DISPLAY CONFIG
-  DisplayInit(&g_private);
+  Status = DisplayInit(&g_private);
+if (EFI_ERROR(Status)) {
+          DebugPrint(EFI_D_ERROR, "i915: DisplayInit Error. %d\n", Status);
 
+      return Status; //TODO Better cleanup
+    }
   // get BAR 0 address and size
   EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR *bar0Desc;
   Private->PciIo->GetBarAttributes(Private->PciIo, PCI_BAR_IDX0, NULL,

@@ -165,13 +165,13 @@ EFI_STATUS ConfigurePipeGamma()
     DebugPrint(EFI_D_ERROR, "REGISTER %x \n", reg);
     controller->write32(reg, PIPECONF_PROGRESSIVE |
                                  PIPECONF_GAMMA_MODE_8BIT);
-        DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
-                             
+    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+
     controller->write32(_SKL_BOTTOM_COLOR_A, 0);
-        DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
 
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT);
-            DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
 
     return EFI_SUCCESS;
 }
@@ -365,6 +365,7 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
     if (controller->is_gvt)
     {
+            DebugPrint(EFI_D_ERROR, "i915: Gvt-g Detected. Trying HDMI with all GMBUS Pins\n");
 
         EDID *result;
         controller->OutputPath.ConType = HDMI;
@@ -388,16 +389,29 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
         struct ddi_vbt_port_info ddi_port_info = controller->vbt.ddi_port_info[i];
 
+	DebugPrint(EFI_D_ERROR, 
+		    "Port %c VBT info: DVI:%d HDMI:%d DP:%d eDP:%d\n",
+		    port_name(ddi_port_info.port), ddi_port_info.supports_dvi,
+             ddi_port_info.supports_hdmi, ddi_port_info.supports_dp, ddi_port_info.supports_edp);
         // UINT32* port = &controller->OutputPath.Port;
         if (!isCurrentPortPresent(ddi_port_info.port, found))
         {
+            DebugPrint(EFI_D_ERROR, "i915: Port not connected\n");
             continue;
         }
+        DebugPrint(EFI_D_ERROR, "i915: Port Is Connected!\n");
+
         if (ddi_port_info.supports_dp || ddi_port_info.supports_edp)
         {
-            Status = ReadEDIDDP(result, controller, intel_bios_port_aux_ch(controller, ddi_port_info.port));
+            enum aux_ch portAux = intel_bios_port_aux_ch(controller, ddi_port_info.port);
+            DebugPrint(EFI_D_ERROR, "i915: Port is DP/EdP. Aux_ch is %d \n", portAux);
+
+            Status = ReadEDIDDP(result, controller, portAux);
+            DebugPrint(EFI_D_ERROR, "i915: ReadEDIDDP returned %d \n", Status);
+
             if (!Status)
             {
+
                 controller->OutputPath.ConType = ddi_port_info.port == PORT_A ? eDP : DPSST;
                 controller->OutputPath.DPLL = 1;
                 controller->edid = *result;
@@ -409,7 +423,11 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
         }
         if (ddi_port_info.supports_dvi || ddi_port_info.supports_hdmi)
         {
+            DebugPrint(EFI_D_ERROR, "i915: Port is HDMI. GMBUS Pin is %d \n", ddi_port_info.alternate_ddc_pin);
+
             Status = ReadEDIDHDMI(result, controller, ddi_port_info.alternate_ddc_pin);
+            DebugPrint(EFI_D_ERROR, "i915: ReadEDIDHDMI returned %d \n", Status);
+
             if (!Status)
             {
                 controller->OutputPath.ConType = HDMI;
@@ -525,7 +543,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     // icl_enable_phy_clock_gating(dig_port);
     // Train Displayport
 
-    if (controller->OutputPath.ConType == eDP)
+    if (controller->OutputPath.ConType == eDP || controller->OutputPath.ConType == DPSST)
     {
         DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
@@ -646,7 +664,7 @@ error:
     return status;
 }
 
- STATIC UINT8 edid_fallback[] = {
+STATIC UINT8 edid_fallback[] = {
     // generic 1280x720
     0, 255, 255, 255, 255, 255, 255, 0, 34, 240, 84, 41, 1, 0, 0,
     0, 4, 23, 1, 4, 165, 52, 32, 120, 35, 252, 129, 164, 85, 77,
@@ -659,7 +677,7 @@ error:
     50, 48, 112, 10, 32, 32, 0, 161
     // the test monitor
     // 0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
-}; 
+};
 
 EFI_STATUS SetupPPS()
 {
@@ -793,6 +811,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     if (EFI_ERROR(Status))
     {
         DebugPrint(EFI_D_ERROR, "i915: failed to Set OutputPath\n");
+        return Status;
     }
     // UINT32* port = &controller->OutputPath.Port;
     /*         UINT32* port = &(controller->OutputPath.Port);
@@ -822,8 +841,9 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     // it somehow fails on real hardware
     // Verified functional on i7-10710U
     Status = ReadEDID(&controller->edid);
-    if (*(UINT64 *)controller->edid.magic != 0x00FFFFFFFFFFFF00uLL) {
-for (UINT32 i = 0; i < 128; i++)
+    if (*(UINT64 *)controller->edid.magic != 0x00FFFFFFFFFFFF00uLL)
+    {
+        for (UINT32 i = 0; i < 128; i++)
         {
             ((UINT8 *)&controller->edid)[i] = edid_fallback[i];
         }

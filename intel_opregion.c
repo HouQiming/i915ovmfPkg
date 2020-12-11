@@ -517,8 +517,7 @@ static void sanitize_aux_ch(i915_CONTROLLER *dev_priv,
 	p = get_port_by_aux_ch(dev_priv, info->alternate_aux_channel);
 	if (p != PORT_NONE) {
 		DebugPrint(EFI_D_ERROR, 
-			    "port %c trying to use the same AUX CH (0x%x) as port %c, "
-			    "disabling port %c DP support\n",
+			    "port %c trying to use the same AUX CH (0x%x) as port %c, disabling port %c DP support\n",
 			    port_name(port), info->alternate_aux_channel,
 			    port_name(p), port_name(p));
 
@@ -656,11 +655,11 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 		return;
 	}
 
-	is_dvi = child->device_type & DEVICE_TYPE_TMDS_DVI_SIGNALING;
-	is_dp = child->device_type & DEVICE_TYPE_DISPLAYPORT_OUTPUT;
-	is_crt = child->device_type & DEVICE_TYPE_ANALOG_OUTPUT;
-	is_hdmi = is_dvi && (child->device_type & DEVICE_TYPE_NOT_HDMI_OUTPUT) == 0;
-	is_edp = is_dp && (child->device_type & DEVICE_TYPE_INTERNAL_CONNECTOR);
+	is_dvi = (child->device_type & DEVICE_TYPE_TMDS_DVI_SIGNALING)!= 0;
+	is_dp = (child->device_type & DEVICE_TYPE_DISPLAYPORT_OUTPUT)!= 0;
+	is_crt = (child->device_type & DEVICE_TYPE_ANALOG_OUTPUT)!= 0;
+	is_hdmi = is_dvi && ((child->device_type & DEVICE_TYPE_NOT_HDMI_OUTPUT) == 0);
+	is_edp = is_dp && ((child->device_type & DEVICE_TYPE_INTERNAL_CONNECTOR)!= 0);
 
 	if (port == PORT_A && is_dvi) {
 		DebugPrint(EFI_D_ERROR, 
