@@ -7,7 +7,9 @@ assignees: ''
 
 ---
 
-**FIRST** Have you tried with the included scripts? Can you do regular vfio passthrough? Is there a clearly printed error?
+**FIRST** Have you tried with the included scripts? Can you do regular vfio passthrough? Is there a clearly printed error? 
+
+Have you Looked at https://github.com/RotatingFans/i915ovmfPkg/wiki/Having-Problems%3F
 
 ### Description
 
