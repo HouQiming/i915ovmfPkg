@@ -27,6 +27,7 @@ Disclaimer: When used in direct passthrough, this VBIOS could produce bad pixel 
 
 * May have issues with thunderbolt eGPUs. If you encounter problems, try with it unplugged
 * GVT-G may struggle with external displays(even if through an eGPU or other GPU)
+* May cause random kernel panics with MacOS due to a low default DVMT Pre-allocated memory amount. See [here](https://github.com/patmagauran/i915ovmfPkg/wiki/DVMT-Pre-Alloc---Stolen-Memory-Issues) for more info
 
 ## What is this
 
