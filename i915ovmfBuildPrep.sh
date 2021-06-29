@@ -414,6 +414,15 @@ promptKernel() {
       ;;
   esac
 }
+checkConfig() {
+    if [[ ! -e $INSTALL_DIR/i915ovmfPkg/config ]]; then
+      echo "Could not find config file. Ensure the correct workspace directory is set with the -d option. Or if this is the first run, run the program in setup mode. i.e sudo $0 setup -d EXAMPLEINSTALLDIR"
+      exit 1
+    fi
+    source $INSTALL_DIR/i915ovmfPkg/config
+    export PACKAGES_PATH=$WORKSPACE/edk2:$WORKSPACE/edk2-platforms
+    return 0
+}
 main() {
   set -o errexit
   if [[ $# -eq 0 ]]; then
@@ -424,14 +433,6 @@ main() {
   readArgs $@
   getDistroAndVersion
   prepWorkspace
-  if [[ $COMMAND != "setup" ]]; then
-    if [[ ! -e $INSTALL_DIR/i915ovmfPkg/config ]]; then
-      echo "Could not find config file. Ensure the correct workspace directory is set with the -d option. Or if this is the first run, run the program in setup mode. i.e sudo $0 setup -d EXAMPLEINSTALLDIR"
-      exit 1
-    fi
-    source $INSTALL_DIR/i915ovmfPkg/config
-    export PACKAGES_PATH=$WORKSPACE/edk2:$WORKSPACE/edk2-platforms
-  fi
   case $COMMAND in
     setup)
       echo "Running Setup"
@@ -446,34 +447,42 @@ main() {
       ;;
     build)
       echo "Running build"
+      checkConfig
       buildi915
       ;;
     clean)
       echo "Running clean"
+      checkConfig
       clean
       ;;
     kernel)
       echo "Running kernel Setup"
+      checkConfig
       kernel
       ;;
     update)
       echo "Running update"
+      checkConfig
       update
       ;;
     GVT-G)
       echo "Running GVT-G Test"
+      checkConfig
       gvt-g
       ;;
     GVT-D)
       echo "Running GVT-D Test"
+      checkConfig
       gvt-d
       ;;
     bind)
       echo "rebinding igpu to i915"
+      checkConfig
       rebindi915
       ;;
     *)
       echo "Invalid command entered. Please consult documentation"
+      checkConfig
       displayHelp
       exit
       ;;
