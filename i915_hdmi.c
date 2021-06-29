@@ -53,6 +53,61 @@ static BOOLEAN intel_hdmi_valid_link_rate(UINT32 pixelClock)
 
     return TRUE;
 }
+EFI_STATUS ConvertFallbackEDIDToHDMIEDID(EDID *result, i915_CONTROLLER *controller, UINT8 *fallback)
+{
+    UINT32 i = 0;
+
+    // it's an INTEL GPU, there's no way we could be big endian
+    for (i = 0; i < 128; i++)
+    {
+        ((UINT8 *)result)[i] = fallback[i];
+    }
+    UINT32 *p = (UINT32 *)result;
+    // try all the pins on GMBUS
+    {
+        // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
+
+        for (UINT32 i = 0; i < 16; i++)
+        {
+            for (UINT32 j = 0; j < 8; j++)
+            {
+                DebugPrint(EFI_D_ERROR, "%02x ", ((UINT8 *)(p))[i * 8 + j]);
+            }
+            DebugPrint(EFI_D_ERROR, "\n");
+        }
+        if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
+        {
+            if (!intel_hdmi_valid_link_rate(result->detailTimings[DETAIL_TIME_SELCTION].pixelClock))
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    if (result->detailTimings[j].pixelClock > 0 && intel_hdmi_valid_link_rate(result->detailTimings[j].pixelClock))
+                    {
+                        result->detailTimings[DETAIL_TIME_SELCTION] = result->detailTimings[j];
+                        return EFI_SUCCESS;
+                    }
+                }
+                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+
+                for (int j = 0; j < 4; j++)
+                {
+                    if (result->detailTimings[j].pixelClock >> 1 > 0 && intel_hdmi_valid_link_rate(result->detailTimings[j].pixelClock >> 1))
+                    {
+                        result->detailTimings[j].pixelClock = result->detailTimings[j].pixelClock >> 1;
+                        result->detailTimings[DETAIL_TIME_SELCTION] = result->detailTimings[j];
+                        return EFI_SUCCESS;
+                    }
+                }
+                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+            }
+            // if (result->detailTimings[DETAIL_TIME_SELCTION].pixelClock > 3) {
+            //     result->detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
+            // }
+            return EFI_SUCCESS;
+        }
+    }
+    return EFI_NOT_FOUND;
+}
 EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 {
     // it's an INTEL GPU, there's no way we could be big endian
@@ -74,7 +129,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
                                               GMBUS_SW_RDY);
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
-                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
 
         // read the edid: i2cRead(0x50, &edid, 128);
         // note that we could fail here!
@@ -87,7 +142,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
         {
             if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
             {
-                        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
 
                 break;
             }
@@ -95,7 +150,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
         }
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
-                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
 
         for (UINT32 i = 0; i < 16; i++)
         {
