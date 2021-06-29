@@ -372,9 +372,9 @@ gvt-g() {
   return 0
 }
 rebindi915() {
-  echo $PCILOC >/sys/bus/pci/devices/$PCILOC/driver/unbind
-  echo "i915" >/sys/bus/pci/devices/$PCILOC/driver_override
-  echo 1 >/sys/bus/pci/devices/$PCILOC/reset
+  echo $PCILOC >/sys/bus/pci/devices/$PCILOC/driver/unbind || echo "Error unbinding igpu. Continuing."
+  echo "i915" >/sys/bus/pci/devices/$PCILOC/driver_override || echo "Error adding igpu to i915. Continuing."
+  echo 1 >/sys/bus/pci/devices/$PCILOC/reset || echo "Error resetting igpu. Continuing."
   systemctl restart display-manager.service
   return 0
 }
@@ -394,9 +394,10 @@ gvt-d() {
   rmdir tmpfat
   systemctl stop display-manager.service
   #echo $PCIID >/sys/bus/pci/drivers/vfio-pci/new_id
-  echo $PCILOC >/sys/bus/pci/devices/$PCILOC/driver/unbind
-  echo "vfio-pci" >/sys/bus/pci/devices/$PCILOC/driver_override
-  echo $PCILOC >/sys/bus/pci/drivers/vfio-pci/bind
+
+  echo $PCILOC >/sys/bus/pci/devices/$PCILOC/driver/unbind || echo "Error unbinding igpu. Continuing."
+  echo "vfio-pci" >/sys/bus/pci/devices/$PCILOC/driver_override || echo "Error adding igpu to vfio. Continuing."
+  echo $PCILOC >/sys/bus/pci/drivers/vfio-pci/bind || echo "Error binding igpu to vfio. Continuing."
   #qemu-system-x86_64 -k en-us -name uefitest,debug-threads=on -nographic -vga none -serial stdio -m 2048 -M pc -cpu host -global PIIX4_PM.disable_s3=1 -global PIIX4_PM.disable_s4=1 -machine kernel_irqchip=on -nodefaults -rtc base=localtime,driftfix=slew -no-hpet -global kvm-pit.lost_tick_policy=discard -enable-kvm -bios $WORKSPACE/OVMF_CODE.fd -device vfio-pci,host=$PCILOC,romfile=`pwd`/i915ovmf.rom -device qemu-xhci,p2=8,p3=8 -device usb-kbd -device usb-tablet -drive format=raw,file=disk -usb
   timeout --foreground -k 1 4 qemu-system-x86_64 -k en-us -name uefitest,debug-threads=on -nographic -vga none -chardev stdio,id=char0,logfile=serial.log,signal=off \
     -serial chardev:char0 -m 2048 -M pc -cpu host -global PIIX4_PM.disable_s3=1 -global PIIX4_PM.disable_s4=1 -machine kernel_irqchip=on -nodefaults -rtc base=localtime,driftfix=slew -no-hpet -global kvm-pit.lost_tick_policy=discard -enable-kvm -bios $WORKSPACE/OVMF_CODE.fd -device vfio-pci,host=$PCILOC,romfile=$(pwd)/i915ovmf.rom -device qemu-xhci,p2=8,p3=8 -device usb-kbd -device usb-tablet -drive format=raw,file=disk -usb
@@ -414,7 +415,7 @@ promptKernel() {
   esac
 }
 main() {
-  #  set -o errexit
+  set -o errexit
   if [[ $# -eq 0 ]]; then
     displayHelp
     exit 0
