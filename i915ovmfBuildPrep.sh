@@ -134,14 +134,17 @@ prepWorkspace() {
   mkdir -p $INSTALL_DIR
   cd $INSTALL_DIR
   INSTALL_DIR="$(pwd)"
-
+  echo "Installing to $INSTALL_DIR"
   return 0
 }
 downloadi915() {
+  echo "Downloading i915ovmfpkg main repo..."
   git clone https://github.com/patmagauran/i915ovmfPkg.git
   return 0
 }
 downloadEdk2() {
+  echo "Downloading edk2 repo..."
+
   git clone https://github.com/tianocore/edk2.git
   git clone https://github.com/tianocore/edk2-platforms.git
   cd edk2-platforms/
@@ -153,6 +156,8 @@ downloadEdk2() {
   return 0
 }
 setupEDK2() {
+  echo "Copying Config file..."
+
   cd $INSTALL_DIR
   mkdir Conf
   cp i915ovmfPkg/target.txt Conf/target.txt
@@ -162,7 +167,9 @@ setupEDK2() {
 getGPUS() {
   gpus=()
   lines=$(lspci -mm -n -D -d 8086::0300 && lspci -mm -n -D -d 8086::0302)
+
   while read -r line; do
+    echo "DEBUG: GPU FOUND: $line"
     lineElements=($line)
     bus=${lineElements[0]}
     vendor=${lineElements[2]}
@@ -174,6 +181,7 @@ getGPUS() {
     temp="${temp#\"}"
     device=$temp
     pciID="${vendor}:${device}"
+    echo "DEBUG: GPU DECODED AS $bus  $pciID"
     gpus+=([$bus]=$pciID)
   done <<<$lines
 
@@ -236,7 +244,7 @@ setupi915() {
   return 0
 }
 buildi915() {
-
+  echo "Building edk2 and i915 with gcc $(gcc --version)"
   cd $WORKSPACE
   . edk2/edksetup.sh
   if [ ! -f "$WORKSPACE/edk2/BaseTools/Source/C/bin" ]; then
