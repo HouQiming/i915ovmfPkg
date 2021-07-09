@@ -27,9 +27,9 @@
   @retval    FALSE  The interface is not available internally.
 **/
 BOOLEAN
-InternalQemuFwCfgIsAvailable (
-  VOID
-  );
+        InternalQemuFwCfgIsAvailable(
+        VOID
+);
 
 
 /**
@@ -40,9 +40,9 @@ InternalQemuFwCfgIsAvailable (
   @retval    FALSE  The DMA-like access method is unavailable.
 **/
 BOOLEAN
-InternalQemuFwCfgDmaIsAvailable (
-  VOID
-  );
+        InternalQemuFwCfgDmaIsAvailable(
+        VOID
+);
 
 /**
   Transfer an array of bytes, or skip a number of bytes, using the DMA
@@ -60,10 +60,10 @@ InternalQemuFwCfgDmaIsAvailable (
                           FW_CFG_DMA_CTL_SKIP  - skip bytes in fw_cfg.
 **/
 VOID
-InternalQemuFwCfgDmaBytes (
-  IN     UINT32   Size,
-  IN OUT VOID     *Buffer OPTIONAL,
-  IN     UINT32   Control
-  );
+InternalQemuFwCfgDmaBytes(
+        IN UINT32   Size,
+        IN OUT VOID *Buffer OPTIONAL,
+        IN UINT32   Control
+);
 
 #endif

@@ -20,10 +20,10 @@
 #include <IndustryStandard/QemuFwCfg.h>
 
 RETURN_STATUS
-EFIAPI
+        EFIAPI
 QemuFwCfgInitialize (
-  VOID
-  );
+        VOID
+);
 
 /**
   Returns a boolean indicating if the firmware configuration interface
@@ -36,10 +36,10 @@ QemuFwCfgInitialize (
 
 **/
 BOOLEAN
-EFIAPI
+        EFIAPI
 QemuFwCfgIsAvailable (
-  VOID
-  );
+        VOID
+);
 
 
 /**
@@ -52,10 +52,11 @@ QemuFwCfgIsAvailable (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgSelectItem (
-  IN FIRMWARE_CONFIG_ITEM   QemuFwCfgItem
-  );
+        IN
+FIRMWARE_CONFIG_ITEM QemuFwCfgItem
+);
 
 
 /**
@@ -70,11 +71,14 @@ QemuFwCfgSelectItem (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgReadBytes (
-  IN UINTN                  Size,
-  IN VOID                   *Buffer  OPTIONAL
-  );
+        IN
+UINTN Size,
+        IN
+VOID *Buffer
+OPTIONAL
+);
 
 
 /**
@@ -89,11 +93,13 @@ QemuFwCfgReadBytes (
 
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgWriteBytes (
-  IN UINTN                  Size,
-  IN VOID                   *Buffer
-  );
+        IN
+UINTN Size,
+        IN
+VOID *Buffer
+);
 
 
 /**
@@ -106,10 +112,11 @@ QemuFwCfgWriteBytes (
   @param[in] Size  Number of bytes to skip.
 **/
 VOID
-EFIAPI
+        EFIAPI
 QemuFwCfgSkipBytes (
-  IN UINTN                  Size
-  );
+        IN
+UINTN Size
+);
 
 
 /**
@@ -119,10 +126,10 @@ QemuFwCfgSkipBytes (
 
 **/
 UINT8
-EFIAPI
+        EFIAPI
 QemuFwCfgRead8 (
-  VOID
-  );
+        VOID
+);
 
 
 /**
@@ -132,10 +139,10 @@ QemuFwCfgRead8 (
 
 **/
 UINT16
-EFIAPI
+        EFIAPI
 QemuFwCfgRead16 (
-  VOID
-  );
+        VOID
+);
 
 
 /**
@@ -145,10 +152,10 @@ QemuFwCfgRead16 (
 
 **/
 UINT32
-EFIAPI
+        EFIAPI
 QemuFwCfgRead32 (
-  VOID
-  );
+        VOID
+);
 
 
 /**
@@ -158,10 +165,10 @@ QemuFwCfgRead32 (
 
 **/
 UINT64
-EFIAPI
+        EFIAPI
 QemuFwCfgRead64 (
-  VOID
-  );
+        VOID
+);
 
 
 /**
@@ -178,12 +185,16 @@ QemuFwCfgRead64 (
 
 **/
 RETURN_STATUS
-EFIAPI
+        EFIAPI
 QemuFwCfgFindFile (
-  IN   CONST CHAR8           *Name,
-  OUT  FIRMWARE_CONFIG_ITEM  *Item,
-  OUT  UINTN                 *Size
-  );
+        IN
+CONST CHAR8
+*Name,
+OUT FIRMWARE_CONFIG_ITEM
+*Item,
+OUT UINTN
+*Size
+);
 
 #endif
 

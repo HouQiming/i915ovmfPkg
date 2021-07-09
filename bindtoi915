@@ -1,0 +1,5 @@
+#!/bin/bash
+source ./config
+echo $PCIID >/sys/bus/pci/drivers/i915/new_id
+echo $PCILOC >/sys/bus/pci/devices/0000:$PCILOC/driver/unbind
+echo $PCILOC >/sys/bus/pci/drivers/i915/bind
