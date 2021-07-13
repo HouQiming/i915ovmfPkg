@@ -166,7 +166,7 @@ setupEDK2() {
 #Inspiration for GPU Prompting comes from https://github.com/hertg/egpu-switcher/blob/master/egpu-switcher
 getGPUS() {
   gpus=()
-  lines=$(lspci -mm -n -D -d 8086::0300 && lspci -mm -n -D -d 8086::0302)
+  lines=$(lspci -mm -n -D -d 8086::0300 && lspci -mm -n -D -d 8086::0302 && lspci -mm -n -D -d 8086::0380)
 
   while read -r line; do
     echo "DEBUG: GPU FOUND: $line"
