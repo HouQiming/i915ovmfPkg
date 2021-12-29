@@ -1,3 +1,12 @@
+## Repository Activity Notice
+As you may have noticed, I am not very active in development of this anymore. While I do not plan to fully step away from this, I will be less likely to respond to issues quickly. I welcome the community to come together to work on this. I am happy to provide support to anyone who wants to expand this codebase to more generations of intel GPUs or fix any of the various bugs. 
+
+## Discord
+Since I will not be as active, I have created a discord server that I encourage everyone to join to better recieve support from the community (and myself when I can). 
+
+<img src="https://img.shields.io/discord/925800342598340660?logo=discord&label=Discord&style=for-the-badge&color=228B22"
+ alt="chat on Discord"></a>
+
 # VBIOS for Intel GPU Passthrough
 
 This project attempts to create a UEFI driver for the intel integrated GPUS so that they can be used in VFIO Passthrough. Prior to this driver, there was no easy or reliable solution to both virtualized and direct passthrough(GVT-G/D). This driver adds an opRegion for the iGPU to utilize during the Boot Process, allowing for access to the UEFI menus and any other interfaces that are created before an operating system level driver is initialized. As a bonus, this allows for MacOS to boot in this virtual environment.
