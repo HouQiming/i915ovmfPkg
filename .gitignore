@@ -3,3 +3,5 @@
 *.o
 *.rom
 i915Install
+config
+config

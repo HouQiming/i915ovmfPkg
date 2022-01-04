@@ -39,7 +39,7 @@
 #include <IndustryStandard/Pci.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include <Library/DevicePathLib.h>
 #include <Library/FrameBufferBltLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -72,7 +72,7 @@ struct context
 	const struct vbt_header *vbt;
 	const struct bdb_header *bdb;
 	int size;
-	struct child_device_config * children;
+	struct child_device_config *children;
 	UINT8 numChildren;
 	UINT32 devid;
 	int panel_type;
@@ -87,7 +87,6 @@ struct bdb_block
 	const void *data;
 };
 
-
 struct dumper
 {
 	UINT8 id;
@@ -95,7 +94,6 @@ struct dumper
 	void (*dump)(struct context *context,
 				 const struct bdb_block *block);
 };
-
 
 enum bdb_block_id
 {
@@ -137,18 +135,17 @@ enum bdb_block_id
 };
 #define port_name(p) ((p) + 'A')
 
-
 #define for_each_port(__port) \
 	for ((__port) = PORT_A; (__port) < I915_MAX_PORTS; (__port)++)
-
 
 /* Get to bdb section of vbt. THen Scan through to read off the ids of the blocks until we find general definitions or legacy child devices. THen read them
 *
 */
-struct bdb_legacy_child_devices {
+struct bdb_legacy_child_devices
+{
 	UINT8 child_dev_size;
 	UINT8 devices[0]; /* presumably 7 * 33 */
-} __attribute__ ((packed));
+} __attribute__((packed));
 /* Driver readiness indicator */
 #define ASLE_ARDY_READY (1 << 0)
 #define ASLE_ARDY_NOT_READY (0 << 0)
@@ -290,15 +287,11 @@ struct bdb_legacy_child_devices {
  * Please do NOT include anywhere else.
  */
 
-
-
-
 /*
  * There are several types of BIOS data blocks (BDBs), each block has
  * an ID and size in the first 3 bytes (ID in first, size in next 2).
  * Known types are listed below.
  */
-
 
 /*
  * Block 1 - General Bit Definitions
@@ -461,31 +454,31 @@ struct bdb_general_features
 
 /* dvo_port BDB 155+ */
 /* dvo_port BDB 155+ */
-#define DVO_PORT_HDMIA		0
-#define DVO_PORT_HDMIB		1
-#define DVO_PORT_HDMIC		2
-#define DVO_PORT_HDMID		3
-#define DVO_PORT_LVDS		4
-#define DVO_PORT_TV		5
-#define DVO_PORT_CRT		6
-#define DVO_PORT_DPB		7
-#define DVO_PORT_DPC		8
-#define DVO_PORT_DPD		9
-#define DVO_PORT_DPA		10
-#define DVO_PORT_DPE		11				/* 193 */
-#define DVO_PORT_HDMIE		12				/* 193 */
-#define DVO_PORT_DPF		13				/* N/A */
-#define DVO_PORT_HDMIF		14				/* N/A */
-#define DVO_PORT_DPG		15				/* 217 */
-#define DVO_PORT_HDMIG		16				/* 217 */
-#define DVO_PORT_DPH		17				/* 217 */
-#define DVO_PORT_HDMIH		18				/* 217 */
-#define DVO_PORT_DPI		19				/* 217 */
-#define DVO_PORT_HDMII		20				/* 217 */
-#define DVO_PORT_MIPIA		21				/* 171 */
-#define DVO_PORT_MIPIB		22				/* 171 */
-#define DVO_PORT_MIPIC		23				/* 171 */
-#define DVO_PORT_MIPID		24				/* 171 */
+#define DVO_PORT_HDMIA 0
+#define DVO_PORT_HDMIB 1
+#define DVO_PORT_HDMIC 2
+#define DVO_PORT_HDMID 3
+#define DVO_PORT_LVDS 4
+#define DVO_PORT_TV 5
+#define DVO_PORT_CRT 6
+#define DVO_PORT_DPB 7
+#define DVO_PORT_DPC 8
+#define DVO_PORT_DPD 9
+#define DVO_PORT_DPA 10
+#define DVO_PORT_DPE 11	  /* 193 */
+#define DVO_PORT_HDMIE 12 /* 193 */
+#define DVO_PORT_DPF 13	  /* N/A */
+#define DVO_PORT_HDMIF 14 /* N/A */
+#define DVO_PORT_DPG 15	  /* 217 */
+#define DVO_PORT_HDMIG 16 /* 217 */
+#define DVO_PORT_DPH 17	  /* 217 */
+#define DVO_PORT_HDMIH 18 /* 217 */
+#define DVO_PORT_DPI 19	  /* 217 */
+#define DVO_PORT_HDMII 20 /* 217 */
+#define DVO_PORT_MIPIA 21 /* 171 */
+#define DVO_PORT_MIPIB 22 /* 171 */
+#define DVO_PORT_MIPIC 23 /* 171 */
+#define DVO_PORT_MIPID 24 /* 171 */
 
 #define HDMI_MAX_DATA_RATE_PLATFORM 0 /* 204 */
 #define HDMI_MAX_DATA_RATE_297 1	  /* 204 */
@@ -534,7 +527,6 @@ enum vbt_gmbus_ddi
 #define _PIXEL_CLOCK(x) (x[0] + (x[1] << 8)) * 10000
 
 #define YESNO(val) ((val) ? "yes" : "no")
-
 
 struct bdb_general_definitions
 {
@@ -723,7 +715,8 @@ struct bdb_sdvo_panel_dtds
 /*
  * Block 27 - eDP VBT Block
  */
-enum aux_ch {
+enum aux_ch
+{
 	AUX_CH_A,
 	AUX_CH_B,
 	AUX_CH_C,
@@ -772,13 +765,14 @@ struct edp_full_link_params
 	UINT8 preemphasis : 4;
 	UINT8 vswing : 4;
 } __packed;
-struct edp_power_seq {
+struct edp_power_seq
+{
 	UINT16 t3;
 	UINT16 t7;
 	UINT16 t9;
 	UINT16 t10;
 	UINT16 t12;
-} __attribute__ ((packed));
+} __attribute__((packed));
 
 struct bdb_edp
 {
@@ -935,58 +929,59 @@ struct bdb_lfp_backlight_data
  * 6 such enteries will there. Index into correct
  * entery is based on the panel_index in #40 LFP
  */
-#define MAX_MIPI_CONFIGURATIONS        6
-struct mipi_config {
+#define MAX_MIPI_CONFIGURATIONS 6
+struct mipi_config
+{
 	UINT16 panel_id;
 
 	/* General Params */
-	UINT32 dithering:1;
-	UINT32 rsvd1:1;
-	UINT32 panel_type:1;
-	UINT32 panel_arch_type:2;
-	UINT32 cmd_mode:1;
-	UINT32 vtm:2;
-	UINT32 cabc:1;
-	UINT32 pwm_blc:1;
+	UINT32 dithering : 1;
+	UINT32 rsvd1 : 1;
+	UINT32 panel_type : 1;
+	UINT32 panel_arch_type : 2;
+	UINT32 cmd_mode : 1;
+	UINT32 vtm : 2;
+	UINT32 cabc : 1;
+	UINT32 pwm_blc : 1;
 
 	/* Bit 13:10
 	 * 000 - Reserved, 001 - RGB565, 002 - RGB666,
 	 * 011 - RGB666Loosely packed, 100 - RGB888,
 	 * others - rsvd
 	 */
-	UINT32 videomode_color_format:4;
+	UINT32 videomode_color_format : 4;
 
 	/* Bit 15:14
 	 * 0 - No rotation, 1 - 90 degree
 	 * 2 - 180 degree, 3 - 270 degree
 	 */
-	UINT32 rotation:2;
-	UINT32 bta:1;
-	UINT32 rsvd2:15;
+	UINT32 rotation : 2;
+	UINT32 bta : 1;
+	UINT32 rsvd2 : 15;
 
 	/* 2 byte Port Description */
-	UINT16 dual_link:2;
-	UINT16 lane_cnt:2;
-	UINT16 pixel_overlap:3;
-	UINT16 rsvd3:9;
+	UINT16 dual_link : 2;
+	UINT16 lane_cnt : 2;
+	UINT16 pixel_overlap : 3;
+	UINT16 rsvd3 : 9;
 
 	/* 2 byte DSI COntroller params */
 	/* 0 - Using DSI PHY, 1 - TE usage */
-	UINT16 dsi_usage:1;
-	UINT16 rsvd4:15;
+	UINT16 dsi_usage : 1;
+	UINT16 rsvd4 : 15;
 
 	UINT8 rsvd5[5];
 	UINT32 dsi_ddr_clk;
 	UINT32 bridge_ref_clk;
 
-	UINT8 byte_clk_sel:2;
-	UINT8 rsvd6:6;
+	UINT8 byte_clk_sel : 2;
+	UINT8 rsvd6 : 6;
 
 	/* DPHY Flags */
-	UINT16 dphy_param_valid:1;
-	UINT16 eot_disabled:1;
-	UINT16 clk_stop:1;
-	UINT16 rsvd7:13;
+	UINT16 dphy_param_valid : 1;
+	UINT16 eot_disabled : 1;
+	UINT16 clk_stop : 1;
+	UINT16 rsvd7 : 13;
 
 	UINT32 hs_tx_timeout;
 	UINT32 lp_rx_timeout;
@@ -997,13 +992,13 @@ struct mipi_config {
 	UINT32 lp_byte_clk_val;
 
 	/*  4 byte Dphy Params */
-	UINT32 prepare_cnt:6;
-	UINT32 rsvd8:2;
-	UINT32 clk_zero_cnt:8;
-	UINT32 trail_cnt:5;
-	UINT32 rsvd9:3;
-	UINT32 exit_zero_cnt:6;
-	UINT32 rsvd10:2;
+	UINT32 prepare_cnt : 6;
+	UINT32 rsvd8 : 2;
+	UINT32 clk_zero_cnt : 8;
+	UINT32 trail_cnt : 5;
+	UINT32 rsvd9 : 3;
+	UINT32 exit_zero_cnt : 6;
+	UINT32 rsvd10 : 2;
 
 	UINT32 clk_lane_switch_cnt;
 	UINT32 hl_switch_cnt;
@@ -1042,19 +1037,20 @@ struct mipi_config {
 	UINT8 pwr_down_r;
 	UINT8 stdby_r_n;
 
-} __attribute__ ((packed));
+} __attribute__((packed));
 
 /* Block 52 contains MiPi configuration block
  * 6 * bdb_mipi_config, followed by 6 pps data
  * block below
  */
-struct mipi_pps_data {
+struct mipi_pps_data
+{
 	UINT16 panel_on_delay;
 	UINT16 bl_enable_delay;
 	UINT16 bl_disable_delay;
 	UINT16 panel_off_delay;
 	UINT16 panel_power_cycle_delay;
-} __attribute__ ((packed));
+} __attribute__((packed));
 
 struct bdb_mipi_config
 {
@@ -1125,8 +1121,8 @@ struct bdb_compression_parameters
 	struct dsc_compression_parameters_entry data[16];
 } __packed;
 
-EFI_STATUS decodeVBT(struct intel_opregion * opRegion, int vbt_off);
+EFI_STATUS decodeVBT(struct intel_opregion *opRegion, int vbt_off);
 void parse_ddi_ports(i915_CONTROLLER *dev_priv, UINT8 bdb_version);
 enum aux_ch intel_bios_port_aux_ch(i915_CONTROLLER *dev_priv,
-				   enum port port);
+								   enum port port);
 #endif

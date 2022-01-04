@@ -29,7 +29,7 @@ static EFI_STATUS find_section(struct context *context, int section_id, struct b
 	total = bdb->bdb_size;
 	if (total > length)
 		total = length;
-	DebugPrint(EFI_D_ERROR, "i915: finding section %d\n", section_id);
+	PRINT_DEBUG(EFI_D_ERROR, "finding section %d\n", section_id);
 	//block = malloc(sizeof(*block));
 
 	/* walk the sections looking for section_id */
@@ -38,7 +38,7 @@ static EFI_STATUS find_section(struct context *context, int section_id, struct b
 		current_id = *(base + index);
 		current_size = _get_blocksize(base + index);
 		index += 3;
-		//DebugPrint(EFI_D_ERROR, "i915: current id %d; index: %d; location  0x%04x; current_size: %d\n", current_id, index, (base + index), current_size);
+		//PRINT_DEBUG(EFI_D_ERROR,"current id %d; index: %d; location  0x%04x; current_size: %d\n", current_id, index, (base + index), current_size);
 
 		if (index + current_size > total)
 			return EFI_NOT_FOUND;
@@ -47,7 +47,7 @@ static EFI_STATUS find_section(struct context *context, int section_id, struct b
 		{
 			if (!block)
 			{
-				DebugPrint(EFI_D_ERROR, "i915: out of memory");
+				PRINT_DEBUG(EFI_D_ERROR, "out of memory");
 				//TODO CONVVERT to EFI_STATUS RETURN TYPEs
 				//	exit(EXIT_FAILURE);
 			}
@@ -211,7 +211,7 @@ static void dump_child_device_type_bits(UINT16 type)
 	for (i = 0; i < ARRAY_SIZE(child_device_type_bits); i++)
 	{
 		if (child_device_type_bits[i].mask & type)
-			DebugPrint(EFI_D_ERROR, "i915: \t\t\t%s\n", child_device_type_bits[i].name);
+			PRINT_DEBUG(EFI_D_ERROR, "\t\t\t%s\n", child_device_type_bits[i].name);
 	}
 }
 static const char *mipi_bridge_type(UINT8 type)
@@ -232,95 +232,95 @@ static void dump_child_device(struct context *context,
 							  const struct child_device_config *child)
 {
 	//if (!child->device_type)
-		return;
+	return;
 
-	DebugPrint(EFI_D_ERROR, "i915: Child device info:\n");
-	DebugPrint(EFI_D_ERROR, "i915: \tDevice handle: 0x%04x (%s)\n", child->handle,
-			   child_device_handle(child->handle));
-	DebugPrint(EFI_D_ERROR, "i915: \tDevice type: 0x%04x (%s)\n", child->device_type,
-			   child_device_type(child->device_type));
+	PRINT_DEBUG(EFI_D_ERROR, "Child device info:\n");
+	PRINT_DEBUG(EFI_D_ERROR, "\tDevice handle: 0x%04x (%s)\n", child->handle,
+				child_device_handle(child->handle));
+	PRINT_DEBUG(EFI_D_ERROR, "\tDevice type: 0x%04x (%s)\n", child->device_type,
+				child_device_type(child->device_type));
 	dump_child_device_type_bits(child->device_type);
 
 	if (context->bdb->version < 152)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tSignature: %.*s\n", (int)sizeof(child->device_id), child->device_id);
+		PRINT_DEBUG(EFI_D_ERROR, "\tSignature: %.*s\n", (int)sizeof(child->device_id), child->device_id);
 	}
 	else
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tI2C speed: 0x%02x\n", child->i2c_speed);
-		DebugPrint(EFI_D_ERROR, "i915: \tDP onboard redriver: 0x%02x\n", child->dp_onboard_redriver);
-		DebugPrint(EFI_D_ERROR, "i915: \tDP ondock redriver: 0x%02x\n", child->dp_ondock_redriver);
-		DebugPrint(EFI_D_ERROR, "i915: \tHDMI level shifter value: 0x%02x\n", child->hdmi_level_shifter_value);
+		PRINT_DEBUG(EFI_D_ERROR, "\tI2C speed: 0x%02x\n", child->i2c_speed);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDP onboard redriver: 0x%02x\n", child->dp_onboard_redriver);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDP ondock redriver: 0x%02x\n", child->dp_ondock_redriver);
+		PRINT_DEBUG(EFI_D_ERROR, "\tHDMI level shifter value: 0x%02x\n", child->hdmi_level_shifter_value);
 		//	dump_hmdi_max_data_rate(child->hdmi_max_data_rate);
-		DebugPrint(EFI_D_ERROR, "i915: \tOffset to DTD buffer for edidless CHILD: 0x%02x\n", child->dtd_buf_ptr);
-		DebugPrint(EFI_D_ERROR, "i915: \tEdidless EFP: %s\n", YESNO(child->edidless_efp));
-		DebugPrint(EFI_D_ERROR, "i915: \tCompression enable: %s\n", YESNO(child->compression_enable));
-		DebugPrint(EFI_D_ERROR, "i915: \tCompression method CPS: %s\n", YESNO(child->compression_method));
-		DebugPrint(EFI_D_ERROR, "i915: \tDual pipe ganged eDP: %s\n", YESNO(child->ganged_edp));
-		DebugPrint(EFI_D_ERROR, "i915: \tCompression structure index: 0x%02x)\n", child->compression_structure_index);
-		DebugPrint(EFI_D_ERROR, "i915: \tSlave DDI port: 0x%02x (%s)\n", child->slave_port, dvo_port(child->slave_port));
+		PRINT_DEBUG(EFI_D_ERROR, "\tOffset to DTD buffer for edidless CHILD: 0x%02x\n", child->dtd_buf_ptr);
+		PRINT_DEBUG(EFI_D_ERROR, "\tEdidless EFP: %s\n", YESNO(child->edidless_efp));
+		PRINT_DEBUG(EFI_D_ERROR, "\tCompression enable: %s\n", YESNO(child->compression_enable));
+		PRINT_DEBUG(EFI_D_ERROR, "\tCompression method CPS: %s\n", YESNO(child->compression_method));
+		PRINT_DEBUG(EFI_D_ERROR, "\tDual pipe ganged eDP: %s\n", YESNO(child->ganged_edp));
+		PRINT_DEBUG(EFI_D_ERROR, "\tCompression structure index: 0x%02x)\n", child->compression_structure_index);
+		PRINT_DEBUG(EFI_D_ERROR, "\tSlave DDI port: 0x%02x (%s)\n", child->slave_port, dvo_port(child->slave_port));
 	}
 
-	DebugPrint(EFI_D_ERROR, "i915: \tAIM offset: %d\n", child->addin_offset);
-	DebugPrint(EFI_D_ERROR, "i915: \tDVO Port: 0x%02x (%s)\n", child->dvo_port, dvo_port(child->dvo_port));
+	PRINT_DEBUG(EFI_D_ERROR, "\tAIM offset: %d\n", child->addin_offset);
+	PRINT_DEBUG(EFI_D_ERROR, "\tDVO Port: 0x%02x (%s)\n", child->dvo_port, dvo_port(child->dvo_port));
 
-	DebugPrint(EFI_D_ERROR, "i915: \tAIM I2C pin: 0x%02x\n", child->i2c_pin);
-	DebugPrint(EFI_D_ERROR, "i915: \tAIM Slave address: 0x%02x\n", child->slave_addr);
-	DebugPrint(EFI_D_ERROR, "i915: \tDDC pin: 0x%02x\n", child->ddc_pin);
-	DebugPrint(EFI_D_ERROR, "i915: \tEDID buffer ptr: 0x%02x\n", child->edid_ptr);
-	DebugPrint(EFI_D_ERROR, "i915: \tDVO config: 0x%02x\n", child->dvo_cfg);
+	PRINT_DEBUG(EFI_D_ERROR, "\tAIM I2C pin: 0x%02x\n", child->i2c_pin);
+	PRINT_DEBUG(EFI_D_ERROR, "\tAIM Slave address: 0x%02x\n", child->slave_addr);
+	PRINT_DEBUG(EFI_D_ERROR, "\tDDC pin: 0x%02x\n", child->ddc_pin);
+	PRINT_DEBUG(EFI_D_ERROR, "\tEDID buffer ptr: 0x%02x\n", child->edid_ptr);
+	PRINT_DEBUG(EFI_D_ERROR, "\tDVO config: 0x%02x\n", child->dvo_cfg);
 
 	if (context->bdb->version < 155)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tDVO2 Port: 0x%02x (%s)\n", child->dvo2_port, dvo_port(child->dvo2_port));
-		DebugPrint(EFI_D_ERROR, "i915: \tI2C2 pin: 0x%02x\n", child->i2c2_pin);
-		DebugPrint(EFI_D_ERROR, "i915: \tSlave2 address: 0x%02x\n", child->slave2_addr);
-		DebugPrint(EFI_D_ERROR, "i915: \tDDC2 pin: 0x%02x\n", child->ddc2_pin);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDVO2 Port: 0x%02x (%s)\n", child->dvo2_port, dvo_port(child->dvo2_port));
+		PRINT_DEBUG(EFI_D_ERROR, "\tI2C2 pin: 0x%02x\n", child->i2c2_pin);
+		PRINT_DEBUG(EFI_D_ERROR, "\tSlave2 address: 0x%02x\n", child->slave2_addr);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDDC2 pin: 0x%02x\n", child->ddc2_pin);
 	}
 	else
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tEFP routed through dock: %s\n", YESNO(child->efp_routed));
-		DebugPrint(EFI_D_ERROR, "i915: \tLane reversal: %s\n", YESNO(child->lane_reversal));
-		DebugPrint(EFI_D_ERROR, "i915: \tOnboard LSPCON: %s\n", YESNO(child->lspcon));
-		DebugPrint(EFI_D_ERROR, "i915: \tIboost enable: %s\n", YESNO(child->iboost));
-		DebugPrint(EFI_D_ERROR, "i915: \tHPD sense invert: %s\n", YESNO(child->hpd_invert));
-		DebugPrint(EFI_D_ERROR, "i915: \tHDMI compatible? %s\n", YESNO(child->hdmi_support));
-		DebugPrint(EFI_D_ERROR, "i915: \tDP compatible? %s\n", YESNO(child->dp_support));
-		DebugPrint(EFI_D_ERROR, "i915: \tTMDS compatible? %s\n", YESNO(child->tmds_support));
-		DebugPrint(EFI_D_ERROR, "i915: \tAux channel: 0x%02x\n", child->aux_channel);
-		DebugPrint(EFI_D_ERROR, "i915: \tDongle detect: 0x%02x\n", child->dongle_detect);
+		PRINT_DEBUG(EFI_D_ERROR, "\tEFP routed through dock: %s\n", YESNO(child->efp_routed));
+		PRINT_DEBUG(EFI_D_ERROR, "\tLane reversal: %s\n", YESNO(child->lane_reversal));
+		PRINT_DEBUG(EFI_D_ERROR, "\tOnboard LSPCON: %s\n", YESNO(child->lspcon));
+		PRINT_DEBUG(EFI_D_ERROR, "\tIboost enable: %s\n", YESNO(child->iboost));
+		PRINT_DEBUG(EFI_D_ERROR, "\tHPD sense invert: %s\n", YESNO(child->hpd_invert));
+		PRINT_DEBUG(EFI_D_ERROR, "\tHDMI compatible? %s\n", YESNO(child->hdmi_support));
+		PRINT_DEBUG(EFI_D_ERROR, "\tDP compatible? %s\n", YESNO(child->dp_support));
+		PRINT_DEBUG(EFI_D_ERROR, "\tTMDS compatible? %s\n", YESNO(child->tmds_support));
+		PRINT_DEBUG(EFI_D_ERROR, "\tAux channel: 0x%02x\n", child->aux_channel);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDongle detect: 0x%02x\n", child->dongle_detect);
 	}
 
-	DebugPrint(EFI_D_ERROR, "i915: \tPipe capabilities: 0x%02x\n", child->pipe_cap);
-	DebugPrint(EFI_D_ERROR, "i915: \tSDVO stall signal available: %s\n", YESNO(child->sdvo_stall));
-	DebugPrint(EFI_D_ERROR, "i915: \tHotplug connect status: 0x%02x\n", child->hpd_status);
-	DebugPrint(EFI_D_ERROR, "i915: \tIntegrated encoder instead of SDVO: %s\n", YESNO(child->integrated_encoder));
-	DebugPrint(EFI_D_ERROR, "i915: \tDVO wiring: 0x%02x\n", child->dvo_wiring);
+	PRINT_DEBUG(EFI_D_ERROR, "\tPipe capabilities: 0x%02x\n", child->pipe_cap);
+	PRINT_DEBUG(EFI_D_ERROR, "\tSDVO stall signal available: %s\n", YESNO(child->sdvo_stall));
+	PRINT_DEBUG(EFI_D_ERROR, "\tHotplug connect status: 0x%02x\n", child->hpd_status);
+	PRINT_DEBUG(EFI_D_ERROR, "\tIntegrated encoder instead of SDVO: %s\n", YESNO(child->integrated_encoder));
+	PRINT_DEBUG(EFI_D_ERROR, "\tDVO wiring: 0x%02x\n", child->dvo_wiring);
 
 	if (context->bdb->version < 171)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tDVO2 wiring: 0x%02x\n", child->dvo2_wiring);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDVO2 wiring: 0x%02x\n", child->dvo2_wiring);
 	}
 	else
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tMIPI bridge type: %02x (%s)\n", child->mipi_bridge_type,
-				   mipi_bridge_type(child->mipi_bridge_type));
+		PRINT_DEBUG(EFI_D_ERROR, "\tMIPI bridge type: %02x (%s)\n", child->mipi_bridge_type,
+					mipi_bridge_type(child->mipi_bridge_type));
 	}
 
-	DebugPrint(EFI_D_ERROR, "i915: \tDevice class extension: 0x%02x\n", child->extended_type);
-	DebugPrint(EFI_D_ERROR, "i915: \tDVO function: 0x%02x\n", child->dvo_function);
+	PRINT_DEBUG(EFI_D_ERROR, "\tDevice class extension: 0x%02x\n", child->extended_type);
+	PRINT_DEBUG(EFI_D_ERROR, "\tDVO function: 0x%02x\n", child->dvo_function);
 
 	if (context->bdb->version >= 195)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tDP USB type C support: %s\n", YESNO(child->dp_usb_type_c));
-		DebugPrint(EFI_D_ERROR, "i915: \t2X DP GPIO index: 0x%02x\n", child->dp_gpio_index);
-		DebugPrint(EFI_D_ERROR, "i915: \t2X DP GPIO pin number: 0x%02x\n", child->dp_gpio_pin_num);
+		PRINT_DEBUG(EFI_D_ERROR, "\tDP USB type C support: %s\n", YESNO(child->dp_usb_type_c));
+		PRINT_DEBUG(EFI_D_ERROR, "\t2X DP GPIO index: 0x%02x\n", child->dp_gpio_index);
+		PRINT_DEBUG(EFI_D_ERROR, "\t2X DP GPIO pin number: 0x%02x\n", child->dp_gpio_pin_num);
 	}
 
 	if (context->bdb->version >= 196)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: \tIBoost level for HDMI: 0x%02x\n", child->hdmi_iboost_level);
-		DebugPrint(EFI_D_ERROR, "i915: \tIBoost level for DP/eDP: 0x%02x\n", child->dp_iboost_level);
+		PRINT_DEBUG(EFI_D_ERROR, "\tIBoost level for HDMI: 0x%02x\n", child->hdmi_iboost_level);
+		PRINT_DEBUG(EFI_D_ERROR, "\tIBoost level for DP/eDP: 0x%02x\n", child->dp_iboost_level);
 	}
 }
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -330,7 +330,7 @@ static EFI_STATUS get_child_devices(struct context *context, const UINT8 *device
 									UINT8 child_dev_num, UINT8 child_dev_size)
 {
 	struct child_device_config *child;
-	struct child_device_config * children = (struct child_device_config *)AllocateZeroPool(child_dev_num * sizeof(*child));
+	struct child_device_config *children = (struct child_device_config *)AllocateZeroPool(child_dev_num * sizeof(*child));
 	int i;
 
 	/*
@@ -356,7 +356,7 @@ static EFI_STATUS get_child_devices(struct context *context, const UINT8 *device
 }
 
 static EFI_STATUS decode_vbt_child_blocks(struct context *context,
-									const struct bdb_block *block)
+										  const struct bdb_block *block)
 {
 	EFI_STATUS status = EFI_SUCCESS;
 	const struct bdb_general_definitions *defs = block->data;
@@ -364,22 +364,22 @@ static EFI_STATUS decode_vbt_child_blocks(struct context *context,
 
 	child_dev_num = (block->size - sizeof(*defs)) / defs->child_dev_size;
 	/* 
-	DebugPrint(EFI_D_ERROR, "i915: CRT DDC GMBUS addr: 0x%02x\n", defs->crt_ddc_gmbus_pin);
-	DebugPrint(EFI_D_ERROR, "i915: Use ACPI DPMS CRT power states: %s\n",
+	PRINT_DEBUG(EFI_D_ERROR,"CRT DDC GMBUS addr: 0x%02x\n", defs->crt_ddc_gmbus_pin);
+	PRINT_DEBUG(EFI_D_ERROR,"Use ACPI DPMS CRT power states: %s\n",
 			   YESNO(defs->dpms_acpi));
-	DebugPrint(EFI_D_ERROR, "i915: Skip CRT detect at boot: %s\n",
+	PRINT_DEBUG(EFI_D_ERROR,"Skip CRT detect at boot: %s\n",
 			   YESNO(defs->skip_boot_crt_detect));
-	DebugPrint(EFI_D_ERROR, "i915: Use DPMS on AIM devices: %s\n", YESNO(defs->dpms_aim)); */
+	PRINT_DEBUG(EFI_D_ERROR,"Use DPMS on AIM devices: %s\n", YESNO(defs->dpms_aim)); */
 	if (block->id == BDB_GENERAL_DEFINITIONS)
 	{
-		DebugPrint(EFI_D_ERROR, "i915: Boot display type: 0x%02x%02x\n", defs->boot_display[1],
-				   defs->boot_display[0]);
+		PRINT_DEBUG(EFI_D_ERROR, "Boot display type: 0x%02x%02x\n", defs->boot_display[1],
+					defs->boot_display[0]);
 	}
-	DebugPrint(EFI_D_ERROR, "i915: Child device size: %d\n", defs->child_dev_size);
-	DebugPrint(EFI_D_ERROR, "i915: Child device count: %d\n", child_dev_num);
+	PRINT_DEBUG(EFI_D_ERROR, "Child device size: %d\n", defs->child_dev_size);
+	PRINT_DEBUG(EFI_D_ERROR, "Child device count: %d\n", child_dev_num);
 
 	status = get_child_devices(context, defs->devices,
-					  child_dev_num, defs->child_dev_size);
+							   child_dev_num, defs->child_dev_size);
 	int i;
 
 	for (i = 0; i < child_dev_num; i++)
@@ -391,10 +391,10 @@ static EFI_STATUS decode_vbt_child_blocks(struct context *context,
 	return status;
 }
 
-EFI_STATUS decodeVBT(struct intel_opregion * opRegion, int vbt_off)
+EFI_STATUS decodeVBT(struct intel_opregion *opRegion, int vbt_off)
 {
 	struct vbt_header *vbt = opRegion->vbt;
-	  UINT8 *VBIOS = (UINT8 *) opRegion->header; 
+	UINT8 *VBIOS = (UINT8 *)opRegion->header;
 	EFI_STATUS status = EFI_SUCCESS;
 	//UINT8 *VBIOS;
 	//	int index;
@@ -412,7 +412,7 @@ EFI_STATUS decodeVBT(struct intel_opregion * opRegion, int vbt_off)
 
 	context.bdb = (const struct bdb_header *)(VBIOS + bdb_off);
 	context.size = 8192;
-	DebugPrint(EFI_D_ERROR, "i915: vbt: 0x%04x, bdb: 0x%04x, sig: %s, bsig: %s \n", context.vbt, context.bdb, context.vbt->signature, context.bdb->signature);
+	PRINT_DEBUG(EFI_D_ERROR, "vbt: 0x%04x, bdb: 0x%04x, sig: %s, bsig: %s \n", context.vbt, context.bdb, context.vbt->signature, context.bdb->signature);
 
 	struct bdb_block *block = (struct bdb_block *)AllocatePool(sizeof(block));
 
@@ -430,20 +430,21 @@ EFI_STATUS decodeVBT(struct intel_opregion * opRegion, int vbt_off)
 			status = decode_vbt_child_blocks(&context, block);
 		}
 	}
-	if (!EFI_ERROR(status)){
+	if (!EFI_ERROR(status))
+	{
 		opRegion->children = context.children;
 		opRegion->numChildren = context.numChildren;
 	}
 	return status;
 }
 
-
 static enum port get_port_by_ddc_pin(i915_CONTROLLER *i915, u8 ddc_pin)
 {
 	const struct ddi_vbt_port_info *info;
 	enum port port;
 
-	for_each_port(port) {
+	for_each_port(port)
+	{
 		info = &i915->vbt.ddi_port_info[port];
 
 		if (info->child && ddc_pin == info->alternate_ddc_pin)
@@ -454,7 +455,7 @@ static enum port get_port_by_ddc_pin(i915_CONTROLLER *i915, u8 ddc_pin)
 }
 
 static void sanitize_ddc_pin(i915_CONTROLLER *dev_priv,
-			     enum port port)
+							 enum port port)
 {
 	struct ddi_vbt_port_info *info = &dev_priv->vbt.ddi_port_info[port];
 	enum port p;
@@ -463,12 +464,13 @@ static void sanitize_ddc_pin(i915_CONTROLLER *dev_priv,
 		return;
 
 	p = get_port_by_ddc_pin(dev_priv, info->alternate_ddc_pin);
-	if (p != PORT_NONE) {
-		DebugPrint(EFI_D_ERROR, 
-			    "port %c trying to use the same DDC pin (0x%x) as port %c, "
-			    "disabling port %c DVI/HDMI support\n",
-			    port_name(port), info->alternate_ddc_pin,
-			    port_name(p), port_name(p));
+	if (p != PORT_NONE)
+	{
+		PRINT_DEBUG(EFI_D_ERROR,
+					"port %c trying to use the same DDC pin (0x%x) as port %c, "
+					"disabling port %c DVI/HDMI support\n",
+					port_name(port), info->alternate_ddc_pin,
+					port_name(p), port_name(p));
 
 		/*
 		 * If we have multiple ports supposedly sharing the
@@ -495,7 +497,8 @@ static enum port get_port_by_aux_ch(i915_CONTROLLER *i915, u8 aux_ch)
 	const struct ddi_vbt_port_info *info;
 	enum port port;
 
-	for_each_port(port) {
+	for_each_port(port)
+	{
 		info = &i915->vbt.ddi_port_info[port];
 
 		if (info->child && aux_ch == info->alternate_aux_channel)
@@ -506,7 +509,7 @@ static enum port get_port_by_aux_ch(i915_CONTROLLER *i915, u8 aux_ch)
 }
 
 static void sanitize_aux_ch(i915_CONTROLLER *dev_priv,
-			    enum port port)
+							enum port port)
 {
 	struct ddi_vbt_port_info *info = &dev_priv->vbt.ddi_port_info[port];
 	enum port p;
@@ -515,11 +518,12 @@ static void sanitize_aux_ch(i915_CONTROLLER *dev_priv,
 		return;
 
 	p = get_port_by_aux_ch(dev_priv, info->alternate_aux_channel);
-	if (p != PORT_NONE) {
-		DebugPrint(EFI_D_ERROR, 
-			    "port %c trying to use the same AUX CH (0x%x) as port %c, disabling port %c DP support\n",
-			    port_name(port), info->alternate_aux_channel,
-			    port_name(p), port_name(p));
+	if (p != PORT_NONE)
+	{
+		PRINT_DEBUG(EFI_D_ERROR,
+					"port %c trying to use the same AUX CH (0x%x) as port %c, disabling port %c DP support\n",
+					port_name(port), info->alternate_aux_channel,
+					port_name(p), port_name(p));
 
 		/*
 		 * If we have multiple ports supposedlt sharing the
@@ -562,18 +566,19 @@ static void sanitize_aux_ch(i915_CONTROLLER *dev_priv,
 
 static u8 map_ddc_pin(i915_CONTROLLER *dev_priv, u8 vbt_pin)
 {
-			return vbt_pin;
-
+	return vbt_pin;
 }
 
 static enum port __dvo_port_to_port(int n_ports, int n_dvo,
-				    const int port_mapping[][3], u8 dvo_port)
+									const int port_mapping[][3], u8 dvo_port)
 {
 	enum port port;
 	int i;
 
-	for (port = PORT_A; port < n_ports; port++) {
-		for (i = 0; i < n_dvo; i++) {
+	for (port = PORT_A; port < n_ports; port++)
+	{
+		for (i = 0; i < n_dvo; i++)
+		{
 			if (port_mapping[port][i] == -1)
 				break;
 
@@ -586,31 +591,32 @@ static enum port __dvo_port_to_port(int n_ports, int n_dvo,
 }
 static u8 translate_iboost(u8 val)
 {
-	static const u8 mapping[] = { 1, 3, 7 }; /* See VBT spec */
+	static const u8 mapping[] = {1, 3, 7}; /* See VBT spec */
 
-	if (val >= ARRAY_SIZE(mapping)) {
-		DebugPrint(EFI_D_ERROR, "i915: Unsupported I_boost value found in VBT (%d), display may not work properly\n", val);
+	if (val >= ARRAY_SIZE(mapping))
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "Unsupported I_boost value found in VBT (%d), display may not work properly\n", val);
 		return 0;
 	}
 	return mapping[val];
 }
 static enum port dvo_port_to_port(i915_CONTROLLER *dev_priv,
-				  u8 dvo_port)
+								  u8 dvo_port)
 {
 	/*
 	 * Each DDI port can have more than one value on the "DVO Port" field,
 	 * so look for all the possible values for each port.
 	 */
 	static const int port_mapping[][3] = {
-		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
-		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
-		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
-		[PORT_D] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
-		[PORT_E] = { DVO_PORT_HDMIE, DVO_PORT_DPE, DVO_PORT_CRT },
-		[PORT_F] = { DVO_PORT_HDMIF, DVO_PORT_DPF, -1 },
-		[PORT_G] = { DVO_PORT_HDMIG, DVO_PORT_DPG, -1 },
-		[PORT_H] = { DVO_PORT_HDMIH, DVO_PORT_DPH, -1 },
-		[PORT_I] = { DVO_PORT_HDMII, DVO_PORT_DPI, -1 },
+		[PORT_A] = {DVO_PORT_HDMIA, DVO_PORT_DPA, -1},
+		[PORT_B] = {DVO_PORT_HDMIB, DVO_PORT_DPB, -1},
+		[PORT_C] = {DVO_PORT_HDMIC, DVO_PORT_DPC, -1},
+		[PORT_D] = {DVO_PORT_HDMID, DVO_PORT_DPD, -1},
+		[PORT_E] = {DVO_PORT_HDMIE, DVO_PORT_DPE, DVO_PORT_CRT},
+		[PORT_F] = {DVO_PORT_HDMIF, DVO_PORT_DPF, -1},
+		[PORT_G] = {DVO_PORT_HDMIG, DVO_PORT_DPG, -1},
+		[PORT_H] = {DVO_PORT_HDMIH, DVO_PORT_DPH, -1},
+		[PORT_I] = {DVO_PORT_HDMII, DVO_PORT_DPI, -1},
 	};
 	/*
 	 * Bspec lists the ports as A, B, C, D - however internally in our
@@ -618,7 +624,7 @@ static enum port dvo_port_to_port(i915_CONTROLLER *dev_priv,
 	 * registers in Display Engine match the right offsets. Apply the
 	 * mapping here to translate from VBT to internal convention.
 	 */
-/* 	static const int rkl_port_mapping[][3] = {
+	/* 	static const int rkl_port_mapping[][3] = {
 		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
 		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
 		[PORT_C] = { -1 },
@@ -626,17 +632,16 @@ static enum port dvo_port_to_port(i915_CONTROLLER *dev_priv,
 		[PORT_E] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
 	};
  */
-	
-		return __dvo_port_to_port(ARRAY_SIZE(port_mapping),
-					  ARRAY_SIZE(port_mapping[0]),
-					  port_mapping,
-					  dvo_port);
+
+	return __dvo_port_to_port(ARRAY_SIZE(port_mapping),
+							  ARRAY_SIZE(port_mapping[0]),
+							  port_mapping,
+							  dvo_port);
 }
 
-
 static void parse_ddi_port(i915_CONTROLLER *dev_priv,
-			   const struct child_device_config *child,
-			   UINT8 bdb_version)
+						   const struct child_device_config *child,
+						   UINT8 bdb_version)
 {
 	struct ddi_vbt_port_info *info;
 	BOOLEAN is_dvi, is_hdmi, is_dp, is_edp, is_crt;
@@ -648,23 +653,25 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 	info = &dev_priv->vbt.ddi_port_info[port];
 	info->port = port;
 
-	if (info->child) {
-		DebugPrint(EFI_D_ERROR, 
-			    "More than one child device for port %c in VBT, using the first.\n",
-			    port_name(port));
+	if (info->child)
+	{
+		PRINT_DEBUG(EFI_D_ERROR,
+					"More than one child device for port %c in VBT, using the first.\n",
+					port_name(port));
 		return;
 	}
 
-	is_dvi = (child->device_type & DEVICE_TYPE_TMDS_DVI_SIGNALING)!= 0;
-	is_dp = (child->device_type & DEVICE_TYPE_DISPLAYPORT_OUTPUT)!= 0;
-	is_crt = (child->device_type & DEVICE_TYPE_ANALOG_OUTPUT)!= 0;
+	is_dvi = (child->device_type & DEVICE_TYPE_TMDS_DVI_SIGNALING) != 0;
+	is_dp = (child->device_type & DEVICE_TYPE_DISPLAYPORT_OUTPUT) != 0;
+	is_crt = (child->device_type & DEVICE_TYPE_ANALOG_OUTPUT) != 0;
 	is_hdmi = is_dvi && ((child->device_type & DEVICE_TYPE_NOT_HDMI_OUTPUT) == 0);
-	is_edp = is_dp && ((child->device_type & DEVICE_TYPE_INTERNAL_CONNECTOR)!= 0);
+	is_edp = is_dp && ((child->device_type & DEVICE_TYPE_INTERNAL_CONNECTOR) != 0);
 
-	if (port == PORT_A && is_dvi) {
-		DebugPrint(EFI_D_ERROR, 
-			    "VBT claims port A supports DVI%s, ignoring\n",
-			    is_hdmi ? "/HDMI" : "");
+	if (port == PORT_A && is_dvi)
+	{
+		PRINT_DEBUG(EFI_D_ERROR,
+					"VBT claims port A supports DVI%s, ignoring\n",
+					is_hdmi ? "/HDMI" : "");
 		is_dvi = FALSE;
 		is_hdmi = FALSE;
 	}
@@ -680,18 +687,19 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 	if (bdb_version >= 209)
 		info->supports_tbt = child->tbt;
 
-	DebugPrint(EFI_D_ERROR, 
-		    "Port %c VBT info: CRT:%d DVI:%d HDMI:%d DP:%d eDP:%d USB-Type-C:%d TBT:%d type:%04x\n",
-		    port_name(port), is_crt, is_dvi, is_hdmi, is_dp, is_edp,
-		    info->supports_typec_usb, info->supports_tbt, child->device_type);
+	PRINT_DEBUG(EFI_D_ERROR,
+				"Port %c VBT info: CRT:%d DVI:%d HDMI:%d DP:%d eDP:%d USB-Type-C:%d TBT:%d type:%04x\n",
+				port_name(port), is_crt, is_dvi, is_hdmi, is_dp, is_edp,
+				info->supports_typec_usb, info->supports_tbt, child->device_type);
 
-	if (is_dvi) {
+	if (is_dvi)
+	{
 		UINT8 ddc_pin;
 
 		ddc_pin = map_ddc_pin(dev_priv, child->ddc_pin);
-	//	if (intel_gmbus_is_valid_pin(dev_priv, ddc_pin)) {
-			info->alternate_ddc_pin = ddc_pin;
-			sanitize_ddc_pin(dev_priv, port);
+		//	if (intel_gmbus_is_valid_pin(dev_priv, ddc_pin)) {
+		info->alternate_ddc_pin = ddc_pin;
+		sanitize_ddc_pin(dev_priv, port);
 		/* } else {
 			DebugPrint(EFI_D_ERROR, 
 				    "Port %c has invalid DDC pin %d, "
@@ -700,24 +708,26 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 		} */
 	}
 
-	if (is_dp) {
+	if (is_dp)
+	{
 		info->alternate_aux_channel = child->aux_channel;
 
 		sanitize_aux_ch(dev_priv, port);
 	}
 
-	if (bdb_version >= 158) {
+	if (bdb_version >= 158)
+	{
 		/* The VBT HDMI level shift values match the table we have. */
 		UINT8 hdmi_level_shift = child->hdmi_level_shifter_value;
-		DebugPrint(EFI_D_ERROR, 
-			    "VBT HDMI level shift for port %c: %d\n",
-			    port_name(port),
-			    hdmi_level_shift);
+		PRINT_DEBUG(EFI_D_ERROR,
+					"VBT HDMI level shift for port %c: %d\n",
+					port_name(port),
+					hdmi_level_shift);
 		info->hdmi_level_shift = hdmi_level_shift;
 		info->hdmi_level_shift_set = TRUE;
 	}
 
-/* 	if (bdb_version >= 204) {
+	/* 	if (bdb_version >= 204) {
 		int max_tmds_clock;
 
 		switch (child->hdmi_max_data_rate) {
@@ -743,20 +753,23 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 	} */
 
 	/* Parse the I_boost config for SKL and above */
-	if (bdb_version >= 196 && child->iboost) {
+	if (bdb_version >= 196 && child->iboost)
+	{
 		info->dp_boost_level = translate_iboost(child->dp_iboost_level);
-		DebugPrint(EFI_D_ERROR, 
-			    "VBT (e)DP boost level for port %c: %d\n",
-			    port_name(port), info->dp_boost_level);
+		PRINT_DEBUG(EFI_D_ERROR,
+					"VBT (e)DP boost level for port %c: %d\n",
+					port_name(port), info->dp_boost_level);
 		info->hdmi_boost_level = translate_iboost(child->hdmi_iboost_level);
-		DebugPrint(EFI_D_ERROR, 
-			    "VBT HDMI boost level for port %c: %d\n",
-			    port_name(port), info->hdmi_boost_level);
+		PRINT_DEBUG(EFI_D_ERROR,
+					"VBT HDMI boost level for port %c: %d\n",
+					port_name(port), info->hdmi_boost_level);
 	}
 
 	/* DP max link rate for CNL+ */
-	if (bdb_version >= 216) {
-		switch (child->dp_max_link_rate) {
+	if (bdb_version >= 216)
+	{
+		switch (child->dp_max_link_rate)
+		{
 		default:
 		case VBT_DP_MAX_LINK_RATE_HBR3:
 			info->dp_max_link_rate = 810000;
@@ -771,9 +784,9 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 			info->dp_max_link_rate = 162000;
 			break;
 		}
-		DebugPrint(EFI_D_ERROR, 
-			    "VBT DP max link rate for port %c: %d\n",
-			    port_name(port), info->dp_max_link_rate);
+		PRINT_DEBUG(EFI_D_ERROR,
+					"VBT DP max link rate for port %c: %d\n",
+					port_name(port), info->dp_max_link_rate);
 	}
 
 	info->child = child;
@@ -781,7 +794,7 @@ static void parse_ddi_port(i915_CONTROLLER *dev_priv,
 
 void parse_ddi_ports(i915_CONTROLLER *dev_priv, UINT8 bdb_version)
 {
-/* 	struct display_device_data *devdata;
+	/* 	struct display_device_data *devdata;
 
 	if (!HAS_DDI(dev_priv) && !IS_CHERRYVIEW(dev_priv))
 		return;
@@ -792,30 +805,32 @@ void parse_ddi_ports(i915_CONTROLLER *dev_priv, UINT8 bdb_version)
 	struct bdb_header bdb;
 	bdb.version = bdb_version;
 	context.bdb = &bdb;
-    for (int i = 0; i < dev_priv->opRegion->numChildren; i++ ) {
+	for (int i = 0; i < dev_priv->opRegion->numChildren; i++)
+	{
 		dump_child_device(&context, &dev_priv->opRegion->children[i]);
-        		parse_ddi_port(dev_priv, &dev_priv->opRegion->children[i], bdb_version); //TODO Update to dyn version
-
-    }
+		parse_ddi_port(dev_priv, &dev_priv->opRegion->children[i], bdb_version); //TODO Update to dyn version
+	}
 	//list_for_each_entry(devdata, &dev_priv->vbt.display_devices, node)
 }
 enum aux_ch intel_bios_port_aux_ch(i915_CONTROLLER *dev_priv,
-				   enum port port)
+								   enum port port)
 {
 	const struct ddi_vbt_port_info *info =
 		&dev_priv->vbt.ddi_port_info[port];
 	enum aux_ch aux_ch;
 
-	if (!info->alternate_aux_channel) {
+	if (!info->alternate_aux_channel)
+	{
 		aux_ch = (enum aux_ch)port;
 
-		DebugPrint(EFI_D_ERROR,
-			    "using AUX %c for port %c (platform default)\n",
-			    aux_ch_name(aux_ch), port_name(port));
+		PRINT_DEBUG(EFI_D_ERROR,
+					"using AUX %c for port %c (platform default)\n",
+					aux_ch_name(aux_ch), port_name(port));
 		return aux_ch;
 	}
 
-	switch (info->alternate_aux_channel) {
+	switch (info->alternate_aux_channel)
+	{
 	case DP_AUX_A:
 		aux_ch = AUX_CH_A;
 		break;
@@ -823,10 +838,10 @@ enum aux_ch intel_bios_port_aux_ch(i915_CONTROLLER *dev_priv,
 		aux_ch = AUX_CH_B;
 		break;
 	case DP_AUX_C:
-		aux_ch =  AUX_CH_C;
+		aux_ch = AUX_CH_C;
 		break;
 	case DP_AUX_D:
-		aux_ch =  AUX_CH_D;
+		aux_ch = AUX_CH_D;
 		break;
 	case DP_AUX_E:
 		aux_ch = AUX_CH_E;
@@ -844,12 +859,12 @@ enum aux_ch intel_bios_port_aux_ch(i915_CONTROLLER *dev_priv,
 	// 	aux_ch = AUX_CH_I;
 	// 	break;
 	default:
-				aux_ch = AUX_CH_A;
+		aux_ch = AUX_CH_A;
 		break;
 	}
 
-	DebugPrint(EFI_D_ERROR, "using AUX %c for port %c (VBT)\n",
-		    aux_ch_name(aux_ch), port_name(port));
+	PRINT_DEBUG(EFI_D_ERROR, "using AUX %c for port %c (VBT)\n",
+				aux_ch_name(aux_ch), port_name(port));
 
 	return aux_ch;
 }

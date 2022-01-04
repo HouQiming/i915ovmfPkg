@@ -1,5 +1,5 @@
 #include "i915_controller.h"
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include "i915_gmbus.h"
 #include "i915_ddi.h"
 #include "i915_dp.h"
@@ -9,204 +9,206 @@
 #include <Library/UefiBootServicesTableLib.h>
 
 /* Cedartrail */
-#define PP_ON_DELAYS		0x61208		/* Cedartrail */
-#define PANEL_PORT_SELECT_MASK 		(3 << 30)
-#define PANEL_PORT_SELECT_LVDS 		(0 << 30)
-#define PANEL_PORT_SELECT_EDP		(1 << 30)
-#define PANEL_POWER_UP_DELAY_MASK	(0x1fff0000)
-#define PANEL_POWER_UP_DELAY_SHIFT	16
-#define PANEL_LIGHT_ON_DELAY_MASK	(0x1fff)
-#define PANEL_LIGHT_ON_DELAY_SHIFT	0
+#define PP_ON_DELAYS 0x61208 /* Cedartrail */
+#define PANEL_PORT_SELECT_MASK (3 << 30)
+#define PANEL_PORT_SELECT_LVDS (0 << 30)
+#define PANEL_PORT_SELECT_EDP (1 << 30)
+#define PANEL_POWER_UP_DELAY_MASK (0x1fff0000)
+#define PANEL_POWER_UP_DELAY_SHIFT 16
+#define PANEL_LIGHT_ON_DELAY_MASK (0x1fff)
+#define PANEL_LIGHT_ON_DELAY_SHIFT 0
 
-#define PP_OFF_DELAYS		0x6120c		/* Cedartrail */
-#define PANEL_POWER_DOWN_DELAY_MASK	(0x1fff0000)
-#define PANEL_POWER_DOWN_DELAY_SHIFT	16
-#define PANEL_LIGHT_OFF_DELAY_MASK	(0x1fff)
-#define PANEL_LIGHT_OFF_DELAY_SHIFT	0
+#define PP_OFF_DELAYS 0x6120c /* Cedartrail */
+#define PANEL_POWER_DOWN_DELAY_MASK (0x1fff0000)
+#define PANEL_POWER_DOWN_DELAY_SHIFT 16
+#define PANEL_LIGHT_OFF_DELAY_MASK (0x1fff)
+#define PANEL_LIGHT_OFF_DELAY_SHIFT 0
 
 //#define PP_DIVISOR		0x61210		/* Cedartrail */
-#define  PP_REFERENCE_DIVIDER_MASK	(0xffffff00)
-#define  PP_REFERENCE_DIVIDER_SHIFT	8
-#define  PANEL_POWER_CYCLE_DELAY_MASK	(0x1f)
-#define  PANEL_POWER_CYCLE_DELAY_SHIFT	0
-EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER* controller, UINT8 pin) {
+#define PP_REFERENCE_DIVIDER_MASK (0xffffff00)
+#define PP_REFERENCE_DIVIDER_SHIFT 8
+#define PANEL_POWER_CYCLE_DELAY_MASK (0x1f)
+#define PANEL_POWER_CYCLE_DELAY_SHIFT 0
+EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
+{
 
-        UINT32 *p = (UINT32 *)result;
+	UINT32 *p = (UINT32 *)result;
 
-    
-        DebugPrint(EFI_D_ERROR, "i915: trying DP aux %d\n", pin);
-        // aux message header is 3-4 bytes: ctrl8 addr16 len8
-        // the data is big endian
-        // len is receive buffer size-1
-        // i2c init
-        UINT32 send_ctl =
-            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
-             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
-             DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
-             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
-        /* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
-        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
-                            ((AUX_I2C_MOT | AUX_I2C_WRITE) << 28) | (0x50 << 8) |
-                                0);
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
-        UINT32 aux_status;
-        UINT32 counter = 0;
-        for (;;)
-        {
-            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
-            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
-            {
-                break;
-            }
-            counter += 1;
-            if (counter >= 16384)
-            {
-                DebugPrint(EFI_D_ERROR, "i915:DP AUX channel timeout");
-                break;
-            }
-        }
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
-                            aux_status | DP_AUX_CH_CTL_DONE |
-                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
-                                DP_AUX_CH_CTL_RECEIVE_ERROR);
-        // i2c send 1 byte
-        send_ctl =
-            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
-             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
-             DP_AUX_CH_CTL_RECEIVE_ERROR | (5 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
-             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
-        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
-                            (AUX_I2C_WRITE << 28) | (0x50 << 8) | 0);
-        controller->write32(_DPA_AUX_CH_DATA2 + (pin << 8), 0);
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
-        counter = 0;
-        for (;;)
-        {
-            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
-            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
-            {
-                break;
-            }
-            counter += 1;
-            if (counter >= 16384)
-            {
-                DebugPrint(EFI_D_ERROR, "i915:DP AUX channel timeout");
-                break;
-            }
-        }
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
-                            aux_status | DP_AUX_CH_CTL_DONE |
-                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
-                                DP_AUX_CH_CTL_RECEIVE_ERROR);
-        if (aux_status &
-            (DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_RECEIVE_ERROR))
-        {
-        return EFI_NOT_FOUND;
-        }
-        // i2c read 1 byte * 128
-        DebugPrint(EFI_D_ERROR, "i915: reading DP aux %d\n", pin);
-        // aux message header is 3-4 bytes: ctrl8 addr16 len8
-        // the data is big endian
-        // len is receive buffer size-1
-        // i2c init
-        send_ctl =
-            (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
-             DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
-             DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-             DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
-             DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
-        /* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
-        controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
-                            ((AUX_I2C_MOT | AUX_I2C_READ) << 28) | (0x50 << 8) | 0);
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
-        counter = 0;
-        for (;;)
-        {
-            aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
-            if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
-            {
-                break;
-            }
-            counter += 1;
-            if (counter >= 16384)
-            {
-                DebugPrint(EFI_D_ERROR, "i915: DP AUX channel timeout");
-                break;
-            }
-        }
-        controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
-                            aux_status | DP_AUX_CH_CTL_DONE |
-                                DP_AUX_CH_CTL_TIME_OUT_ERROR |
-                                DP_AUX_CH_CTL_RECEIVE_ERROR);
-        UINT32 i = 0;
-        for (i = 0; i < 128; i++)
-        {
-            send_ctl = (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
-                        DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
-                        DP_AUX_CH_CTL_RECEIVE_ERROR |
-                        (4 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-                        DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
-                        DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
-            controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
-                                (AUX_I2C_READ << 28) | (0x50 << 8) | 0);
-            controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
-            counter = 0;
-            for (;;)
-            {
-                aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
-                if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
-                {
-                    break;
-                }
-                counter += 1;
-                if (counter >= 16384)
-                {
-                    DebugPrint(EFI_D_ERROR, "i915: DP AUX channel timeout");
-                    break;
-                }
-            }
-            controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
-                                aux_status | DP_AUX_CH_CTL_DONE |
-                                    DP_AUX_CH_CTL_TIME_OUT_ERROR |
-                                    DP_AUX_CH_CTL_RECEIVE_ERROR);
-            UINT32 word = controller->read32(_DPA_AUX_CH_DATA1 + (pin << 8));
-            ((UINT8 *)p)[i] = (word >> 16) & 0xff;
-        }
-        for (UINT32 i = 0; i < 16; i++)
-        {
-            for (UINT32 j = 0; j < 8; j++)
-            {
-                DebugPrint(EFI_D_ERROR, "%02x ", ((UINT8 *)(p))[i * 8 + j]);
-            }
-            DebugPrint(EFI_D_ERROR, "\n");
-        }
-        if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
-        {
-            controller->OutputPath.AuxCh = pin;
-            return EFI_SUCCESS;
-        }
-    
-        return EFI_NOT_FOUND;
+	PRINT_DEBUG(EFI_D_ERROR, "trying DP aux %d\n", pin);
+	// aux message header is 3-4 bytes: ctrl8 addr16 len8
+	// the data is big endian
+	// len is receive buffer size-1
+	// i2c init
+	UINT32 send_ctl =
+		(DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+		 DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+		 DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+		 DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+		 DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+	/* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
+	controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+						((AUX_I2C_MOT | AUX_I2C_WRITE) << 28) | (0x50 << 8) |
+							0);
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+	UINT32 aux_status;
+	UINT32 counter = 0;
+	for (;;)
+	{
+		aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+		if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+		{
+			break;
+		}
+		counter += 1;
+		if (counter >= 16384)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
+			break;
+		}
+	}
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+						aux_status | DP_AUX_CH_CTL_DONE |
+							DP_AUX_CH_CTL_TIME_OUT_ERROR |
+							DP_AUX_CH_CTL_RECEIVE_ERROR);
+	// i2c send 1 byte
+	send_ctl =
+		(DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+		 DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+		 DP_AUX_CH_CTL_RECEIVE_ERROR | (5 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+		 DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+		 DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+	controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+						(AUX_I2C_WRITE << 28) | (0x50 << 8) | 0);
+	controller->write32(_DPA_AUX_CH_DATA2 + (pin << 8), 0);
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+	counter = 0;
+	for (;;)
+	{
+		aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+		if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+		{
+			break;
+		}
+		counter += 1;
+		if (counter >= 16384)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
+			break;
+		}
+	}
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+						aux_status | DP_AUX_CH_CTL_DONE |
+							DP_AUX_CH_CTL_TIME_OUT_ERROR |
+							DP_AUX_CH_CTL_RECEIVE_ERROR);
+	if (aux_status &
+		(DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_RECEIVE_ERROR))
+	{
+		return EFI_NOT_FOUND;
+	}
+	// i2c read 1 byte * 128
+	PRINT_DEBUG(EFI_D_ERROR, "reading DP aux %d\n", pin);
+	// aux message header is 3-4 bytes: ctrl8 addr16 len8
+	// the data is big endian
+	// len is receive buffer size-1
+	// i2c init
+	send_ctl =
+		(DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+		 DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+		 DP_AUX_CH_CTL_RECEIVE_ERROR | (3 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+		 DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+		 DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+	/* Must try at least 3 times according to DP spec, WHICH WE DON'T CARE */
+	controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+						((AUX_I2C_MOT | AUX_I2C_READ) << 28) | (0x50 << 8) | 0);
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+	counter = 0;
+	for (;;)
+	{
+		aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+		if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+		{
+			break;
+		}
+		counter += 1;
+		if (counter >= 16384)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
+			break;
+		}
+	}
+	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+						aux_status | DP_AUX_CH_CTL_DONE |
+							DP_AUX_CH_CTL_TIME_OUT_ERROR |
+							DP_AUX_CH_CTL_RECEIVE_ERROR);
+	UINT32 i = 0;
+	for (i = 0; i < 128; i++)
+	{
+		send_ctl = (DP_AUX_CH_CTL_SEND_BUSY | DP_AUX_CH_CTL_DONE |
+					DP_AUX_CH_CTL_TIME_OUT_ERROR | DP_AUX_CH_CTL_TIME_OUT_MAX |
+					DP_AUX_CH_CTL_RECEIVE_ERROR |
+					(4 << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+					DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+					DP_AUX_CH_CTL_SYNC_PULSE_SKL(32));
+		controller->write32(_DPA_AUX_CH_DATA1 + (pin << 8),
+							(AUX_I2C_READ << 28) | (0x50 << 8) | 0);
+		controller->write32(_DPA_AUX_CH_CTL + (pin << 8), send_ctl);
+		counter = 0;
+		for (;;)
+		{
+			aux_status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));
+			if (!(aux_status & DP_AUX_CH_CTL_SEND_BUSY))
+			{
+				break;
+			}
+			counter += 1;
+			if (counter >= 16384)
+			{
+				PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
+				break;
+			}
+		}
+		controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
+							aux_status | DP_AUX_CH_CTL_DONE |
+								DP_AUX_CH_CTL_TIME_OUT_ERROR |
+								DP_AUX_CH_CTL_RECEIVE_ERROR);
+		UINT32 word = controller->read32(_DPA_AUX_CH_DATA1 + (pin << 8));
+		((UINT8 *)p)[i] = (word >> 16) & 0xff;
+	}
+	for (UINT32 i = 0; i < 16; i++)
+	{
+		for (UINT32 j = 0; j < 8; j++)
+		{
+			DebugPrint(EFI_D_ERROR, "%02x ", ((UINT8 *)(p))[i * 8 + j]);
+		}
+		DebugPrint(EFI_D_ERROR, "\n");
+	}
+	if (i >= 128 && *(UINT64 *)result->magic == 0x00FFFFFFFFFFFF00uLL)
+	{
+		controller->OutputPath.AuxCh = pin;
+		return EFI_SUCCESS;
+	}
 
+	return EFI_NOT_FOUND;
 }
 
-static int cnp_rawclk(i915_CONTROLLER* controller)
+static int cnp_rawclk(i915_CONTROLLER *controller)
 {
 	int divider, fraction;
 
-	if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY) {
+	if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY)
+	{
 		/* 24 MHz */
 		divider = 24000;
 		fraction = 0;
-	} else {
+	}
+	else
+	{
 		/* 19.2 MHz */
 		divider = 19000;
 		fraction = 200;
 	}
 
-/* 	rawclk = CNP_RAWCLK_DIV(divider / 1000);
+	/* 	rawclk = CNP_RAWCLK_DIV(divider / 1000);
 	if (fraction) {
 		int numerator = 1;
 
@@ -315,7 +317,7 @@ static int cnp_rawclk(i915_CONTROLLER* controller)
 // 	final->t11_t12 = roundup(final->t11_t12, 100 * 10);
 // }
 static void
-intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
+intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER *controller)
 {
 	//struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
 	UINT32 pp_on, pp_off, port_sel = 0;
@@ -325,17 +327,16 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 	//UINT32 port = controller->OutputPath.Port;
 	//const struct edp_power_seq *seq = &intel_dp->pps_delays;
 
-//	lockdep_assert_held(&dev_priv->pps_mutex);
+	//	lockdep_assert_held(&dev_priv->pps_mutex);
 
-//	intel_pps_get_registers(intel_dp, &regs);
-
+	//	intel_pps_get_registers(intel_dp, &regs);
 
 	//units are 100us
 	pp_on = (2100 << 15) |
-		(500);
+			(500);
 	pp_off = (5000 << 15) |
-		(500);
-/* Haswell doesn't have any port selection bits for the panel
+			 (500);
+	/* Haswell doesn't have any port selection bits for the panel
 	 * power sequencer any more. */
 	/* 
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
@@ -359,18 +360,18 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
  */
 	pp_on |= port_sel;
 
-	controller->write32( PP_ON, pp_on);
+	controller->write32(PP_ON, pp_on);
 	controller->write32(PP_OFF, pp_off);
 
 	/*
 	 * Compute the divisor for the pp clock, simply match the Bspec formula.
 	 */
 	//if (i915_mmio_reg_valid(PP_DIVISOR)) {
-		controller->write32(PP_DIVISOR,
-			       (( (100 * div) / 2 - 1) << 7) |  11);		
-				//   controller->write32(PP_DIVISOR,
-			    //  0xffffffff);
-/* 	} else {  USED FOR Gens where divisor is in cntrl var
+	controller->write32(PP_DIVISOR,
+						(((100 * div) / 2 - 1) << 7) | 11);
+	//   controller->write32(PP_DIVISOR,
+	//  0xffffffff);
+	/* 	} else {  USED FOR Gens where divisor is in cntrl var
 		UINT32 pp_ctl;
 
 		pp_ctl = controller->read32( regs.pp_ctrl);
@@ -379,14 +380,14 @@ intel_dp_init_panel_power_sequencer_registers(i915_CONTROLLER* controller)
 		controller->write32(regs.pp_ctrl, pp_ctl);
 	} */
 
- 	DebugPrint(EFI_D_ERROR,
-		    "panel power sequencer register settings: PP_ON %#x, PP_OFF %#x, PP_DIV %#x\n",
-		    controller->read32( PP_ON),
-		    controller->read32( PP_OFF),
-		    controller->read32( PP_DIVISOR));
+	PRINT_DEBUG(EFI_D_ERROR,
+				"panel power sequencer register settings: PP_ON %#x, PP_OFF %#x, PP_DIV %#x\n",
+				controller->read32(PP_ON),
+				controller->read32(PP_OFF),
+				controller->read32(PP_DIVISOR));
 }
 
-void intel_dp_pps_init(i915_CONTROLLER* controller)
+void intel_dp_pps_init(i915_CONTROLLER *controller)
 {
 	//struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
 
@@ -394,205 +395,215 @@ void intel_dp_pps_init(i915_CONTROLLER* controller)
 	// 	vlv_initial_power_sequencer_setup(intel_dp);
 	// } else {
 	//	intel_dp_init_panel_power_sequencer(intel_dp);
-		intel_dp_init_panel_power_sequencer_registers(controller);
+	intel_dp_init_panel_power_sequencer_registers(controller);
 	//}
 }
 
+EFI_STATUS SetupClockeDP(i915_CONTROLLER *controller)
+{
 
-EFI_STATUS SetupClockeDP(i915_CONTROLLER* controller) {
-    
-    UINT32 ctrl1;
-        UINT32 port = controller->OutputPath.Port;
+	UINT32 ctrl1;
+	UINT32 port = controller->OutputPath.Port;
 
-    UINT8 id = controller->OutputPath.DPLL;
-    /*
+	UINT8 id = controller->OutputPath.DPLL;
+	/*
      * See comment in intel_dpll_hw_state to understand why we always use 0
      * as the DPLL id in this function. Basically, we put them in the first 6 bits then shift them into place for easier comparison
      */
-    ctrl1 = DPLL_CTRL1_OVERRIDE(id); //Enable Programming
-    ctrl1 |= DPLL_CTRL1_SSC(id);
-    // ctrl1 |= DPLL_CTRL1_HDMI_MODE(0); //Set Mode to HDMI
+	ctrl1 = DPLL_CTRL1_OVERRIDE(id); //Enable Programming
+	ctrl1 |= DPLL_CTRL1_SSC(id);
+	// ctrl1 |= DPLL_CTRL1_HDMI_MODE(0); //Set Mode to HDMI
 
-            UINT32 val = controller->read32(DPLL_CTRL2);
+	UINT32 val = controller->read32(DPLL_CTRL2);
 
-        //val &= ~(DPLL_CTRL2_DDI_CLK_OFF(PORT_A) |
-        //	 DPLL_CTRL2_DDI_CLK_SEL_MASK(PORT_A));
-        //val |= (DPLL_CTRL2_DDI_CLK_SEL(id, PORT_A) |
-        //	DPLL_CTRL2_DDI_SEL_OVERRIDE(PORT_A));
+	//val &= ~(DPLL_CTRL2_DDI_CLK_OFF(PORT_A) |
+	//	 DPLL_CTRL2_DDI_CLK_SEL_MASK(PORT_A));
+	//val |= (DPLL_CTRL2_DDI_CLK_SEL(id, PORT_A) |
+	//	DPLL_CTRL2_DDI_SEL_OVERRIDE(PORT_A));
 
-        val &= ~(DPLL_CTRL2_DDI_CLK_OFF(port));
-        val |= (DPLL_CTRL2_DDI_CLK_OFF(port));
+	val &= ~(DPLL_CTRL2_DDI_CLK_OFF(port));
+	val |= (DPLL_CTRL2_DDI_CLK_OFF(port));
 
-        controller->write32(DPLL_CTRL2, val);
-    controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
-    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) & ~(LCPLL_PLL_ENABLE));
-    val = controller->read32(DPLL_CTRL1);
- for (UINT32 counter = 0;; counter++)
-    {
-        if (controller->read32(DPLL_STATUS) & DPLL_LOCK(id))
-        {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d locked\n", id);
-            break;
-        }
-        if (counter > 16384)
-        {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d not locked\n", id);
-            break;
-        }
-    }
-    //it's clock id!
-    //how's port clock comptued?
-    UINT64 clock_khz=controller->OutputPath.LinkRate;
-	DebugPrint(EFI_D_ERROR, "Link Rate: %u\n", clock_khz);
-    UINT32 linkrate=DPLL_CTRL1_LINK_RATE_810;
-    if(clock_khz>>1 >=135000){
-    	linkrate=DPLL_CTRL1_LINK_RATE_1350;
-    }else if(clock_khz>>1 >=270000){
-    	linkrate=DPLL_CTRL1_LINK_RATE_2700;
-    }
-    //hack: anything else hangs
-    // UINT32 id = DPLL_CTRL1_LINK_RATE_1350;
-    ctrl1 |= DPLL_CTRL1_LINK_RATE(linkrate, id);
+	controller->write32(DPLL_CTRL2, val);
+	controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) & ~(LCPLL_PLL_ENABLE));
+	controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) & ~(LCPLL_PLL_ENABLE));
+	val = controller->read32(DPLL_CTRL1);
+	for (UINT32 counter = 0;; counter++)
+	{
+		if (controller->read32(DPLL_STATUS) & DPLL_LOCK(id))
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", id);
+			break;
+		}
+		if (counter > 16384)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", id);
+			break;
+		}
+	}
+	//it's clock id!
+	//how's port clock comptued?
+	UINT64 clock_khz = controller->OutputPath.LinkRate;
+	PRINT_DEBUG(EFI_D_ERROR, "Link Rate: %u\n", clock_khz);
+	UINT32 linkrate = DPLL_CTRL1_LINK_RATE_810;
+	if (clock_khz >> 1 >= 135000)
+	{
+		linkrate = DPLL_CTRL1_LINK_RATE_1350;
+	}
+	else if (clock_khz >> 1 >= 270000)
+	{
+		linkrate = DPLL_CTRL1_LINK_RATE_2700;
+	}
+	//hack: anything else hangs
+	// UINT32 id = DPLL_CTRL1_LINK_RATE_1350;
+	ctrl1 |= DPLL_CTRL1_LINK_RATE(linkrate, id);
 
-    val &= ~(DPLL_CTRL1_HDMI_MODE(id) |
-             DPLL_CTRL1_SSC(id) |
-             DPLL_CTRL1_LINK_RATE_MASK(id));
-    val |= ctrl1;
+	val &= ~(DPLL_CTRL1_HDMI_MODE(id) |
+			 DPLL_CTRL1_SSC(id) |
+			 DPLL_CTRL1_LINK_RATE_MASK(id));
+	val |= ctrl1;
 
-    //DPLL 1
-    controller->write32(DPLL_CTRL1, val);
-    controller->read32(DPLL_CTRL1);
+	//DPLL 1
+	controller->write32(DPLL_CTRL1, val);
+	controller->read32(DPLL_CTRL1);
 
-    //845 80400173 3a5
-    DebugPrint(EFI_D_ERROR, "i915: DPLL_CTRL1 = %08x\n", controller->read32(DPLL_CTRL1));
-    DebugPrint(EFI_D_ERROR, "i915: _DPLL1_CFGCR1 = %08x\n", controller->read32(_DPLL1_CFGCR1));
-    DebugPrint(EFI_D_ERROR, "i915: _DPLL1_CFGCR2 = %08x\n", controller->read32(_DPLL1_CFGCR2));
+	//845 80400173 3a5
+	PRINT_DEBUG(EFI_D_ERROR, "DPLL_CTRL1 = %08x\n", controller->read32(DPLL_CTRL1));
+	PRINT_DEBUG(EFI_D_ERROR, "_DPLL1_CFGCR1 = %08x\n", controller->read32(_DPLL1_CFGCR1));
+	PRINT_DEBUG(EFI_D_ERROR, "_DPLL1_CFGCR2 = %08x\n", controller->read32(_DPLL1_CFGCR2));
 
-    /* the enable bit is always bit 31 */
-    controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
-    controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
+	/* the enable bit is always bit 31 */
+	controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
+	controller->write32(LCPLL1_CTL, controller->read32(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
 
-    for (UINT32 counter = 0;; counter++)
-    {
-        if (controller->read32(DPLL_STATUS) & DPLL_LOCK(id))
-        {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d locked\n", id);
-            break;
-        }
-        if (counter > 16384)
-        {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d not locked\n", id);
-            break;
-        }
-    }
+	for (UINT32 counter = 0;; counter++)
+	{
+		if (controller->read32(DPLL_STATUS) & DPLL_LOCK(id))
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", id);
+			break;
+		}
+		if (counter > 16384)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", id);
+			break;
+		}
+	}
 
-    //intel_encoders_pre_enable(crtc, pipe_config, old_state);
-    //could be intel_ddi_pre_enable_hdmi
-    //intel_ddi_clk_select(encoder, crtc_state);
-    DebugPrint(EFI_D_ERROR, "i915: port is %d\n", port);
-    {
-        UINT32 val = controller->read32(DPLL_CTRL2);
+	//intel_encoders_pre_enable(crtc, pipe_config, old_state);
+	//could be intel_ddi_pre_enable_hdmi
+	//intel_ddi_clk_select(encoder, crtc_state);
+	PRINT_DEBUG(EFI_D_ERROR, "port is %d\n", port);
+	{
+		UINT32 val = controller->read32(DPLL_CTRL2);
 
-        //val &= ~(DPLL_CTRL2_DDI_CLK_OFF(PORT_A) |
-        //	 DPLL_CTRL2_DDI_CLK_SEL_MASK(PORT_A));
-        //val |= (DPLL_CTRL2_DDI_CLK_SEL(id, PORT_A) |
-        //	DPLL_CTRL2_DDI_SEL_OVERRIDE(PORT_A));
+		//val &= ~(DPLL_CTRL2_DDI_CLK_OFF(PORT_A) |
+		//	 DPLL_CTRL2_DDI_CLK_SEL_MASK(PORT_A));
+		//val |= (DPLL_CTRL2_DDI_CLK_SEL(id, PORT_A) |
+		//	DPLL_CTRL2_DDI_SEL_OVERRIDE(PORT_A));
 
-        val &= ~(DPLL_CTRL2_DDI_CLK_OFF(port) |
-                 DPLL_CTRL2_DDI_CLK_SEL_MASK(port));
-        val |= (DPLL_CTRL2_DDI_CLK_SEL(id, port) |
-                DPLL_CTRL2_DDI_SEL_OVERRIDE(port));
+		val &= ~(DPLL_CTRL2_DDI_CLK_OFF(port) |
+				 DPLL_CTRL2_DDI_CLK_SEL_MASK(port));
+		val |= (DPLL_CTRL2_DDI_CLK_SEL(id, port) |
+				DPLL_CTRL2_DDI_SEL_OVERRIDE(port));
 
-        controller->write32(DPLL_CTRL2, val);
-    }
-    DebugPrint(EFI_D_ERROR, "i915: DPLL_CTRL2 = %08x\n", controller->read32(DPLL_CTRL2));
-    return EFI_SUCCESS;
+		controller->write32(DPLL_CTRL2, val);
+	}
+	PRINT_DEBUG(EFI_D_ERROR, "DPLL_CTRL2 = %08x\n", controller->read32(DPLL_CTRL2));
+	return EFI_SUCCESS;
 }
-struct ddi_buf_trans {
-	UINT32 trans1;	/* balance leg enable, de-emph level */
-	UINT32 trans2;	/* vref sel, vswing */
-	UINT8 i_boost;	/* SKL: I_boost; valid: 0x0, 0x1, 0x3, 0x7 */
+struct ddi_buf_trans
+{
+	UINT32 trans1; /* balance leg enable, de-emph level */
+	UINT32 trans2; /* vref sel, vswing */
+	UINT8 i_boost; /* SKL: I_boost; valid: 0x0, 0x1, 0x3, 0x7 */
 };
 /* Skylake H and S */
 static const struct ddi_buf_trans skl_ddi_translations_dp[] = {
-	{ 0x00002016, 0x000000A0, 0x0 },
-	{ 0x00005012, 0x0000009B, 0x0 },
-	{ 0x00007011, 0x00000088, 0x0 },
-	{ 0x80009010, 0x000000C0, 0x1 },
-	{ 0x00002016, 0x0000009B, 0x0 },
-	{ 0x00005012, 0x00000088, 0x0 },
-	{ 0x80007011, 0x000000C0, 0x1 },
-	{ 0x00002016, 0x000000DF, 0x0 },
-	{ 0x80005012, 0x000000C0, 0x1 },
+	{0x00002016, 0x000000A0, 0x0},
+	{0x00005012, 0x0000009B, 0x0},
+	{0x00007011, 0x00000088, 0x0},
+	{0x80009010, 0x000000C0, 0x1},
+	{0x00002016, 0x0000009B, 0x0},
+	{0x00005012, 0x00000088, 0x0},
+	{0x80007011, 0x000000C0, 0x1},
+	{0x00002016, 0x000000DF, 0x0},
+	{0x80005012, 0x000000C0, 0x1},
 };
 
 /* Skylake U */
 static const struct ddi_buf_trans skl_u_ddi_translations_dp[] = {
-	{ 0x0000201B, 0x000000A2, 0x0 },
-	{ 0x00005012, 0x00000088, 0x0 },
-	{ 0x80007011, 0x000000CD, 0x1 },
-	{ 0x80009010, 0x000000C0, 0x1 },
-	{ 0x0000201B, 0x0000009D, 0x0 },
-	{ 0x80005012, 0x000000C0, 0x1 },
-	{ 0x80007011, 0x000000C0, 0x1 },
-	{ 0x00002016, 0x00000088, 0x0 },
-	{ 0x80005012, 0x000000C0, 0x1 },
+	{0x0000201B, 0x000000A2, 0x0},
+	{0x00005012, 0x00000088, 0x0},
+	{0x80007011, 0x000000CD, 0x1},
+	{0x80009010, 0x000000C0, 0x1},
+	{0x0000201B, 0x0000009D, 0x0},
+	{0x80005012, 0x000000C0, 0x1},
+	{0x80007011, 0x000000C0, 0x1},
+	{0x00002016, 0x00000088, 0x0},
+	{0x80005012, 0x000000C0, 0x1},
 };
 
 /* Skylake Y */
 static const struct ddi_buf_trans skl_y_ddi_translations_dp[] = {
-	{ 0x00000018, 0x000000A2, 0x0 },
-	{ 0x00005012, 0x00000088, 0x0 },
-	{ 0x80007011, 0x000000CD, 0x3 },
-	{ 0x80009010, 0x000000C0, 0x3 },
-	{ 0x00000018, 0x0000009D, 0x0 },
-	{ 0x80005012, 0x000000C0, 0x3 },
-	{ 0x80007011, 0x000000C0, 0x3 },
-	{ 0x00000018, 0x00000088, 0x0 },
-	{ 0x80005012, 0x000000C0, 0x3 },
+	{0x00000018, 0x000000A2, 0x0},
+	{0x00005012, 0x00000088, 0x0},
+	{0x80007011, 0x000000CD, 0x3},
+	{0x80009010, 0x000000C0, 0x3},
+	{0x00000018, 0x0000009D, 0x0},
+	{0x80005012, 0x000000C0, 0x3},
+	{0x80007011, 0x000000C0, 0x3},
+	{0x00000018, 0x00000088, 0x0},
+	{0x80005012, 0x000000C0, 0x3},
 };
 #define IS_SKL_ULX(cont) (0)
 #define IS_SKL_ULT(cont) (1)
 static const struct ddi_buf_trans *
-skl_get_buf_trans_dp(i915_CONTROLLER* controller, int *n_entries)
+skl_get_buf_trans_dp(i915_CONTROLLER *controller, int *n_entries)
 {
-	if (IS_SKL_ULX(controller)) {
+	if (IS_SKL_ULX(controller))
+	{
 		*n_entries = ARRAY_SIZE(skl_y_ddi_translations_dp);
 		return skl_y_ddi_translations_dp;
-	} else if (IS_SKL_ULT(controller)) {
+	}
+	else if (IS_SKL_ULT(controller))
+	{
 		*n_entries = ARRAY_SIZE(skl_u_ddi_translations_dp);
 		return skl_u_ddi_translations_dp;
-	} else {
+	}
+	else
+	{
 		*n_entries = ARRAY_SIZE(skl_ddi_translations_dp);
 		return skl_ddi_translations_dp;
 	}
 }
 
 /* Display Port */
-#define DP_A			_MMIO(0x64000) /* eDP */
-#define DP_B			_MMIO(0x64100)
-#define DP_C			_MMIO(0x64200)
-#define DP_D			_MMIO(0x64300)
+#define DP_A _MMIO(0x64000) /* eDP */
+#define DP_B _MMIO(0x64100)
+#define DP_C _MMIO(0x64200)
+#define DP_D _MMIO(0x64300)
 
+EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER *controller)
+{
+	const struct ddi_buf_trans *ddi_translations;
 
-EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller) {
-    	const struct ddi_buf_trans *ddi_translations;
-    
 	int i, n_entries;
 
-		ddi_translations = skl_get_buf_trans_dp(controller,
-							      &n_entries);
-/* If we're boosting the current, set bit 31 of trans1 */
-//	if (IS_GEN9_BC(dev_priv) && intel_bios_dp_boost_level(encoder))
-//		iboost_bit = DDI_BUF_BALANCE_LEG_ENABLE;
-    UINT32 port = controller->OutputPath.Port;
-	for (i = 0; i < n_entries; i++) {
+	ddi_translations = skl_get_buf_trans_dp(controller,
+											&n_entries);
+	/* If we're boosting the current, set bit 31 of trans1 */
+	//	if (IS_GEN9_BC(dev_priv) && intel_bios_dp_boost_level(encoder))
+	//		iboost_bit = DDI_BUF_BALANCE_LEG_ENABLE;
+	UINT32 port = controller->OutputPath.Port;
+	for (i = 0; i < n_entries; i++)
+	{
 		controller->write32(DDI_BUF_TRANS_LO(port, i),
-			       ddi_translations[i].trans1);
-		controller->write32( DDI_BUF_TRANS_HI(port, i),
-			       ddi_translations[i].trans2);
+							ddi_translations[i].trans1);
+		controller->write32(DDI_BUF_TRANS_HI(port, i),
+							ddi_translations[i].trans2);
 	}
-    return EFI_SUCCESS;
+	return EFI_SUCCESS;
 }
 /**
  * struct drm_dp_aux_msg - DisplayPort AUX channel transaction
@@ -602,7 +613,8 @@ EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER* controller) {
  * @buffer: pointer to a transmission or reception buffer
  * @size: size of @buffer
  */
-struct drm_dp_aux_msg {
+struct drm_dp_aux_msg
+{
 	unsigned int address;
 	UINT8 request;
 	UINT8 reply;
@@ -668,80 +680,80 @@ struct drm_connector;
  * only modifies the reply field of the drm_dp_aux_msg structure.  The
  * retry logic and i2c helpers assume this is the case.
  */
-#define BARE_ADDRESS_SIZE	3
-#define HEADER_SIZE		(BARE_ADDRESS_SIZE + 1)
+#define BARE_ADDRESS_SIZE 3
+#define HEADER_SIZE (BARE_ADDRESS_SIZE + 1)
 
 static void
 intel_dp_aux_header(UINT8 txbuf[HEADER_SIZE],
-		    const struct drm_dp_aux_msg *msg)
+					const struct drm_dp_aux_msg *msg)
 {
 	txbuf[0] = (msg->request << 4) | ((msg->address >> 16) & 0xf);
 	txbuf[1] = (msg->address >> 8) & 0xff;
 	txbuf[2] = msg->address & 0xff;
 	txbuf[3] = msg->size - 1;
 }
-#define	EPERM		 1	/* Operation not permitted */
-#define	ENOENT		 2	/* No such file or directory */
-#define	ESRCH		 3	/* No such process */
-#define	EINTR		 4	/* Interrupted system call */
-#define	EIO		 5	/* I/O error */
-#define	ENXIO		 6	/* No such device or address */
-#define	E2BIG		 7	/* Argument list too long */
-#define	ENOEXEC		 8	/* Exec format error */
-#define	EBADF		 9	/* Bad file number */
-#define	ECHILD		10	/* No child processes */
-#define	EAGAIN		11	/* Try again */
-#define	ENOMEM		12	/* Out of memory */
-#define	EACCES		13	/* Permission denied */
-#define	EFAULT		14	/* Bad address */
-#define	ENOTBLK		15	/* Block device required */
-#define	EBUSY		16	/* Device or resource busy */
-#define	EEXIST		17	/* File exists */
-#define	EXDEV		18	/* Cross-device link */
-#define	ENODEV		19	/* No such device */
-#define	ENOTDIR		20	/* Not a directory */
-#define	EISDIR		21	/* Is a directory */
-#define	EINVAL		22	/* Invalid argument */
-#define	ENFILE		23	/* File table overflow */
-#define	EMFILE		24	/* Too many open files */
-#define	ENOTTY		25	/* Not a typewriter */
-#define	ETXTBSY		26	/* Text file busy */
-#define	EFBIG		27	/* File too large */
-#define	ENOSPC		28	/* No space left on device */
-#define	ESPIPE		29	/* Illegal seek */
-#define	EROFS		30	/* Read-only file system */
-#define	EMLINK		31	/* Too many links */
-#define	EPIPE		32	/* Broken pipe */
-#define	EDOM		33	/* Math argument out of domain of func */
-#define	ERANGE		34	/* Math result not representable */
-#define ETIMEDOUT   35
+#define EPERM 1	   /* Operation not permitted */
+#define ENOENT 2   /* No such file or directory */
+#define ESRCH 3	   /* No such process */
+#define EINTR 4	   /* Interrupted system call */
+#define EIO 5	   /* I/O error */
+#define ENXIO 6	   /* No such device or address */
+#define E2BIG 7	   /* Argument list too long */
+#define ENOEXEC 8  /* Exec format error */
+#define EBADF 9	   /* Bad file number */
+#define ECHILD 10  /* No child processes */
+#define EAGAIN 11  /* Try again */
+#define ENOMEM 12  /* Out of memory */
+#define EACCES 13  /* Permission denied */
+#define EFAULT 14  /* Bad address */
+#define ENOTBLK 15 /* Block device required */
+#define EBUSY 16   /* Device or resource busy */
+#define EEXIST 17  /* File exists */
+#define EXDEV 18   /* Cross-device link */
+#define ENODEV 19  /* No such device */
+#define ENOTDIR 20 /* Not a directory */
+#define EISDIR 21  /* Is a directory */
+#define EINVAL 22  /* Invalid argument */
+#define ENFILE 23  /* File table overflow */
+#define EMFILE 24  /* Too many open files */
+#define ENOTTY 25  /* Not a typewriter */
+#define ETXTBSY 26 /* Text file busy */
+#define EFBIG 27   /* File too large */
+#define ENOSPC 28  /* No space left on device */
+#define ESPIPE 29  /* Illegal seek */
+#define EROFS 30   /* Read-only file system */
+#define EMLINK 31  /* Too many links */
+#define EPIPE 32   /* Broken pipe */
+#define EDOM 33	   /* Math argument out of domain of func */
+#define ERANGE 34  /* Math result not representable */
+#define ETIMEDOUT 35
 static UINT32
-intel_dp_aux_wait_done(i915_CONTROLLER* controller)
+intel_dp_aux_wait_done(i915_CONTROLLER *controller)
 {
 	UINT32 pin = controller->OutputPath.AuxCh;
-	UINT64 ch_ctl =_DPA_AUX_CH_CTL + (pin << 8);
+	UINT64 ch_ctl = _DPA_AUX_CH_CTL + (pin << 8);
 	const unsigned int timeout_ms = 10;
 	UINT32 status;
 	BOOLEAN done;
 
 #define C (((status = controller->read32(ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
-gBS->Stall(10 * 1000);
-done = C;
-/* 	done = wait_event_timeout(i915->gmbus_wait_queue, C,
+	gBS->Stall(10 * 1000);
+	done = C;
+	/* 	done = wait_event_timeout(i915->gmbus_wait_queue, C,
 				  msecs_to_jiffies_timeout(timeout_ms)); */
 
 	/* just trace the final value */
 	//trace_i915_reg_rw(FALSE, ch_ctl, status, sizeof(status), TRUE);
 
 	if (!done)
-		DebugPrint(EFI_D_ERROR,
-			"%s: did not complete or timeout within %ums (status 0x%08x)\n",
-			pin, timeout_ms, status);
+		PRINT_DEBUG(EFI_D_ERROR,
+					"%s: did not complete or timeout within %ums (status 0x%08x)\n",
+					pin, timeout_ms, status);
 #undef C
 
 	return status;
 }
-static UINT32 skl_get_aux_clock_divider( int index)
+static UINT32 skl_get_aux_clock_divider(int index)
 {
 	/*
 	 * SKL doesn't need us to program the AUX clock divider (Hardware will
@@ -768,27 +780,27 @@ static void intel_dp_unpack_aux(UINT32 src, UINT8 *dst, int dst_bytes)
 	if (dst_bytes > 4)
 		dst_bytes = 4;
 	for (i = 0; i < dst_bytes; i++)
-		dst[i] = src >> ((3-i) * 8);
+		dst[i] = src >> ((3 - i) * 8);
 }
 static UINT32 skl_get_aux_send_ctl(
-				int send_bytes,
-				UINT32 unused)
+	int send_bytes,
+	UINT32 unused)
 {
-/* 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	/* 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_i915_private *i915 =
 			to_i915(intel_dig_port->base.base.dev);
 	enum phy phy = intel_port_to_phy(i915, intel_dig_port->base.port); */
 	UINT32 ret;
 
 	ret = DP_AUX_CH_CTL_SEND_BUSY |
-	      DP_AUX_CH_CTL_DONE |
-	      DP_AUX_CH_CTL_INTERRUPT |
-	      DP_AUX_CH_CTL_TIME_OUT_ERROR |
-	      DP_AUX_CH_CTL_TIME_OUT_MAX |
-	      DP_AUX_CH_CTL_RECEIVE_ERROR |
-	      (send_bytes << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-	      DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
-	      DP_AUX_CH_CTL_SYNC_PULSE_SKL(32);
+		  DP_AUX_CH_CTL_DONE |
+		  DP_AUX_CH_CTL_INTERRUPT |
+		  DP_AUX_CH_CTL_TIME_OUT_ERROR |
+		  DP_AUX_CH_CTL_TIME_OUT_MAX |
+		  DP_AUX_CH_CTL_RECEIVE_ERROR |
+		  (send_bytes << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+		  DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(32) |
+		  DP_AUX_CH_CTL_SYNC_PULSE_SKL(32);
 
 	/* if (intel_phy_is_tc(i915, phy) &&
 	    intel_dig_port->tc_mode == TC_PORT_TBT_ALT)
@@ -797,35 +809,35 @@ static UINT32 skl_get_aux_send_ctl(
 	return ret;
 }
 static int
-intel_dp_aux_xfer(i915_CONTROLLER* controller,
-		  const UINT8 *send, int send_bytes,
-		  UINT8 *recv, int recv_size,
-		  UINT32 aux_send_ctl_flags)
+intel_dp_aux_xfer(i915_CONTROLLER *controller,
+				  const UINT8 *send, int send_bytes,
+				  UINT8 *recv, int recv_size,
+				  UINT32 aux_send_ctl_flags)
 {
-//	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-//	struct drm_i915_private *i915 =
-//			to_i915(intel_dig_port->base.base.dev);
+	//	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	//	struct drm_i915_private *i915 =
+	//			to_i915(intel_dig_port->base.base.dev);
 	//struct intel_uncore *uncore = &i915->uncore;
-//	enum phy phy = intel_port_to_phy(i915, intel_dig_port->base.port);
-//	BOOLEAN is_tc_port = intel_phy_is_tc(i915, phy);
+	//	enum phy phy = intel_port_to_phy(i915, intel_dig_port->base.port);
+	//	BOOLEAN is_tc_port = intel_phy_is_tc(i915, phy);
 	UINT64 ch_ctl, ch_data[5];
 	UINT32 aux_clock_divider;
 	//enum intel_display_power_domain aux_domain;
 	//intel_wakeref_t aux_wakeref;
-//	intel_wakeref_t pps_wakeref;
+	//	intel_wakeref_t pps_wakeref;
 	int i, ret, recv_bytes;
 	int try, clock = 0;
 	UINT32 val;
 	UINT32 status;
 	//BOOLEAN vdd;
 	UINT32 pin = controller->OutputPath.AuxCh;
-	ch_ctl =_DPA_AUX_CH_CTL + (pin << 8);
-	#define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
+	ch_ctl = _DPA_AUX_CH_CTL + (pin << 8);
+#define _PICK_EVEN(__index, __a, __b) ((__a) + (__index) * ((__b) - (__a)))
 
 	for (i = 0; i < ARRAY_SIZE(ch_data); i++)
-		ch_data[i] = (_DPA_AUX_CH_DATA1 + pin * (0x64114 - _DPA_AUX_CH_DATA1))+(i)*4;
+		ch_data[i] = (_DPA_AUX_CH_DATA1 + pin * (0x64114 - _DPA_AUX_CH_DATA1)) + (i)*4;
 
-/* 	if (is_tc_port)
+	/* 	if (is_tc_port)
 		intel_tc_port_lock(intel_dig_port);
 
 	aux_domain = intel_aux_power_domain(intel_dig_port);
@@ -846,23 +858,26 @@ intel_dp_aux_xfer(i915_CONTROLLER* controller,
 	 * lowest possible wakeup latency and so prevent the cpu from going into
 	 * deep sleep states.
 	 */
-/* 	cpu_latency_qos_update_request(&i915->pm_qos, 0);
+	/* 	cpu_latency_qos_update_request(&i915->pm_qos, 0);
 
 	intel_dp_check_edp(intel_dp); */
 
 	/* Try to wait for any previous AUX channel activity */
-	for (try = 0; try < 3; try++) {
-status = controller->read32(ch_ctl);		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 0)
+	for (try = 0; try < 3; try++)
+	{
+		status = controller->read32(ch_ctl);
+		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 0)
 			break;
 		gBS->Stall(1000);
 	}
 	/* just trace the final value */
 	//trace_i915_reg_rw(FALSE, ch_ctl, status, sizeof(status), TRUE);
 
-	if (try == 3) {
-/* 		const UINT32 status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));	 */
+	if (try == 3)
+	{
+		/* 		const UINT32 status = controller->read32(_DPA_AUX_CH_CTL + (pin << 8));	 */
 
-/* 		if (status != intel_dp->aux_busy_last_status) {
+		/* 		if (status != intel_dp->aux_busy_last_status) {
 			drm_WARN(&i915->drm, 1,
 				 "%s: not started (status 0x%08x)\n",
 				 pin, status);
@@ -874,39 +889,42 @@ status = controller->read32(ch_ctl);		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 
 	}
 
 	/* Only 5 data registers! */
-	if ( send_bytes > 20 || recv_size > 20) {
+	if (send_bytes > 20 || recv_size > 20)
+	{
 		ret = -E2BIG;
 		goto out;
 	}
 
-	while ((aux_clock_divider = skl_get_aux_clock_divider( clock++))) {
+	while ((aux_clock_divider = skl_get_aux_clock_divider(clock++)))
+	{
 		UINT32 send_ctl = skl_get_aux_send_ctl(
-							  send_bytes,
-							  aux_clock_divider);
+			send_bytes,
+			aux_clock_divider);
 
 		send_ctl |= aux_send_ctl_flags;
 
 		/* Must try at least 3 times according to DP spec */
-		for (try = 0; try < 5; try++) {
+		for (try = 0; try < 5; try++)
+		{
 			/* Load the send data into the aux channel data registers */
 			for (i = 0; i < send_bytes; i += 4)
-				 controller->write32(
-						   ch_data[i >> 2],
-						   intel_dp_pack_aux(send + i,
-								     send_bytes - i));
+				controller->write32(
+					ch_data[i >> 2],
+					intel_dp_pack_aux(send + i,
+									  send_bytes - i));
 
 			/* Send the command and wait for it to complete */
-			 controller->write32( ch_ctl, send_ctl);
+			controller->write32(ch_ctl, send_ctl);
 
 			status = intel_dp_aux_wait_done(controller);
 
 			/* Clear done status and any errors */
-			 controller->write32(
-					   ch_ctl,
-					   status |
-					   DP_AUX_CH_CTL_DONE |
-					   DP_AUX_CH_CTL_TIME_OUT_ERROR |
-					   DP_AUX_CH_CTL_RECEIVE_ERROR);
+			controller->write32(
+				ch_ctl,
+				status |
+					DP_AUX_CH_CTL_DONE |
+					DP_AUX_CH_CTL_TIME_OUT_ERROR |
+					DP_AUX_CH_CTL_RECEIVE_ERROR);
 
 			/* DP CTS 1.2 Core Rev 1.1, 4.2.1.1 & 4.2.1.2
 			 *   400us delay required for errors and timeouts
@@ -916,7 +934,8 @@ status = controller->read32(ch_ctl);		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 
 			if (status & DP_AUX_CH_CTL_TIME_OUT_ERROR)
 				continue;
 
-			if (status & DP_AUX_CH_CTL_RECEIVE_ERROR) {
+			if (status & DP_AUX_CH_CTL_RECEIVE_ERROR)
+			{
 				gBS->Stall(500);
 				continue;
 			}
@@ -925,9 +944,10 @@ status = controller->read32(ch_ctl);		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 
 		}
 	}
 
-	if ((status & DP_AUX_CH_CTL_DONE) == 0) {
-		DebugPrint(EFI_D_ERROR, "%s: not done (status 0x%08x)\n",
-			pin, status);
+	if ((status & DP_AUX_CH_CTL_DONE) == 0)
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "%s: not done (status 0x%08x)\n",
+					pin, status);
 		ret = -EBUSY;
 		goto out;
 	}
@@ -936,35 +956,38 @@ done:
 	/* Check for timeout or receive error.
 	 * Timeouts occur when the sink is not connected
 	 */
-	if (status & DP_AUX_CH_CTL_RECEIVE_ERROR) {
-		DebugPrint(EFI_D_ERROR, "%s: receive error (status 0x%08x)\n",
-			pin, status);
+	if (status & DP_AUX_CH_CTL_RECEIVE_ERROR)
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "%s: receive error (status 0x%08x)\n",
+					pin, status);
 		ret = -EIO;
 		goto out;
 	}
 
 	/* Timeouts occur when the device isn't connected, so they're
 	 * "normal" -- don't fill the kernel log with these */
-	if (status & DP_AUX_CH_CTL_TIME_OUT_ERROR) {
-		DebugPrint(EFI_D_ERROR, "%s: timeout (status 0x%08x)\n",
-			    pin, status);
+	if (status & DP_AUX_CH_CTL_TIME_OUT_ERROR)
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "%s: timeout (status 0x%08x)\n",
+					pin, status);
 		ret = -ETIMEDOUT;
 		goto out;
 	}
 
 	/* Unload any bytes sent back from the other side */
 	recv_bytes = ((status & DP_AUX_CH_CTL_MESSAGE_SIZE_MASK) >>
-		      DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT);
+				  DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT);
 
 	/*
 	 * By BSpec: "Message sizes of 0 or >20 are not allowed."
 	 * We have no idea of what happened so we return -EBUSY so
 	 * drm layer takes care for the necessary retries.
 	 */
-	if (recv_bytes == 0 || recv_bytes > 20) {
-		DebugPrint(EFI_D_ERROR,
-			    "%s: Forbidden recv_bytes = %d on aux transaction\n",
-			    pin, recv_bytes);
+	if (recv_bytes == 0 || recv_bytes > 20)
+	{
+		PRINT_DEBUG(EFI_D_ERROR,
+					"%s: Forbidden recv_bytes = %d on aux transaction\n",
+					pin, recv_bytes);
 		ret = -EBUSY;
 		goto out;
 	}
@@ -974,47 +997,51 @@ done:
 
 	for (i = 0; i < recv_bytes; i += 4)
 		intel_dp_unpack_aux(controller->read32(ch_data[i >> 2]),
-				    recv + i, recv_bytes - i);
+							recv + i, recv_bytes - i);
 
 	ret = recv_bytes;
 out:
 
 	val = controller->read32(PP_CONTROL);
-	val &= ~(1<<3);
+	val &= ~(1 << 3);
 	controller->write32(PP_CONTROL, val);
-//	pps_unlock(intel_dp, pps_wakeref);
-//	intel_display_power_put_async(i915, aux_domain, aux_wakeref);
+	//	pps_unlock(intel_dp, pps_wakeref);
+	//	intel_display_power_put_async(i915, aux_domain, aux_wakeref);
 
-//	if (is_tc_port)
-//		intel_tc_port_unlock(intel_dig_port);
+	//	if (is_tc_port)
+	//		intel_tc_port_unlock(intel_dig_port);
 
 	return ret;
 }
-void memcpy(void *dest, void *src, UINTN n) 
-{ 
-   // Typecast src and dest addresses to (char *) 
-   char *csrc = (char *)src; 
-   char *cdest = (char *)dest; 
-  
-   // Copy contents of src[] to dest[] 
-   for (int i=0; i<n; i++) 
-       cdest[i] = csrc[i]; 
-} 
+void memcpy(void *dest, void *src, UINTN n)
+{
+	// Typecast src and dest addresses to (char *)
+	char *csrc = (char *)src;
+	char *cdest = (char *)dest;
+
+	// Copy contents of src[] to dest[]
+	for (int i = 0; i < n; i++)
+		cdest[i] = csrc[i];
+}
 /*
  * ..and if you can't take the strict
  * types, you can specify one yourself.
  *
  * Or not use min/max/clamp at all, of course.
  */
-#define min_t(type, x, y) ({			\
-	type __min1 = (x);			\
-	type __min2 = (y);			\
-	__min1 < __min2 ? __min1: __min2; })
+#define min_t(type, x, y) (                \
+	{                                      \
+		type __min1 = (x);                 \
+		type __min2 = (y);                 \
+		__min1 < __min2 ? __min1 : __min2; \
+	})
 
-#define max_t(type, x, y) ({			\
-	type __max1 = (x);			\
-	type __max2 = (y);			\
-	__max1 > __max2 ? __max1: __max2; })
+#define max_t(type, x, y) (                \
+	{                                      \
+		type __max1 = (x);                 \
+		type __max2 = (y);                 \
+		__max1 > __max2 ? __max1 : __max2; \
+	})
 
 /**
  * clamp_t - return a value clamped to a given range using a given type
@@ -1027,7 +1054,8 @@ void memcpy(void *dest, void *src, UINTN n)
  * 'type' to make all the comparisons.
  */
 #define clamp_t(type, val, lo, hi) min_t(type, max_t(type, val, lo), hi)
-static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_aux_msg *msg) {
+static INT32 intel_dp_aux_transfer(i915_CONTROLLER *controller, struct drm_dp_aux_msg *msg)
+{
 
 	//struct intel_dp *intel_dp = container_of(aux, struct intel_dp, aux);
 	UINT8 txbuf[20], rxbuf[20];
@@ -1036,7 +1064,8 @@ static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_au
 
 	intel_dp_aux_header(txbuf, msg);
 
-	switch (msg->request & ~DP_AUX_I2C_MOT) {
+	switch (msg->request & ~DP_AUX_I2C_MOT)
+	{
 	case DP_AUX_NATIVE_WRITE:
 	case DP_AUX_I2C_WRITE:
 	case DP_AUX_I2C_WRITE_STATUS_UPDATE:
@@ -1052,14 +1081,18 @@ static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_au
 			memcpy(txbuf + HEADER_SIZE, msg->buffer, msg->size);
 
 		ret = intel_dp_aux_xfer(controller, txbuf, txsize,
-					rxbuf, rxsize, 0);
-		if (ret > 0) {
+								rxbuf, rxsize, 0);
+		if (ret > 0)
+		{
 			msg->reply = rxbuf[0] >> 4;
 
-			if (ret > 1) {
+			if (ret > 1)
+			{
 				/* Number of bytes written in a short write. */
 				ret = clamp_t(int, rxbuf[1], 0, msg->size);
-			} else {
+			}
+			else
+			{
 				/* Return payload size. */
 				ret = msg->size;
 			}
@@ -1075,8 +1108,9 @@ static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_au
 			return -E2BIG;
 
 		ret = intel_dp_aux_xfer(controller, txbuf, txsize,
-					rxbuf, rxsize, 0);
-		if (ret > 0) {
+								rxbuf, rxsize, 0);
+		if (ret > 0)
+		{
 			msg->reply = rxbuf[0] >> 4;
 			/*
 			 * Assume happy day, and copy the data. The caller is
@@ -1097,7 +1131,6 @@ static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_au
 	return ret;
 }
 
-
 /**
  * DOC: dp helpers
  *
@@ -1112,7 +1145,7 @@ static INT32 intel_dp_aux_transfer(i915_CONTROLLER* controller, struct drm_dp_au
 #define AUX_RETRY_INTERVAL 500 /* us */
 
 static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
-			      unsigned int offset, void *buffer, UINT32 size, i915_CONTROLLER* controller)
+										unsigned int offset, void *buffer, UINT32 size, i915_CONTROLLER *controller)
 {
 	struct drm_dp_aux_msg msg;
 	unsigned int retry, native_reply;
@@ -1130,20 +1163,25 @@ static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
 	 * aux i2c transactions but real world devices this wasn't
 	 * sufficient, bump to 32 which makes Dell 4k monitors happier.
 	 */
-	for (retry = 0; retry < 32; retry++) {
-		if (ret != 0 && ret != -RETURN_TIMEOUT) {
+	for (retry = 0; retry < 32; retry++)
+	{
+		if (ret != 0 && ret != -RETURN_TIMEOUT)
+		{
 			gBS->Stall(AUX_RETRY_INTERVAL);
 		}
 
 		ret = intel_dp_aux_transfer(controller, &msg);
-		if (ret >= 0) {
+		if (ret >= 0)
+		{
 			native_reply = msg.reply & DP_AUX_NATIVE_REPLY_MASK;
-			if (native_reply == DP_AUX_NATIVE_REPLY_ACK) {
+			if (native_reply == DP_AUX_NATIVE_REPLY_ACK)
+			{
 				if (ret == size)
 					goto unlock;
 
 				ret = -RETURN_PROTOCOL_ERROR;
-			} else
+			}
+			else
 				ret = -RETURN_NOT_FOUND;
 		}
 
@@ -1156,7 +1194,7 @@ static RETURN_STATUS drm_dp_dpcd_access(UINT8 request,
 			err = ret;
 	}
 
-	DebugPrint(EFI_D_ERROR, "Too many retries, giving up. First error: %d\n", err);
+	PRINT_DEBUG(EFI_D_ERROR, "Too many retries, giving up. First error: %d\n", err);
 	ret = err;
 
 unlock:
@@ -1176,8 +1214,8 @@ unlock:
  * function, with the exception of -EBUSY (which causes the transaction to
  * be retried), are propagated to the caller.
  */
-INT32 drm_dp_dpcd_read( unsigned int offset,
-			 void *buffer, UINT32 size, i915_CONTROLLER* controller)
+INT32 drm_dp_dpcd_read(unsigned int offset,
+					   void *buffer, UINT32 size, i915_CONTROLLER *controller)
 {
 	int ret;
 
@@ -1194,26 +1232,26 @@ INT32 drm_dp_dpcd_read( unsigned int offset,
 	 * monitor doesn't power down exactly after the throw away read.
 	 */
 	//if (!aux->is_remote) {
-		ret = drm_dp_dpcd_access(DP_AUX_NATIVE_READ, DP_DPCD_REV,
-					 buffer, 1, controller);
-		if (ret != 1)
-			goto out;
-//	}
+	ret = drm_dp_dpcd_access(DP_AUX_NATIVE_READ, DP_DPCD_REV,
+							 buffer, 1, controller);
+	if (ret != 1)
+		goto out;
+	//	}
 
-//	if (aux->is_remote)
-//		ret = drm_dp_mst_dpcd_read(aux, offset, buffer, size);
-//	else
-		ret = drm_dp_dpcd_access(DP_AUX_NATIVE_READ, offset,
-					 buffer, size, controller);
+	//	if (aux->is_remote)
+	//		ret = drm_dp_mst_dpcd_read(aux, offset, buffer, size);
+	//	else
+	ret = drm_dp_dpcd_access(DP_AUX_NATIVE_READ, offset,
+							 buffer, size, controller);
 
 out:
 	return ret;
 }
 BOOLEAN
-intel_dp_get_link_status(UINT8 link_status[DP_LINK_STATUS_SIZE], i915_CONTROLLER* controller)
+intel_dp_get_link_status(UINT8 link_status[DP_LINK_STATUS_SIZE], i915_CONTROLLER *controller)
 {
 	return drm_dp_dpcd_read(DP_LANE0_1_STATUS, link_status,
-				DP_LINK_STATUS_SIZE, controller) == DP_LINK_STATUS_SIZE;
+							DP_LINK_STATUS_SIZE, controller) == DP_LINK_STATUS_SIZE;
 }
 /* Helpers for DP link training */
 static UINT8 dp_link_status(const UINT8 link_status[DP_LINK_STATUS_SIZE], int r)
@@ -1221,7 +1259,7 @@ static UINT8 dp_link_status(const UINT8 link_status[DP_LINK_STATUS_SIZE], int r)
 	return link_status[r - DP_LANE0_1_STATUS];
 }
 static UINT8 dp_get_lane_status(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-			     int lane)
+								int lane)
 {
 	int i = DP_LANE0_1_STATUS + (lane >> 1);
 	int s = (lane & 1) * 4;
@@ -1229,12 +1267,13 @@ static UINT8 dp_get_lane_status(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 	return (l >> s) & 0xf;
 }
 BOOLEAN drm_dp_clock_recovery_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-			      int lane_count)
+								 int lane_count)
 {
 	int lane;
 	UINT8 lane_status;
 
-	for (lane = 0; lane < lane_count; lane++) {
+	for (lane = 0; lane < lane_count; lane++)
+	{
 		lane_status = dp_get_lane_status(link_status, lane);
 		if ((lane_status & DP_LANE_CR_DONE) == 0)
 			return FALSE;
@@ -1243,24 +1282,20 @@ BOOLEAN drm_dp_clock_recovery_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 }
 
 UINT8 drm_dp_get_adjust_request_voltage(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-				     int lane)
+										int lane)
 {
 	int i = DP_ADJUST_REQUEST_LANE0_1 + (lane >> 1);
-	int s = ((lane & 1) ?
-		 DP_ADJUST_VOLTAGE_SWING_LANE1_SHIFT :
-		 DP_ADJUST_VOLTAGE_SWING_LANE0_SHIFT);
+	int s = ((lane & 1) ? DP_ADJUST_VOLTAGE_SWING_LANE1_SHIFT : DP_ADJUST_VOLTAGE_SWING_LANE0_SHIFT);
 	UINT8 l = dp_link_status(link_status, i);
 
 	return ((l >> s) & 0x3) << DP_TRAIN_VOLTAGE_SWING_SHIFT;
 }
 
 UINT8 drm_dp_get_adjust_request_pre_emphasis(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-					  int lane)
+											 int lane)
 {
 	int i = DP_ADJUST_REQUEST_LANE0_1 + (lane >> 1);
-	int s = ((lane & 1) ?
-		 DP_ADJUST_PRE_EMPHASIS_LANE1_SHIFT :
-		 DP_ADJUST_PRE_EMPHASIS_LANE0_SHIFT);
+	int s = ((lane & 1) ? DP_ADJUST_PRE_EMPHASIS_LANE1_SHIFT : DP_ADJUST_PRE_EMPHASIS_LANE0_SHIFT);
 	UINT8 l = dp_link_status(link_status, i);
 
 	return ((l >> s) & 0x3) << DP_TRAIN_PRE_EMPHASIS_SHIFT;
@@ -1269,11 +1304,11 @@ UINT8 drm_dp_get_adjust_request_pre_emphasis(const UINT8 link_status[DP_LINK_STA
 UINT8
 intel_dp_voltage_max()
 {
-/* 	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	/* 	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
 	struct intel_encoder *encoder = &dp_to_dig_port(intel_dp)->base;
 	enum port port = encoder->port; */
 
-/* 	if (HAS_DDI(dev_priv))
+	/* 	if (HAS_DDI(dev_priv))
 		return intel_ddi_dp_voltage_max(encoder);
 	else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		return DP_TRAIN_VOLTAGE_SWING_LEVEL_3;
@@ -1282,17 +1317,17 @@ intel_dp_voltage_max()
 	else if (HAS_PCH_CPT(dev_priv) && port != PORT_A)
 		return DP_TRAIN_VOLTAGE_SWING_LEVEL_3;
 	else */
-		return DP_TRAIN_VOLTAGE_SWING_LEVEL_2;
+	return DP_TRAIN_VOLTAGE_SWING_LEVEL_2;
 }
 
 UINT8
-intel_dp_pre_emphasis_max( UINT8 voltage_swing)
+intel_dp_pre_emphasis_max(UINT8 voltage_swing)
 {
-/* 	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	/* 	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
 	struct intel_encoder *encoder = &dp_to_dig_port(intel_dp)->base;
 	enum port port = encoder->port; */
 
-/* 	if (HAS_DDI(dev_priv)) {
+	/* 	if (HAS_DDI(dev_priv)) {
 		return intel_ddi_dp_pre_emphasis_max(encoder, voltage_swing);
 	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		switch (voltage_swing & DP_TRAIN_VOLTAGE_SWING_MASK) {
@@ -1317,24 +1352,26 @@ intel_dp_pre_emphasis_max( UINT8 voltage_swing)
 			return DP_TRAIN_PRE_EMPH_LEVEL_0;
 		}
 	} else { */
-		switch (voltage_swing & DP_TRAIN_VOLTAGE_SWING_MASK) {
-		case DP_TRAIN_VOLTAGE_SWING_LEVEL_0:
-			return DP_TRAIN_PRE_EMPH_LEVEL_2;
-		case DP_TRAIN_VOLTAGE_SWING_LEVEL_1:
-			return DP_TRAIN_PRE_EMPH_LEVEL_2;
-		case DP_TRAIN_VOLTAGE_SWING_LEVEL_2:
-			return DP_TRAIN_PRE_EMPH_LEVEL_1;
-		case DP_TRAIN_VOLTAGE_SWING_LEVEL_3:
-		default:
-			return DP_TRAIN_PRE_EMPH_LEVEL_0;
-		}
+	switch (voltage_swing & DP_TRAIN_VOLTAGE_SWING_MASK)
+	{
+	case DP_TRAIN_VOLTAGE_SWING_LEVEL_0:
+		return DP_TRAIN_PRE_EMPH_LEVEL_2;
+	case DP_TRAIN_VOLTAGE_SWING_LEVEL_1:
+		return DP_TRAIN_PRE_EMPH_LEVEL_2;
+	case DP_TRAIN_VOLTAGE_SWING_LEVEL_2:
+		return DP_TRAIN_PRE_EMPH_LEVEL_1;
+	case DP_TRAIN_VOLTAGE_SWING_LEVEL_3:
+	default:
+		return DP_TRAIN_PRE_EMPH_LEVEL_0;
+	}
 	//}
 }
-struct intel_dp {
-    UINT8 lane_count;
+struct intel_dp
+{
+	UINT8 lane_count;
 	UINT8 train_set[4];
-    int link_rate;
-    i915_CONTROLLER* controller;
+	int link_rate;
+	i915_CONTROLLER *controller;
 	/* source rates */
 	int num_source_rates;
 	const int *source_rates;
@@ -1349,22 +1386,22 @@ struct intel_dp {
 	int max_link_lane_count;
 	/* Max rate for the current link */
 	int max_link_rate;
-	
 };
 
 void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
-			       const UINT8 link_status[DP_LINK_STATUS_SIZE])
+							   const UINT8 link_status[DP_LINK_STATUS_SIZE])
 {
 	UINT8 v = 0;
 	UINT8 p = 0;
 	int lane;
- 	UINT8 voltage_max;
+	UINT8 voltage_max;
 	UINT8 preemph_max;
 
-	for (lane = 0; lane < intel_dp->lane_count; lane++) {
+	for (lane = 0; lane < intel_dp->lane_count; lane++)
+	{
 		UINT8 this_v = drm_dp_get_adjust_request_voltage(link_status, lane);
 		UINT8 this_p = drm_dp_get_adjust_request_pre_emphasis(link_status, lane);
-		DebugPrint(EFI_D_ERROR, "this_v:%u v:%u  this_p:%u  p:%u \n", this_v, v, this_p, p);
+		PRINT_DEBUG(EFI_D_ERROR, "this_v:%u v:%u  this_p:%u  p:%u \n", this_v, v, this_p, p);
 		if (this_v > v)
 			v = this_v;
 		if (this_p > p)
@@ -1378,18 +1415,19 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
 	preemph_max = intel_dp_pre_emphasis_max(v);
 	if (p >= preemph_max)
 		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
-	
-	DebugPrint(EFI_D_ERROR, "v:%u  p:%u \n", v, p);
- 
+
+	PRINT_DEBUG(EFI_D_ERROR, "v:%u  p:%u \n", v, p);
+
 	UINT8 val = intel_dp->train_set[0];
-	if (val < 8) {
+	if (val < 8)
+	{
 		val++;
 	}
-	for (lane = 0; lane < 4; lane++) {
+	for (lane = 0; lane < 4; lane++)
+	{
 		intel_dp->train_set[lane] = v | p;
-		DebugPrint(EFI_D_ERROR, "TrainSet[%u]: %u \n",lane,  intel_dp->train_set[lane]);
+		PRINT_DEBUG(EFI_D_ERROR, "TrainSet[%u]: %u \n", lane, intel_dp->train_set[lane]);
 	}
-
 }
 /**
  * drm_dp_dpcd_write() - write a series of bytes to the DPCD
@@ -1405,40 +1443,41 @@ void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
  * function, with the exception of -EBUSY (which causes the transaction to
  * be retried), are propagated to the caller.
  */
-INT32 drm_dp_dpcd_write( unsigned int offset,
-			  void *buffer, UINT32 size, i915_CONTROLLER* controller)
+INT32 drm_dp_dpcd_write(unsigned int offset,
+						void *buffer, UINT32 size, i915_CONTROLLER *controller)
 {
 	int ret;
 
 	//if (aux->is_remote)
 	//	ret = drm_dp_mst_dpcd_write(aux, offset, buffer, size);
 	//else
-		ret = drm_dp_dpcd_access(DP_AUX_NATIVE_WRITE, offset,
-					 buffer, size, controller);
+	ret = drm_dp_dpcd_access(DP_AUX_NATIVE_WRITE, offset,
+							 buffer, size, controller);
 
 	return ret;
 }
-#define   DP_VOLTAGE_0_4		(0 << 25)
-#define   DP_VOLTAGE_0_6		(1 << 25)
-#define   DP_VOLTAGE_0_8		(2 << 25)
-#define   DP_VOLTAGE_1_2		(3 << 25)
-#define   DP_VOLTAGE_MASK		(7 << 25)
-#define   DP_VOLTAGE_SHIFT		25
+#define DP_VOLTAGE_0_4 (0 << 25)
+#define DP_VOLTAGE_0_6 (1 << 25)
+#define DP_VOLTAGE_0_8 (2 << 25)
+#define DP_VOLTAGE_1_2 (3 << 25)
+#define DP_VOLTAGE_MASK (7 << 25)
+#define DP_VOLTAGE_SHIFT 25
 
 /* Signal pre-emphasis levels, like voltages, the other end tells us what
  * they want
  */
-#define   DP_PRE_EMPHASIS_0		(0 << 22)
-#define   DP_PRE_EMPHASIS_3_5		(1 << 22)
-#define   DP_PRE_EMPHASIS_6		(2 << 22)
-#define   DP_PRE_EMPHASIS_9_5		(3 << 22)
-#define   DP_PRE_EMPHASIS_MASK		(7 << 22)
-#define   DP_PRE_EMPHASIS_SHIFT		22
+#define DP_PRE_EMPHASIS_0 (0 << 22)
+#define DP_PRE_EMPHASIS_3_5 (1 << 22)
+#define DP_PRE_EMPHASIS_6 (2 << 22)
+#define DP_PRE_EMPHASIS_9_5 (3 << 22)
+#define DP_PRE_EMPHASIS_MASK (7 << 22)
+#define DP_PRE_EMPHASIS_SHIFT 22
 static UINT32 g4x_signal_levels(UINT8 train_set)
 {
 	UINT32 signal_levels = 0;
 
-	switch (train_set & DP_TRAIN_VOLTAGE_SWING_MASK) {
+	switch (train_set & DP_TRAIN_VOLTAGE_SWING_MASK)
+	{
 	case DP_TRAIN_VOLTAGE_SWING_LEVEL_0:
 	default:
 		signal_levels |= DP_VOLTAGE_0_4;
@@ -1453,7 +1492,8 @@ static UINT32 g4x_signal_levels(UINT8 train_set)
 		signal_levels |= DP_VOLTAGE_1_2;
 		break;
 	}
-	switch (train_set & DP_TRAIN_PRE_EMPHASIS_MASK) {
+	switch (train_set & DP_TRAIN_PRE_EMPHASIS_MASK)
+	{
 	case DP_TRAIN_PRE_EMPH_LEVEL_0:
 	default:
 		signal_levels |= DP_PRE_EMPHASIS_0;
@@ -1480,17 +1520,18 @@ g4x_set_signal_levels(struct intel_dp *intel_dp)
 
 	signal_levels = g4x_signal_levels(train_set);
 
-	DebugPrint(EFI_D_ERROR, "Using signal levels %08x\n",
-		    signal_levels);
+	PRINT_DEBUG(EFI_D_ERROR, "Using signal levels %08x\n",
+				signal_levels);
 	UINT32 DP = intel_dp->controller->read32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port));
 	DP &= ~(15 << 24);
 	DP |= signal_levels;
 
-intel_dp->controller->write32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port), DP);
+	intel_dp->controller->write32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port), DP);
 	//intel_de_posting_read(dev_priv, intel_dp->output_reg);
 }
-static void intel_dp_set_signal_levels(struct intel_dp *intel_dp) {
-    //Write to Appropraite DDI_BUF_CTL
+static void intel_dp_set_signal_levels(struct intel_dp *intel_dp)
+{
+	//Write to Appropraite DDI_BUF_CTL
 	g4x_set_signal_levels(intel_dp);
 }
 
@@ -1502,7 +1543,7 @@ intel_dp_update_link_train(struct intel_dp *intel_dp)
 	intel_dp_set_signal_levels(intel_dp);
 
 	ret = drm_dp_dpcd_write(DP_TRAINING_LANE0_SET,
-				intel_dp->train_set, intel_dp->lane_count, intel_dp->controller);
+							intel_dp->train_set, intel_dp->lane_count, intel_dp->controller);
 
 	return ret == intel_dp->lane_count;
 }
@@ -1511,24 +1552,25 @@ drm_dp_training_pattern_mask()
 {
 	//return (dpcd[DP_DPCD_REV] >= 0x14) ? DP_TRAINING_PATTERN_MASK_1_4 :
 	//	DP_TRAINING_PATTERN_MASK;
-        return DP_TRAINING_PATTERN_MASK;
+	return DP_TRAINING_PATTERN_MASK;
 }
 /* CPT Link training mode */
-#define   DP_LINK_TRAIN_PAT_1_CPT	(0 << 8)
-#define   DP_LINK_TRAIN_PAT_2_CPT	(1 << 8)
-#define   DP_LINK_TRAIN_PAT_IDLE_CPT	(2 << 8)
-#define   DP_LINK_TRAIN_OFF_CPT		(3 << 8)
-#define   DP_LINK_TRAIN_MASK_CPT	(7 << 8)
-#define   DP_LINK_TRAIN_SHIFT_CPT	8
+#define DP_LINK_TRAIN_PAT_1_CPT (0 << 8)
+#define DP_LINK_TRAIN_PAT_2_CPT (1 << 8)
+#define DP_LINK_TRAIN_PAT_IDLE_CPT (2 << 8)
+#define DP_LINK_TRAIN_OFF_CPT (3 << 8)
+#define DP_LINK_TRAIN_MASK_CPT (7 << 8)
+#define DP_LINK_TRAIN_SHIFT_CPT 8
 static void
 g4x_set_link_train(struct intel_dp *intel_dp,
-		   UINT8 dp_train_pat)
+				   UINT8 dp_train_pat)
 {
 	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(intel_dp->controller->OutputPath.Port));
 
-DP &= ~DP_LINK_TRAIN_MASK_CPT;
+	DP &= ~DP_LINK_TRAIN_MASK_CPT;
 
-	switch (dp_train_pat & DP_TRAINING_PATTERN_MASK) {
+	switch (dp_train_pat & DP_TRAINING_PATTERN_MASK)
+	{
 	case DP_TRAINING_PATTERN_DISABLE:
 		DP |= DP_LINK_TRAIN_OFF_CPT;
 		break;
@@ -1539,58 +1581,58 @@ DP &= ~DP_LINK_TRAIN_MASK_CPT;
 		DP |= DP_LINK_TRAIN_PAT_2_CPT;
 		break;
 	case DP_TRAINING_PATTERN_3:
-/* 		drm_dbg_kms(&dev_priv->drm,
+		/* 		drm_dbg_kms(&dev_priv->drm,
 			    "TPS3 not supported, using TPS2 instead\n"); */
 		DP |= DP_LINK_TRAIN_PAT_2_CPT;
 		break;
 	}
-    intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);
-	
+	intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);
 }
 
-void
-intel_dp_program_link_training_pattern(struct intel_dp *intel_dp,
-				       UINT8 dp_train_pat)
+void intel_dp_program_link_training_pattern(struct intel_dp *intel_dp,
+											UINT8 dp_train_pat)
 {
-//	UINT8 train_pat_mask = drm_dp_training_pattern_mask();
-
-
+	//	UINT8 train_pat_mask = drm_dp_training_pattern_mask();
 
 	g4x_set_link_train(intel_dp, dp_train_pat);
 }
 
 static BOOLEAN
 intel_dp_set_link_train(struct intel_dp *intel_dp,
-			UINT8 dp_train_pat)
+						UINT8 dp_train_pat)
 {
 	UINT8 buf[sizeof(intel_dp->train_set) + 1];
 	int ret, len;
- i915_CONTROLLER* controller = intel_dp->controller;
+	i915_CONTROLLER *controller = intel_dp->controller;
 	intel_dp_program_link_training_pattern(intel_dp, dp_train_pat);
 
 	buf[0] = dp_train_pat;
 	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
-	    DP_TRAINING_PATTERN_DISABLE) {
+		DP_TRAINING_PATTERN_DISABLE)
+	{
 		/* don't write DP_TRAINING_LANEx_SET on disable */
 		len = 1;
-	} else {
-        for (int i=0; i<intel_dp->lane_count; i++) {
-            buf[i+1] = intel_dp->train_set[i];
-        }
+	}
+	else
+	{
+		for (int i = 0; i < intel_dp->lane_count; i++)
+		{
+			buf[i + 1] = intel_dp->train_set[i];
+		}
 		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
 		//memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
 		len = intel_dp->lane_count + 1;
 	}
 
-	ret = drm_dp_dpcd_write( DP_TRAINING_PATTERN_SET,
-				buf, len, controller);
+	ret = drm_dp_dpcd_write(DP_TRAINING_PATTERN_SET,
+							buf, len, controller);
 
 	return ret == len;
 }
 
 static BOOLEAN
 intel_dp_reset_link_train(struct intel_dp *intel_dp,
-			UINT8 dp_train_pat, i915_CONTROLLER* controller)
+						  UINT8 dp_train_pat, i915_CONTROLLER *controller)
 {
 	//memset(intel_dp->train_set, 0, sizeof(intel_dp->train_set));
 	//intel_dp_set_signal_levels(intel_dp);
@@ -1603,17 +1645,17 @@ UINT8 drm_dp_link_rate_to_bw_code(int link_rate)
 	return link_rate / 27000;
 }
 void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
-			   UINT8 *link_bw, UINT8 *rate_select)
+						   UINT8 *link_bw, UINT8 *rate_select)
 {
 	/* eDP 1.4 rate select method. */
-/* 	if (intel_dp->use_rate_select) {
+	/* 	if (intel_dp->use_rate_select) {
 		*link_bw = 0;
 		*rate_select =
 			intel_dp_rate_select(intel_dp, port_clock);
 	} else { */
-		*link_bw = drm_dp_link_rate_to_bw_code(port_clock);
-		*rate_select = 0;
-//	}
+	*link_bw = drm_dp_link_rate_to_bw_code(port_clock);
+	*rate_select = 0;
+	//	}
 }
 static BOOLEAN intel_dp_link_max_vswing_reached(struct intel_dp *intel_dp)
 {
@@ -1621,19 +1663,19 @@ static BOOLEAN intel_dp_link_max_vswing_reached(struct intel_dp *intel_dp)
 
 	for (lane = 0; lane < intel_dp->lane_count; lane++)
 		if ((intel_dp->train_set[lane] &
-		     DP_TRAIN_MAX_SWING_REACHED) == 0)
+			 DP_TRAIN_MAX_SWING_REACHED) == 0)
 			return FALSE;
 
 	return TRUE;
 }
-#define   DP_PLL_FREQ_270MHZ		(0 << 16)
-#define   DP_PLL_FREQ_162MHZ		(1 << 16)
-#define   DP_PLL_FREQ_MASK		(3 << 16)
+#define DP_PLL_FREQ_270MHZ (0 << 16)
+#define DP_PLL_FREQ_162MHZ (1 << 16)
+#define DP_PLL_FREQ_MASK (3 << 16)
 /* Enable corresponding port and start training pattern 1 */
 static BOOLEAN
 intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 {
-	i915_CONTROLLER* controller = intel_dp->controller;
+	i915_CONTROLLER *controller = intel_dp->controller;
 	//struct drm_i915_private *i915 = dp_to_i915(intel_dp);
 	UINT8 voltage;
 	int voltage_tries, cr_tries, max_cr_tries;
@@ -1641,46 +1683,48 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 	UINT8 link_config[2];
 	UINT8 link_bw, rate_select;
 	intel_dp_compute_rate(intel_dp, intel_dp->link_rate,
-			      &link_bw, &rate_select);
+						  &link_bw, &rate_select);
 	/* if (intel_dp->prepare_link_retrain)
 		intel_dp->prepare_link_retrain(intel_dp);
  */
-/* if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
+	/* if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 			intel_dp_compute_rate(intel_dp, 162000,
 			      &link_bw, &rate_select);
 		else
 			intel_dp_compute_rate(intel_dp, 270000,
 			      &link_bw, &rate_select); */
-	 //WHAT RATE IS PLUGGED IN? Port Clock
+	//WHAT RATE IS PLUGGED IN? Port Clock
 
 	if (link_bw)
-		DebugPrint(EFI_D_ERROR, "Using LINK_BW_SET value %u\n", link_bw);
+		PRINT_DEBUG(EFI_D_ERROR, "Using LINK_BW_SET value %u\n", link_bw);
 	else
-		DebugPrint(EFI_D_ERROR, "Using LINK_RATE_SET value %u\n", rate_select);
+		PRINT_DEBUG(EFI_D_ERROR, "Using LINK_RATE_SET value %u\n", rate_select);
 
 	/* Write the link configuration data */
 	link_config[0] = link_bw;
 	link_config[1] = intel_dp->lane_count;
-/* 	if (drm_dp_enhanced_frame_cap(intel_dp->dpcd))
+	/* 	if (drm_dp_enhanced_frame_cap(intel_dp->dpcd))
 		link_config[1] |= DP_LANE_COUNT_ENHANCED_FRAME_EN; */
-	drm_dp_dpcd_write( DP_LINK_BW_SET, link_config, 2, controller);
+	drm_dp_dpcd_write(DP_LINK_BW_SET, link_config, 2, controller);
 
 	/* eDP 1.4 rate select method. */
 	if (!link_bw)
-		drm_dp_dpcd_write( DP_LINK_RATE_SET,
-				  &rate_select, 1, controller);
+		drm_dp_dpcd_write(DP_LINK_RATE_SET,
+						  &rate_select, 1, controller);
 
 	link_config[0] = 0;
 	link_config[1] = DP_SET_ANSI_8B10B;
-	drm_dp_dpcd_write( DP_DOWNSPREAD_CTRL, link_config, 2, controller);
+	drm_dp_dpcd_write(DP_DOWNSPREAD_CTRL, link_config, 2, controller);
 
 	//intel_dp->DP |= DP_PORT_EN;
 
 	/* clock recovery */
 	if (!intel_dp_reset_link_train(intel_dp,
-				       DP_TRAINING_PATTERN_1 |
-				       DP_LINK_SCRAMBLING_DISABLE, controller)) {
-		DebugPrint(EFI_D_ERROR, "failed to enable link training\n");
+								   DP_TRAINING_PATTERN_1 |
+									   DP_LINK_SCRAMBLING_DISABLE,
+								   controller))
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "failed to enable link training\n");
 		return TRUE;
 	}
 
@@ -1692,35 +1736,40 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 	 * define a limit and created the possibility of an infinite loop
 	 * we want to prevent any sync from triggering that corner case.
 	 */
-//	if (intel_dp->dpcd[DP_DPCD_REV] >= DP_DPCD_REV_14)
-//		max_cr_tries = 10;
-//	else
-		max_cr_tries = 80;
+	//	if (intel_dp->dpcd[DP_DPCD_REV] >= DP_DPCD_REV_14)
+	//		max_cr_tries = 10;
+	//	else
+	max_cr_tries = 80;
 
 	voltage_tries = 1;
-	for (cr_tries = 0; cr_tries < max_cr_tries; ++cr_tries) {
+	for (cr_tries = 0; cr_tries < max_cr_tries; ++cr_tries)
+	{
 		UINT8 link_status[DP_LINK_STATUS_SIZE];
-        gBS->Stall(600);
+		gBS->Stall(600);
 		//drm_dp_link_train_clock_recovery_delay(intel_dp->dpcd);
 
-		if (!intel_dp_get_link_status( link_status, controller)) {
-			DebugPrint(EFI_D_ERROR,  "failed to get link status\n");
+		if (!intel_dp_get_link_status(link_status, controller))
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "failed to get link status\n");
 			return FALSE;
 		}
 
-		if (drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count)) {
-			DebugPrint(EFI_D_ERROR,  "clock recovery OK\n");
+		if (drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count))
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "clock recovery OK\n");
 			return TRUE;
 		}
 
-		if (voltage_tries == 5) {
-			DebugPrint(EFI_D_ERROR, 
-				    "Same voltage tried 5 times\n");
+		if (voltage_tries == 5)
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"Same voltage tried 5 times\n");
 			return FALSE;
 		}
 
-		if (max_vswing_reached) {
-			DebugPrint(EFI_D_ERROR,  "Max Voltage Swing reached\n");
+		if (max_vswing_reached)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "Max Voltage Swing reached\n");
 			return FALSE;
 		}
 
@@ -1728,24 +1777,24 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 
 		/* Update training set as requested by target */
 		intel_dp_get_adjust_train(intel_dp, link_status);
-		if (!intel_dp_update_link_train(intel_dp)) {
-			DebugPrint(EFI_D_ERROR, 
-				"failed to update link training\n");
+		if (!intel_dp_update_link_train(intel_dp))
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"failed to update link training\n");
 			return FALSE;
 		}
 
 		if ((intel_dp->train_set[0] & DP_TRAIN_VOLTAGE_SWING_MASK) ==
-		    voltage)
+			voltage)
 			++voltage_tries;
 		else
 			voltage_tries = 1;
 
 		if (intel_dp_link_max_vswing_reached(intel_dp))
 			max_vswing_reached = TRUE;
-
 	}
-	DebugPrint(EFI_D_ERROR, 
-		"Failed clock recovery %d times, giving up!\n", max_cr_tries);
+	PRINT_DEBUG(EFI_D_ERROR,
+				"Failed clock recovery %d times, giving up!\n", max_cr_tries);
 	return FALSE;
 }
 /*
@@ -1763,7 +1812,7 @@ static UINT32 intel_dp_training_pattern(struct intel_dp *intel_dp)
 	 * panels that support TPS4 as of Feb 2018 as per VESA eDP_v1.4b_E1
 	 * specification.
 	 */
-/* 	source_tps4 = intel_dp_source_supports_hbr3(intel_dp);
+	/* 	source_tps4 = intel_dp_source_supports_hbr3(intel_dp);
 	sink_tps4 = drm_dp_tps4_supported(intel_dp->dpcd);
 	if (source_tps4 && sink_tps4) {
 		return DP_TRAINING_PATTERN_4;
@@ -1780,7 +1829,7 @@ static UINT32 intel_dp_training_pattern(struct intel_dp *intel_dp)
 	 * also mandatory for downstream devices that support HBR2. However, not
 	 * all sinks follow the spec.
 	 */
-/* 	source_tps3 = intel_dp_source_supports_hbr2(intel_dp);
+	/* 	source_tps3 = intel_dp_source_supports_hbr2(intel_dp);
 	sink_tps3 = drm_dp_tps3_supported(intel_dp->dpcd);
 	if (source_tps3 && sink_tps3) {
 		return  DP_TRAINING_PATTERN_3;
@@ -1796,22 +1845,25 @@ static UINT32 intel_dp_training_pattern(struct intel_dp *intel_dp)
 	return DP_TRAINING_PATTERN_2;
 }
 BOOLEAN drm_dp_channel_eq_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
-			  int lane_count)
+							 int lane_count)
 {
 	UINT8 lane_align;
 	UINT8 lane_status;
 	int lane;
 
 	lane_align = dp_link_status(link_status,
-				    DP_LANE_ALIGN_STATUS_UPDATED);
-	if ((lane_align & DP_INTERLANE_ALIGN_DONE) == 0) {
-		DebugPrint(EFI_D_ERROR, "NO Lane Align");
+								DP_LANE_ALIGN_STATUS_UPDATED);
+	if ((lane_align & DP_INTERLANE_ALIGN_DONE) == 0)
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "NO Lane Align");
 		return FALSE;
 	}
-	for (lane = 0; lane < lane_count; lane++) {
+	for (lane = 0; lane < lane_count; lane++)
+	{
 		lane_status = dp_get_lane_status(link_status, lane);
-		if ((lane_status & DP_CHANNEL_EQ_BITS) != DP_CHANNEL_EQ_BITS){
-			DebugPrint(EFI_D_ERROR, "NO EQ BITS");
+		if ((lane_status & DP_CHANNEL_EQ_BITS) != DP_CHANNEL_EQ_BITS)
+		{
+			PRINT_DEBUG(EFI_D_ERROR, "NO EQ BITS");
 			return FALSE;
 		}
 	}
@@ -1833,94 +1885,104 @@ intel_dp_link_training_channel_equalization(struct intel_dp *intel_dp)
 
 	/* channel equalization */
 	if (!intel_dp_set_link_train(intel_dp,
-				     training_pattern)) {
-		DebugPrint(EFI_D_ERROR, "failed to start channel equalization\n");
+								 training_pattern))
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "failed to start channel equalization\n");
 		return FALSE;
 	}
 
-	for (tries = 0; tries < 5; tries++) {
-        gBS->Stall(600);
+	for (tries = 0; tries < 5; tries++)
+	{
+		gBS->Stall(600);
 		//drm_dp_link_train_channel_eq_delay(intel_dp->dpcd);
-		if (!intel_dp_get_link_status(link_status, intel_dp->controller)) {
-			DebugPrint(EFI_D_ERROR,
-				"failed to get link status\n");
+		if (!intel_dp_get_link_status(link_status, intel_dp->controller))
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"failed to get link status\n");
 			break;
 		}
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[0]);
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[1]);
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[2]);
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[3]);
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[4]);
-	DebugPrint(EFI_D_ERROR, "Read Link Status: %x", link_status[5]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[0]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[1]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[2]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[3]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[4]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[5]);
 
 		/* Make sure clock is still ok */
 		if (!drm_dp_clock_recovery_ok(link_status,
-					      intel_dp->lane_count)) {
+									  intel_dp->lane_count))
+		{
 			//intel_dp_dump_link_status(link_status);
-			 DebugPrint(EFI_D_ERROR,
-				    "Clock recovery check failed, cannot continue channel equalization\n"); 
+			PRINT_DEBUG(EFI_D_ERROR,
+						"Clock recovery check failed, cannot continue channel equalization\n");
 			break;
 		}
 
 		if (drm_dp_channel_eq_ok(link_status,
-					 intel_dp->lane_count)) {
+								 intel_dp->lane_count))
+		{
 			channel_eq = TRUE;
-			 DebugPrint(EFI_D_ERROR, "Channel EQ done. DP Training "
-				    "successful\n");
+			PRINT_DEBUG(EFI_D_ERROR, "Channel EQ done. DP Training "
+									 "successful\n");
 			break;
 		}
 
 		/* Update training set as requested by target */
 		intel_dp_get_adjust_train(intel_dp, link_status);
-		if (!intel_dp_update_link_train(intel_dp)) {
-			 DebugPrint(EFI_D_ERROR,
-				"failed to update link training\n"); 
+		if (!intel_dp_update_link_train(intel_dp))
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"failed to update link training\n");
 			break;
 		}
 	}
 
 	/* Try 5 times, else fail and try at lower BW */
-	if (tries == 5) {
+	if (tries == 5)
+	{
 		//intel_dp_dump_link_status(link_status);
-		 DebugPrint(EFI_D_ERROR,
-			    "Channel equalization failed 5 times\n");
+		PRINT_DEBUG(EFI_D_ERROR,
+					"Channel equalization failed 5 times\n");
 	}
 
 	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(intel_dp->controller->OutputPath.Port));
 
-        DP &= ~DP_LINK_TRAIN_MASK_CPT;
+	DP &= ~DP_LINK_TRAIN_MASK_CPT;
 
-	
-		DP |= DP_TP_CTL_LINK_TRAIN_IDLE;
-	
-    intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);	
-    return channel_eq;
+	DP |= DP_TP_CTL_LINK_TRAIN_IDLE;
 
+	intel_dp->controller->write32(DP_TP_CTL(intel_dp->controller->OutputPath.Port), DP);
+	return channel_eq;
 }
 static int intersect_rates(const int *source_rates, int source_len,
-			   const int *sink_rates, int sink_len,
-			   int *common_rates)
+						   const int *sink_rates, int sink_len,
+						   int *common_rates)
 {
 	int i = 0, j = 0, k = 0;
 
-	while (i < source_len && j < sink_len) {
-		if (source_rates[i] == sink_rates[j]) {
+	while (i < source_len && j < sink_len)
+	{
+		if (source_rates[i] == sink_rates[j])
+		{
 			if (k >= DP_MAX_SUPPORTED_RATES)
 				return k;
 			common_rates[k] = source_rates[i];
 			++k;
 			++i;
 			++j;
-		} else if (source_rates[i] < sink_rates[j]) {
+		}
+		else if (source_rates[i] < sink_rates[j])
+		{
 			++i;
-		} else {
+		}
+		else
+		{
 			++j;
 		}
 	}
 	return k;
 }
-int
-intel_dp_max_data_rate(int max_link_clock, int max_lanes)
+int intel_dp_max_data_rate(int max_link_clock, int max_lanes)
 {
 	/* max_link_clock is the link symbol clock (LS_Clk) in kHz and not the
 	 * link rate that is generally expressed in Gbps. Since, 8 bits of data
@@ -1936,8 +1998,8 @@ INT32 intel_dp_link_required(int pixel_clock, int bpp)
 	return DIV_ROUND_UP(pixel_clock * bpp, 8);
 }
 static BOOLEAN intel_dp_can_link_train_fallback_for_edp(struct intel_dp *intel_dp,
-						     int link_rate,
-						     UINT8 lane_count)
+														int link_rate,
+														UINT8 lane_count)
 {
 	/* const struct drm_display_mode *fixed_mode =
 		intel_dp->attached_connector->panel.fixed_mode; */
@@ -1945,23 +2007,25 @@ static BOOLEAN intel_dp_can_link_train_fallback_for_edp(struct intel_dp *intel_d
 
 	mode_rate = intel_dp_link_required(intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10, 24);
 	max_rate = intel_dp_max_data_rate(link_rate, lane_count);
-	DebugPrint(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
+	PRINT_DEBUG(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
 	if (mode_rate > max_rate)
 		return FALSE;
 
 	return TRUE;
-}static void intel_dp_set_common_rates(struct intel_dp *intel_dp)
+}
+static void intel_dp_set_common_rates(struct intel_dp *intel_dp)
 {
 	//WARN_ON(!intel_dp->num_source_rates || !intel_dp->num_sink_rates);
 
 	intel_dp->num_common_rates = intersect_rates(intel_dp->source_rates,
-						     intel_dp->num_source_rates,
-						     intel_dp->sink_rates,
-						     intel_dp->num_sink_rates,
-						     intel_dp->common_rates);
+												 intel_dp->num_source_rates,
+												 intel_dp->sink_rates,
+												 intel_dp->num_sink_rates,
+												 intel_dp->common_rates);
 
 	/* Paranoia, there should always be something in common. */
-	if (intel_dp->num_common_rates == 0) {
+	if (intel_dp->num_common_rates == 0)
+	{
 		intel_dp->common_rates[0] = 162000;
 		intel_dp->num_common_rates = 1;
 	}
@@ -1982,42 +2046,49 @@ static int intel_dp_max_common_rate(struct intel_dp *intel_dp)
 }
 
 int intel_dp_get_link_train_fallback_values(struct intel_dp *intel_dp,
-					    int link_rate, UINT8 lane_count)
+											int link_rate, UINT8 lane_count)
 {
-//	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
+	//	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
 	int index;
 
 	index = intel_dp_rate_index(intel_dp->common_rates,
-				    intel_dp->num_common_rates,
-				    link_rate);
-	if (index > 0) {
+								intel_dp->num_common_rates,
+								link_rate);
+	if (index > 0)
+	{
 		if (intel_dp->controller->OutputPath.ConType == eDP &&
-		    !intel_dp_can_link_train_fallback_for_edp(intel_dp,
-							      intel_dp->common_rates[index - 1],
-							      lane_count)) {
-			DebugPrint(EFI_D_ERROR,
-				    "Retrying Link training for eDP with same parameters\n");
+			!intel_dp_can_link_train_fallback_for_edp(intel_dp,
+													  intel_dp->common_rates[index - 1],
+													  lane_count))
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"Retrying Link training for eDP with same parameters\n");
 			return 0;
 		}
 		intel_dp->max_link_rate = intel_dp->common_rates[index - 1];
 		intel_dp->max_link_lane_count = lane_count;
-	} else if (lane_count > 1) {
+	}
+	else if (lane_count > 1)
+	{
 		if (intel_dp->controller->OutputPath.ConType == eDP &&
-		    !intel_dp_can_link_train_fallback_for_edp(intel_dp,
-							      intel_dp_max_common_rate(intel_dp),
-							      lane_count >> 1)) {
-			DebugPrint(EFI_D_ERROR,
-				    "Retrying Link training for eDP with same parameters\n");
+			!intel_dp_can_link_train_fallback_for_edp(intel_dp,
+													  intel_dp_max_common_rate(intel_dp),
+													  lane_count >> 1))
+		{
+			PRINT_DEBUG(EFI_D_ERROR,
+						"Retrying Link training for eDP with same parameters\n");
 			return 0;
 		}
 		intel_dp->max_link_rate = intel_dp_max_common_rate(intel_dp);
 		intel_dp->max_link_lane_count = lane_count >> 1;
-	} else {
-		DebugPrint(EFI_D_ERROR,"Link Training Unsuccessful\n");
+	}
+	else
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "Link Training Unsuccessful\n");
 		return -1;
 	}
 	intel_dp->lane_count = intel_dp->max_link_lane_count;
-		intel_dp->link_rate = intel_dp->max_link_rate;
+	intel_dp->link_rate = intel_dp->max_link_rate;
 
 	return 0;
 }
@@ -2025,7 +2096,7 @@ static void
 intel_dp_set_source_rates(struct intel_dp *intel_dp)
 {
 	/* The values must be in increasing order */
-/* 	static const int cnl_rates[] = {
+	/* 	static const int cnl_rates[] = {
 		162000, 216000, 270000, 324000, 432000, 540000, 648000, 810000
 	};
 	static const int bxt_rates[] = {
@@ -2040,9 +2111,8 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 	}; */
 
 	static const int skl_rates[] = {
-		162000, 216000, 270000, 324000, 432000, 540000
-	};
-/* 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+		162000, 216000, 270000, 324000, 432000, 540000};
+	/* 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct intel_encoder *encoder = &dig_port->base;
 	struct drm_i915_private *dev_priv = to_i915(dig_port->base.base.dev); */
 	const int *source_rates;
@@ -2053,7 +2123,7 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 	/* drm_WARN_ON(&dev_priv->drm,
 		    intel_dp->source_rates || intel_dp->num_source_rates);
  */
-/* 	if (INTEL_GEN(dev_priv) >= 10) {
+	/* 	if (INTEL_GEN(dev_priv) >= 10) {
 		source_rates = cnl_rates;
 		size = ARRAY_SIZE(cnl_rates);
 		if (IS_GEN(dev_priv, 10))
@@ -2064,9 +2134,9 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 		source_rates = bxt_rates;
 		size = ARRAY_SIZE(bxt_rates);
 	} else if (IS_GEN9_BC(dev_priv)) { */
-		source_rates = skl_rates;
-		size = ARRAY_SIZE(skl_rates);
-/* 	} else if ((IS_HASWELL(dev_priv) && !IS_HSW_ULX(dev_priv)) ||
+	source_rates = skl_rates;
+	size = ARRAY_SIZE(skl_rates);
+	/* 	} else if ((IS_HASWELL(dev_priv) && !IS_HSW_ULX(dev_priv)) ||
 		   IS_BROADWELL(dev_priv)) {
 		source_rates = hsw_rates;
 		size = ARRAY_SIZE(hsw_rates);
@@ -2081,7 +2151,7 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 	else if (vbt_max_rate)
 		max_rate = vbt_max_rate; */
 
-/* 	if (max_rate)
+	/* 	if (max_rate)
 		size = intel_dp_rate_limit_len(source_rates, size, max_rate); */
 
 	intel_dp->source_rates = source_rates;
@@ -2092,24 +2162,24 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 {
 	static const int dp_rates[] = {
-		162000, 270000, 540000, 810000
-	};
+		162000, 270000, 540000, 810000};
 	int i, max_rate;
 
 	/* if (drm_dp_has_quirk(&intel_dp->desc, 0,
 			     DP_DPCD_QUIRK_CAN_DO_MAX_LINK_RATE_3_24_GBPS)) { */
-		/* Needed, e.g., for Apple MBP 2017, 15 inch eDP Retina panel 
-		static const int quirk_rates[] = { 162000, 270000, 324000 };
+	/* Needed, e.g., for Apple MBP 2017, 15 inch eDP Retina panel
+	int quirk_rates[] = {162000, 270000, 324000};
 
-		memcpy(intel_dp->sink_rates, quirk_rates, sizeof(quirk_rates));
-		intel_dp->num_sink_rates = ARRAY_SIZE(quirk_rates);
+	memcpy(intel_dp->sink_rates, quirk_rates, sizeof(quirk_rates));
+	intel_dp->num_sink_rates = ARRAY_SIZE(quirk_rates);
 
-		return;
+	return;
 	} */
 
 	max_rate = dp_rates[3];
 
-	for (i = 0; i < ARRAY_SIZE(dp_rates); i++) {
+	for (i = 0; i < ARRAY_SIZE(dp_rates); i++)
+	{
 		if (dp_rates[i] > max_rate)
 			break;
 		intel_dp->sink_rates[i] = dp_rates[i];
@@ -2117,174 +2187,179 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 
 	intel_dp->num_sink_rates = i;
 }
-EFI_STATUS _TrainDisplayPort(struct intel_dp* intel_dp) {
-    UINT32 port = intel_dp->controller->OutputPath.Port;
-	UINT32 val=intel_dp->controller->read32(DP_TP_CTL(port));
+EFI_STATUS _TrainDisplayPort(struct intel_dp *intel_dp)
+{
+	UINT32 port = intel_dp->controller->OutputPath.Port;
+	UINT32 val = intel_dp->controller->read32(DP_TP_CTL(port));
 	val &= ~(DP_TP_CTL_ENABLE);
-   // val |= DP_TP_CTL_MODE_SST;
-   // val |= DP_TP_CTL_LINK_TRAIN_PAT1;
+	// val |= DP_TP_CTL_MODE_SST;
+	// val |= DP_TP_CTL_LINK_TRAIN_PAT1;
 	//val |= DP_TP_CTL_ENHANCED_FRAME_ENABLE;
-    intel_dp->controller->write32(DP_TP_CTL(port), val);
-	val=intel_dp->controller->read32(DDI_BUF_CTL(port));
+	intel_dp->controller->write32(DP_TP_CTL(port), val);
+	val = intel_dp->controller->read32(DDI_BUF_CTL(port));
 	val &= ~(DDI_PORT_WIDTH_MASK | DDI_BUF_CTL_ENABLE);
-    //val |= DDI_BUF_TRANS_SELECT(0);
-    //val |= DDI_A_4_LANES;
-    val |= DDI_PORT_WIDTH(intel_dp->lane_count);
-    intel_dp->controller->write32(DDI_BUF_CTL(port), val);
+	//val |= DDI_BUF_TRANS_SELECT(0);
+	//val |= DDI_A_4_LANES;
+	val |= DDI_PORT_WIDTH(intel_dp->lane_count);
+	intel_dp->controller->write32(DDI_BUF_CTL(port), val);
 
-     for (UINT32 counter = 0;;)
-        {
-            //controller->read32(reg);
-            counter += 1;
-            if (counter >= 16384)
-            {
-                break;
-            }
-        }
-		val=intel_dp->controller->read32(DP_TP_CTL(port));
-		val |= DP_TP_CTL_ENABLE;
-		    intel_dp->controller->write32(DP_TP_CTL(port), val);
+	for (UINT32 counter = 0;;)
+	{
+		//controller->read32(reg);
+		counter += 1;
+		if (counter >= 16384)
+		{
+			break;
+		}
+	}
+	val = intel_dp->controller->read32(DP_TP_CTL(port));
+	val |= DP_TP_CTL_ENABLE;
+	intel_dp->controller->write32(DP_TP_CTL(port), val);
 
-			val=intel_dp->controller->read32(DDI_BUF_CTL(port));
-		val |= DDI_BUF_CTL_ENABLE;
+	val = intel_dp->controller->read32(DDI_BUF_CTL(port));
+	val |= DDI_BUF_CTL_ENABLE;
 
-		   
-
-
-    intel_dp->controller->write32(DDI_BUF_CTL(port), val);
-    if (!intel_dp_link_training_clock_recovery(intel_dp))
+	intel_dp->controller->write32(DDI_BUF_CTL(port), val);
+	if (!intel_dp_link_training_clock_recovery(intel_dp))
 		goto failure_handling;
-    if (!intel_dp_link_training_channel_equalization(intel_dp))
-			goto failure_handling;
-    intel_dp_set_link_train(intel_dp,
-				DP_TRAINING_PATTERN_DISABLE);
-                	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(port));
+	if (!intel_dp_link_training_channel_equalization(intel_dp))
+		goto failure_handling;
+	intel_dp_set_link_train(intel_dp,
+							DP_TRAINING_PATTERN_DISABLE);
+	UINT32 DP = intel_dp->controller->read32(DP_TP_CTL(port));
 
-        DP &= ~DP_LINK_TRAIN_MASK_CPT;
+	DP &= ~DP_LINK_TRAIN_MASK_CPT;
 
-	
-		DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
-	
-     intel_dp->controller->write32(DP_TP_CTL(port), DP);	
-	 DebugPrint(EFI_D_ERROR, "Link Rate: %d, lane count: %d",
-		    intel_dp->controller->OutputPath.LinkRate, intel_dp->lane_count);
-			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
-						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
+	DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
 
-    return EFI_SUCCESS;
-	failure_handling:
-		DebugPrint(EFI_D_ERROR,
-		    " Link Training failed at link rate = %d, lane count = %d",
-		    intel_dp->link_rate, intel_dp->lane_count);
-		if (!intel_dp_get_link_train_fallback_values(intel_dp,
-						     intel_dp->link_rate,
-						     intel_dp->lane_count)) {
-								 			intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
-						intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
-							SetupClockeDP(intel_dp->controller);	
-							 
+	intel_dp->controller->write32(DP_TP_CTL(port), DP);
+	PRINT_DEBUG(EFI_D_ERROR, "Link Rate: %d, lane count: %d",
+				intel_dp->controller->OutputPath.LinkRate, intel_dp->lane_count);
+	intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
+	intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
+
+	return EFI_SUCCESS;
+failure_handling:
+	PRINT_DEBUG(EFI_D_ERROR,
+				" Link Training failed at link rate = %d, lane count = %d",
+				intel_dp->link_rate, intel_dp->lane_count);
+	if (!intel_dp_get_link_train_fallback_values(intel_dp,
+												 intel_dp->link_rate,
+												 intel_dp->lane_count))
+	{
+		intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
+		intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
+		SetupClockeDP(intel_dp->controller);
+
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
-		return _TrainDisplayPort(intel_dp); 
-							 }
-		return EFI_ABORTED;
+		return _TrainDisplayPort(intel_dp);
+	}
+	return EFI_ABORTED;
 }
-EFI_STATUS TrainDisplayPort(i915_CONTROLLER* controller) {
-    UINT32 port = controller->OutputPath.Port;
-    UINT32 val = 0;
+EFI_STATUS TrainDisplayPort(i915_CONTROLLER *controller)
+{
+	UINT32 port = controller->OutputPath.Port;
+	UINT32 val = 0;
 	EFI_STATUS status = EFI_SUCCESS;
-    val |= DP_TP_CTL_ENABLE;
-    val |= DP_TP_CTL_MODE_SST;
-    val |= DP_TP_CTL_LINK_TRAIN_PAT1;
+	val |= DP_TP_CTL_ENABLE;
+	val |= DP_TP_CTL_MODE_SST;
+	val |= DP_TP_CTL_LINK_TRAIN_PAT1;
 	val |= DP_TP_CTL_ENHANCED_FRAME_ENABLE;
-    controller->write32(DP_TP_CTL(port), val);
-                    val = DDI_BUF_CTL_ENABLE;
+	controller->write32(DP_TP_CTL(port), val);
+	val = DDI_BUF_CTL_ENABLE;
 
-    val |= DDI_BUF_TRANS_SELECT(0);
-    val |= DDI_A_4_LANES;
-    val |= DDI_PORT_WIDTH(2);
-    controller->write32(DDI_BUF_CTL(port), val);
+	val |= DDI_BUF_TRANS_SELECT(0);
+	val |= DDI_A_4_LANES;
+	val |= DDI_PORT_WIDTH(2);
+	controller->write32(DDI_BUF_CTL(port), val);
 
-     for (UINT32 counter = 0;;)
-        {
-            //controller->read32(reg);
-            counter += 1;
-            if (counter >= 16384)
-            {
-                break;
-            }
-        }
-    struct intel_dp intel_dp;
-    intel_dp.controller =controller;
-	
-    intel_dp.lane_count = 2;
+	for (UINT32 counter = 0;;)
+	{
+		//controller->read32(reg);
+		counter += 1;
+		if (counter >= 16384)
+		{
+			break;
+		}
+	}
+	struct intel_dp intel_dp;
+	intel_dp.controller = controller;
+
+	intel_dp.lane_count = 2;
 	if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 		intel_dp.link_rate = 162000;
-	else 	
+	else
 		intel_dp.link_rate = 270000;
 
-		
 	intel_dp_set_source_rates(&intel_dp);
 
 	intel_dp_set_sink_rates(&intel_dp);
 
 	intel_dp_set_common_rates(&intel_dp);
 	status = _TrainDisplayPort(&intel_dp);
-	UINT8 count =0;
-	while (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count) && count < 4) {
-		DebugPrint(EFI_D_ERROR, "Higher rate than configured, Trying Lower Pixel Clock\n");
+	UINT8 count = 0;
+	while (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count) && count < 4)
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "Higher rate than configured, Trying Lower Pixel Clock\n");
 		controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock >>= 1;
-		count ++;
+		count++;
 	}
-	if ((count ==4) && (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count))) {
-				DebugPrint(EFI_D_ERROR, "Error: Higher rate than configured\n");
+	if ((count == 4) && (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count)))
+	{
+		PRINT_DEBUG(EFI_D_ERROR, "Error: Higher rate than configured\n");
 
 		status = EFI_UNSUPPORTED;
 	}
 	return status;
 }
 /* Transfer unit size for display port - 1, default is 0x3f (for TU size 64) */
-#define  TU_SIZE(x)             (((x) - 1) << 25) /* default size 64 */
-#define  TU_SIZE_SHIFT		25
-#define  TU_SIZE_MASK           (0x3f << 25)
+#define TU_SIZE(x) (((x)-1) << 25) /* default size 64 */
+#define TU_SIZE_SHIFT 25
+#define TU_SIZE_MASK (0x3f << 25)
 
-#define  DATA_LINK_M_N_MASK	(0xffffff)
-#define  DATA_LINK_N_MAX	(0x800000)
-UINT32 roundup_pow_of_two(UINT32 v) {
+#define DATA_LINK_M_N_MASK (0xffffff)
+#define DATA_LINK_N_MAX (0x800000)
+UINT32 roundup_pow_of_two(UINT32 v)
+{
 
-v--;
-v |= v >> 1;
-v |= v >> 2;
-v |= v >> 4;
-v |= v >> 8;
-v |= v >> 16;
-v++;
-return v;
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
 }
 static void
 intel_reduce_m_n_ratio(UINT32 *num, UINT32 *den)
 {
 	while (*num > DATA_LINK_M_N_MASK ||
-	       *den > DATA_LINK_M_N_MASK) {
+		   *den > DATA_LINK_M_N_MASK)
+	{
 		*num >>= 1;
 		*den >>= 1;
 	}
 }
 static inline UINT64 div_UINT64_rem(UINT64 dividend, UINT32 divisor, UINT32 *remainder)
 {
-	union {
+	union
+	{
 		UINT64 v64;
 		UINT32 v32[2];
-	} d = { dividend };
+	} d = {dividend};
 	UINT32 upper;
 
 	upper = d.v32[1];
 	d.v32[1] = 0;
-	if (upper >= divisor) {
+	if (upper >= divisor)
+	{
 		d.v32[1] = upper / divisor;
 		upper %= divisor;
 	}
-	asm ("divl %2" : "=a" (d.v32[0]), "=d" (*remainder) :
-		"rm" (divisor), "0" (d.v32[0]), "1" (upper));
+	asm("divl %2"
+		: "=a"(d.v32[0]), "=d"(*remainder)
+		: "rm"(divisor), "0"(d.v32[0]), "1"(upper));
 	return d.v64;
 }
 static inline UINT64 div_UINT64(UINT64 dividend, UINT32 divisor)
@@ -2296,14 +2371,15 @@ static inline UINT64 mul_UINT32_UINT32(UINT32 a, UINT32 b)
 {
 	UINT32 high, low;
 
-	asm ("mull %[b]" : "=a" (low), "=d" (high)
-			 : [a] "a" (a), [b] "rm" (b) );
+	asm("mull %[b]"
+		: "=a"(low), "=d"(high)
+		: [a] "a"(a), [b] "rm"(b));
 
 	return low | ((UINT64)high) << 32;
 }
 static void compute_m_n(unsigned int m, unsigned int n,
-			UINT32 *ret_m, UINT32 *ret_n,
-			BOOLEAN constant_n)
+						UINT32 *ret_m, UINT32 *ret_n,
+						BOOLEAN constant_n)
 {
 	/*         controller->write32(0x6f030, 0x7e6cf53b);
         controller->write32(0x6f034, 0x00800000);
@@ -2316,218 +2392,214 @@ static void compute_m_n(unsigned int m, unsigned int n,
 	 * specified fixed N value for asynchronous clock mode,
 	 * which the devices expect also in synchronous clock mode.
 	 */
-	          DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
 	if (constant_n)
 		*ret_n = 0x8000;
 	else
 		*ret_n = min_t(unsigned int, roundup_pow_of_two(n), DATA_LINK_N_MAX);
 
-	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
-	DebugPrint(EFI_D_ERROR, "m: %u, n: %u, ret_n: %u\n", m, n, *ret_n);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
+	PRINT_DEBUG(EFI_D_ERROR, "m: %u, n: %u, ret_n: %u\n", m, n, *ret_n);
 	*ret_m = div_UINT64(mul_UINT32_UINT32(m, *ret_n), n);
 	intel_reduce_m_n_ratio(ret_m, ret_n);
 }
-struct intel_link_m_n {
+struct intel_link_m_n
+{
 	UINT32 tu;
 	UINT32 gmch_m;
 	UINT32 gmch_n;
 	UINT32 link_m;
 	UINT32 link_n;
 };
-void
-intel_link_compute_m_n(UINT16 bits_per_pixel, int nlanes,
-		       int pixel_clock, int link_clock,
-		       struct intel_link_m_n *m_n,
-		       BOOLEAN constant_n, BOOLEAN fec_enable)
+void intel_link_compute_m_n(UINT16 bits_per_pixel, int nlanes,
+							int pixel_clock, int link_clock,
+							struct intel_link_m_n *m_n,
+							BOOLEAN constant_n, BOOLEAN fec_enable)
 {
 	UINT32 data_clock = bits_per_pixel * pixel_clock;
-	DebugPrint(EFI_D_ERROR, "i915: intel_link_compute_m_n: bpp: %u, lanes: %u, pclock:%u, link_clock: %u\n",
-		bits_per_pixel,  nlanes, pixel_clock,  link_clock);
+	PRINT_DEBUG(EFI_D_ERROR, "intel_link_compute_m_n: bpp: %u, lanes: %u, pclock:%u, link_clock: %u\n",
+				bits_per_pixel, nlanes, pixel_clock, link_clock);
 	/* if (fec_enable)
 		data_clock = intel_dp_mode_to_fec_clock(data_clock);
  */
-         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
 	m_n->tu = 64;
-	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
 	compute_m_n(data_clock,
-		    link_clock * nlanes * 8,
-		    &(m_n->gmch_m), &(m_n->gmch_n),
-		    constant_n);
-         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
+				link_clock * nlanes * 8,
+				&(m_n->gmch_m), &(m_n->gmch_n),
+				constant_n);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
 	compute_m_n(pixel_clock, link_clock,
-		    &m_n->link_m, &m_n->link_n,
-		    constant_n);
-			         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
+				&m_n->link_m, &m_n->link_n,
+				constant_n);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
 }
 
-EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER* controller)
+EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER *controller)
 {
-    UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
-    UINT32 horz_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
-    UINT32 horz_sync_offset = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
-    UINT32 horz_sync_pulse = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse |
-                             (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
+	UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
+						 ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
+	UINT32 horz_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank |
+						((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
+	UINT32 horz_sync_offset = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
+	UINT32 horz_sync_pulse = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse |
+							 (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
 
-    UINT32 horizontal_active = horz_active;
-    UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
-    UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
-    UINT32 horizontal_total = horz_active + horz_blank;
+	UINT32 horizontal_active = horz_active;
+	UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
+	UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
+	UINT32 horizontal_total = horz_active + horz_blank;
 
-    UINT32 vert_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
-    UINT32 vert_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
-    UINT32 vert_sync_offset = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4) | (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3)
-                                                                                                      << 4);
-    UINT32 vert_sync_pulse = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF) | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
+	UINT32 vert_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
+						 ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
+	UINT32 vert_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank |
+						((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
+	UINT32 vert_sync_offset = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4) | (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3)
+																									  << 4);
+	UINT32 vert_sync_pulse = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF) | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
 
-    UINT32 vertical_active = vert_active;
-    UINT32 vertical_syncStart = vert_active + vert_sync_offset;
-    UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
-    UINT32 vertical_total = vert_active + vert_blank;
+	UINT32 vertical_active = vert_active;
+	UINT32 vertical_syncStart = vert_active + vert_sync_offset;
+	UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
+	UINT32 vertical_total = vert_active + vert_blank;
 
-    controller->write32(VSYNCSHIFT_A, 0);
+	controller->write32(VSYNCSHIFT_A, 0);
 
-    controller->write32(HTOTAL_A,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HBLANK_A,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HSYNC_A,
-                        (horizontal_syncStart - 1) |
-                            ((horizontal_syncEnd - 1) << 16));
+	controller->write32(HTOTAL_A,
+						(horizontal_active - 1) |
+							((horizontal_total - 1) << 16));
+	controller->write32(HBLANK_A,
+						(horizontal_active - 1) |
+							((horizontal_total - 1) << 16));
+	controller->write32(HSYNC_A,
+						(horizontal_syncStart - 1) |
+							((horizontal_syncEnd - 1) << 16));
 
-    controller->write32(VTOTAL_A,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VBLANK_A,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VSYNC_A,
-                        (vertical_syncStart - 1) |
-                            ((vertical_syncEnd - 1) << 16));
+	controller->write32(VTOTAL_A,
+						(vertical_active - 1) |
+							((vertical_total - 1) << 16));
+	controller->write32(VBLANK_A,
+						(vertical_active - 1) |
+							((vertical_total - 1) << 16));
+	controller->write32(VSYNC_A,
+						(vertical_syncStart - 1) |
+							((vertical_syncEnd - 1) << 16));
 
-    controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
+	controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
 	struct intel_link_m_n m_n = {0};
-	
-	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock * 10,controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
-			controller->write32( PIPEA_DATA_M1,
-			       TU_SIZE(m_n.tu) | m_n.gmch_m);
-		controller->write32( PIPEA_DATA_N1,
-			       m_n.gmch_n);
-		controller->write32( PIPEA_LINK_M1,
-			       m_n.link_m);
-		controller->write32( PIPEA_LINK_N1,
-			       m_n.link_n);  
-				    DebugPrint(EFI_D_ERROR, "i915: HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: VTOTAL_A (%x) = %08x\n", VTOTAL_A, controller->read32(VTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: VBLANK_A (%x) = %08x\n", VBLANK_A, controller->read32(VBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNC_A (%x) = %08x\n", VSYNC_A, controller->read32(VSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
-    DebugPrint(EFI_D_ERROR, "i915: BCLRPAT_A (%x) = %08x\n", BCLRPAT_A, controller->read32(BCLRPAT_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNCSHIFT_A (%x) = %08x\n", VSYNCSHIFT_A, controller->read32(VSYNCSHIFT_A));
 
-    DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
-    return EFI_SUCCESS;
+	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10, controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
+	controller->write32(PIPEA_DATA_M1,
+						TU_SIZE(m_n.tu) | m_n.gmch_m);
+	controller->write32(PIPEA_DATA_N1,
+						m_n.gmch_n);
+	controller->write32(PIPEA_LINK_M1,
+						m_n.link_m);
+	controller->write32(PIPEA_LINK_N1,
+						m_n.link_n);
+	PRINT_DEBUG(EFI_D_ERROR, "HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
+	PRINT_DEBUG(EFI_D_ERROR, "HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
+	PRINT_DEBUG(EFI_D_ERROR, "HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
+	PRINT_DEBUG(EFI_D_ERROR, "VTOTAL_A (%x) = %08x\n", VTOTAL_A, controller->read32(VTOTAL_A));
+	PRINT_DEBUG(EFI_D_ERROR, "VBLANK_A (%x) = %08x\n", VBLANK_A, controller->read32(VBLANK_A));
+	PRINT_DEBUG(EFI_D_ERROR, "VSYNC_A (%x) = %08x\n", VSYNC_A, controller->read32(VSYNC_A));
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
+	PRINT_DEBUG(EFI_D_ERROR, "BCLRPAT_A (%x) = %08x\n", BCLRPAT_A, controller->read32(BCLRPAT_A));
+	PRINT_DEBUG(EFI_D_ERROR, "VSYNCSHIFT_A (%x) = %08x\n", VSYNCSHIFT_A, controller->read32(VSYNCSHIFT_A));
+
+	PRINT_DEBUG(EFI_D_ERROR, "before pipe gamma\n");
+	return EFI_SUCCESS;
 }
-EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER* controller)
+EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER *controller)
 {
-    UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
-    UINT32 horz_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
-    UINT32 horz_sync_offset = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
-    UINT32 horz_sync_pulse = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse |
-                             (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
+	UINT32 horz_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
+						 ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb >> 4) << 8);
+	UINT32 horz_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzBlank |
+						((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzActiveBlankMsb & 0xF) << 8);
+	UINT32 horz_sync_offset = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncOffset | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 6) << 8);
+	UINT32 horz_sync_pulse = controller->edid.detailTimings[DETAIL_TIME_SELCTION].horzSyncPulse |
+							 (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 4) & 0x3) << 8);
 
-    UINT32 horizontal_active = horz_active;
-    UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
-    UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
-    UINT32 horizontal_total = horz_active + horz_blank;
+	UINT32 horizontal_active = horz_active;
+	UINT32 horizontal_syncStart = horz_active + horz_sync_offset;
+	UINT32 horizontal_syncEnd = horz_active + horz_sync_offset + horz_sync_pulse;
+	UINT32 horizontal_total = horz_active + horz_blank;
 
-    UINT32 vert_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
-                         ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
-    UINT32 vert_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank |
-                        ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
-    UINT32 vert_sync_offset = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4) | (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3)
-                                                                                                      << 4);
-    UINT32 vert_sync_pulse = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF) | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
+	UINT32 vert_active = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActive |
+						 ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb >> 4) << 8);
+	UINT32 vert_blank = controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertBlank |
+						((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertActiveBlankMsb & 0xF) << 8);
+	UINT32 vert_sync_offset = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync >> 4) | (((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb >> 2) & 0x3)
+																									  << 4);
+	UINT32 vert_sync_pulse = (controller->edid.detailTimings[DETAIL_TIME_SELCTION].vertSync & 0xF) | ((UINT32)(controller->edid.detailTimings[DETAIL_TIME_SELCTION].syncMsb & 0x3) << 4);
 
-    UINT32 vertical_active = vert_active;
-    UINT32 vertical_syncStart = vert_active + vert_sync_offset;
-    UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
-    UINT32 vertical_total = vert_active + vert_blank;
+	UINT32 vertical_active = vert_active;
+	UINT32 vertical_syncStart = vert_active + vert_sync_offset;
+	UINT32 vertical_syncEnd = vert_active + vert_sync_offset + vert_sync_pulse;
+	UINT32 vertical_total = vert_active + vert_blank;
 
-    controller->write32(VSYNCSHIFT_EDP, 0);
+	controller->write32(VSYNCSHIFT_EDP, 0);
 
-    controller->write32(HTOTAL_EDP,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HBLANK_EDP,
-                        (horizontal_active - 1) |
-                            ((horizontal_total - 1) << 16));
-    controller->write32(HSYNC_EDP,
-                        (horizontal_syncStart - 1) |
-                            ((horizontal_syncEnd - 1) << 16));
+	controller->write32(HTOTAL_EDP,
+						(horizontal_active - 1) |
+							((horizontal_total - 1) << 16));
+	controller->write32(HBLANK_EDP,
+						(horizontal_active - 1) |
+							((horizontal_total - 1) << 16));
+	controller->write32(HSYNC_EDP,
+						(horizontal_syncStart - 1) |
+							((horizontal_syncEnd - 1) << 16));
 
-    controller->write32(VTOTAL_EDP,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VBLANK_EDP,
-                        (vertical_active - 1) |
-                            ((vertical_total - 1) << 16));
-    controller->write32(VSYNC_EDP,
-                        (vertical_syncStart - 1) |
-                            ((vertical_syncEnd - 1) << 16));
+	controller->write32(VTOTAL_EDP,
+						(vertical_active - 1) |
+							((vertical_total - 1) << 16));
+	controller->write32(VBLANK_EDP,
+						(vertical_active - 1) |
+							((vertical_total - 1) << 16));
+	controller->write32(VSYNC_EDP,
+						(vertical_syncStart - 1) |
+							((vertical_syncEnd - 1) << 16));
 
-    controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
-/*         controller->write32(0x6f030, 0x7e6cf53b);
+	controller->write32(PIPEASRC, ((horizontal_active - 1) << 16) | (vertical_active - 1));
+	/*         controller->write32(0x6f030, 0x7e6cf53b);
         controller->write32(0x6f034, 0x00800000);
         controller->write32(0x6f040, 0x00048a37);
         controller->write32(0x6f044, 0x00080000); */
-		struct intel_link_m_n m_n = {0};
+	struct intel_link_m_n m_n = {0};
 	//struct intel_link_m_n *m_n= &m_n
-	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION
-	].pixelClock * 10,controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
-	         DebugPrint(EFI_D_ERROR, "i915: progressed to dpline %d\n",
-                   __LINE__);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n.tu) | m_n.gmch_m);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_DATA_N1 (%x) = %08x\n", PIPEEDP_DATA_N1, m_n.gmch_n);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_M1 (%x) = %08x\n", PIPEEDP_LINK_M1, m_n.link_m);
-    DebugPrint(EFI_D_ERROR, "i915: PIPEEDP_LINK_N1 (%x) = %08x\n", PIPEEDP_LINK_N1, m_n.link_n);
+	intel_link_compute_m_n(24, controller->OutputPath.LaneCount, controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10, controller->OutputPath.LinkRate, &m_n, FALSE, FALSE);
+	PRINT_DEBUG(EFI_D_ERROR, "progressed to dpline %d\n",
+				__LINE__);
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEEDP_DATA_M1 (%x) = %08x\n", PIPEEDP_DATA_M1, TU_SIZE(m_n.tu) | m_n.gmch_m);
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEEDP_DATA_N1 (%x) = %08x\n", PIPEEDP_DATA_N1, m_n.gmch_n);
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEEDP_LINK_M1 (%x) = %08x\n", PIPEEDP_LINK_M1, m_n.link_m);
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEEDP_LINK_N1 (%x) = %08x\n", PIPEEDP_LINK_N1, m_n.link_n);
 
-  			controller->write32( PIPEEDP_DATA_M1,
-			       TU_SIZE(m_n.tu) | m_n.gmch_m);
-		controller->write32( PIPEEDP_DATA_N1,
-			       m_n.gmch_n);
-		controller->write32( PIPEEDP_LINK_M1,
-			       m_n.link_m);
-		controller->write32( PIPEEDP_LINK_N1,
-			       m_n.link_n);    
-    DebugPrint(EFI_D_ERROR, "i915: HTOTAL_EDP (%x) = %08x\n", HTOTAL_EDP, controller->read32(HTOTAL_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: HBLANK_EDP (%x) = %08x\n", HBLANK_EDP, controller->read32(HBLANK_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: HSYNC_EDP (%x) = %08x\n", HSYNC_EDP, controller->read32(HSYNC_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: VTOTAL_EDP (%x) = %08x\n", VTOTAL_EDP, controller->read32(VTOTAL_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: VBLANK_EDP (%x) = %08x\n", VBLANK_EDP, controller->read32(VBLANK_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNC_EDP (%x) = %08x\n", VSYNC_EDP, controller->read32(VSYNC_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
-    DebugPrint(EFI_D_ERROR, "i915: BCLRPAT_EDP (%x) = %08x\n", BCLRPAT_EDP, controller->read32(BCLRPAT_EDP));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNCSHIFT_EDP (%x) = %08x\n", VSYNCSHIFT_EDP, controller->read32(VSYNCSHIFT_EDP));
+	controller->write32(PIPEEDP_DATA_M1,
+						TU_SIZE(m_n.tu) | m_n.gmch_m);
+	controller->write32(PIPEEDP_DATA_N1,
+						m_n.gmch_n);
+	controller->write32(PIPEEDP_LINK_M1,
+						m_n.link_m);
+	controller->write32(PIPEEDP_LINK_N1,
+						m_n.link_n);
+	PRINT_DEBUG(EFI_D_ERROR, "HTOTAL_EDP (%x) = %08x\n", HTOTAL_EDP, controller->read32(HTOTAL_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "HBLANK_EDP (%x) = %08x\n", HBLANK_EDP, controller->read32(HBLANK_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "HSYNC_EDP (%x) = %08x\n", HSYNC_EDP, controller->read32(HSYNC_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "VTOTAL_EDP (%x) = %08x\n", VTOTAL_EDP, controller->read32(VTOTAL_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "VBLANK_EDP (%x) = %08x\n", VBLANK_EDP, controller->read32(VBLANK_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "VSYNC_EDP (%x) = %08x\n", VSYNC_EDP, controller->read32(VSYNC_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
+	PRINT_DEBUG(EFI_D_ERROR, "BCLRPAT_EDP (%x) = %08x\n", BCLRPAT_EDP, controller->read32(BCLRPAT_EDP));
+	PRINT_DEBUG(EFI_D_ERROR, "VSYNCSHIFT_EDP (%x) = %08x\n", VSYNCSHIFT_EDP, controller->read32(VSYNCSHIFT_EDP));
 
-
-    DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
-    return EFI_SUCCESS;
+	PRINT_DEBUG(EFI_D_ERROR, "before pipe gamma\n");
+	return EFI_SUCCESS;
 }
-

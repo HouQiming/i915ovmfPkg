@@ -40,7 +40,7 @@ static EFI_STATUS ReadEDID(EDID *result)
         break;
     } */
 
-    DebugPrint(EFI_D_ERROR, "Reading PP_STATUS: %u \n", controller->read32(PP_STATUS));
+    PRINT_DEBUG(EFI_D_ERROR, "Reading PP_STATUS: %u \n", controller->read32(PP_STATUS));
 
     return status;
 }
@@ -127,17 +127,16 @@ EFI_STATUS MapTranscoderDDI()
     {
         // intel_ddi_enable_pipe_clock(crtc_state);
         controller->write32(_TRANS_CLK_SEL_A, TRANS_CLK_SEL_PORT(port));
-        DebugPrint(
-            EFI_D_ERROR,
-            "i915: progressed to line %d, TRANS_CLK_SEL_PORT(port) is %08x\n",
-            __LINE__, TRANS_CLK_SEL_PORT(port));
+        PRINT_DEBUG(EFI_D_ERROR,
+                    "i915: progressed to line %d, TRANS_CLK_SEL_PORT(port) is %08x\n",
+                    __LINE__, TRANS_CLK_SEL_PORT(port));
     }
     return EFI_SUCCESS;
 }
 EFI_STATUS SetupTranscoderAndPipe()
 {
-    DebugPrint(EFI_D_ERROR, "i915: before TranscoderPipe  %u \n",
-               controller->OutputPath.ConType);
+    PRINT_DEBUG(EFI_D_ERROR, "before TranscoderPipe  %u \n",
+                controller->OutputPath.ConType);
 
     switch (controller->OutputPath.ConType)
     {
@@ -157,35 +156,35 @@ EFI_STATUS SetupTranscoderAndPipe()
     default:
         break;
     }
-    DebugPrint(EFI_D_ERROR, "i915: after TranscoderPipe\n");
+    PRINT_DEBUG(EFI_D_ERROR, "after TranscoderPipe\n");
 
     return EFI_SUCCESS;
 }
 EFI_STATUS ConfigurePipeGamma()
 {
-    DebugPrint(EFI_D_ERROR, "i915: before gamma\n");
+    PRINT_DEBUG(EFI_D_ERROR, "before gamma\n");
     for (UINT32 i = 0; i < 256; i++)
     {
         UINT32 word = (i << 16) | (i << 8) | i;
         controller->write32(_LGC_PALETTE_A + i * 4, word);
     }
-    DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
+    PRINT_DEBUG(EFI_D_ERROR, "before pipe gamma\n");
 
     UINT64 reg = _PIPEACONF;
     if (controller->OutputPath.ConType == eDP)
     {
         reg = _PIPEEDPCONF;
     }
-    DebugPrint(EFI_D_ERROR, "REGISTER %x \n", reg);
+    PRINT_DEBUG(EFI_D_ERROR, "REGISTER %x \n", reg);
     controller->write32(reg, PIPECONF_PROGRESSIVE |
                                  PIPECONF_GAMMA_MODE_8BIT);
-    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+    PRINT_DEBUG(EFI_D_ERROR, "Setting _SKL_BOTTOM_COLOR_A to 0");
 
     controller->write32(_SKL_BOTTOM_COLOR_A, 0);
-    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+    PRINT_DEBUG(EFI_D_ERROR, "Setting _GAMMA_MODE_A to %x", GAMMA_MODE_MODE_8BIT);
 
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT);
-    DebugPrint(EFI_D_ERROR, "i915Display: current line: %d\n", __LINE__);
+    PRINT_DEBUG(EFI_D_ERROR, "Finished Pipe Gamma");
 
     return EFI_SUCCESS;
 }
@@ -203,7 +202,7 @@ EFI_STATUS ConfigureTransMSAMISC()
 EFI_STATUS ConfigureTransDDI()
 {
     UINT32 port = controller->OutputPath.Port;
-    DebugPrint(EFI_D_ERROR, "DDI Port: %u \n", port);
+    PRINT_DEBUG(EFI_D_ERROR, "DDI Port: %u \n", port);
     switch (controller->OutputPath.ConType)
     {
     case HDMI:
@@ -225,7 +224,7 @@ EFI_STATUS ConfigureTransDDI()
                              TRANS_DDI_MODE_SELECT_DP_SST));
         break;
     }
-    DebugPrint(EFI_D_ERROR, "REG TransDDI: %08x\n", controller->read32(_TRANS_DDI_FUNC_CTL_EDP));
+    PRINT_DEBUG(EFI_D_ERROR, "REG TransDDI: %08x\n", controller->read32(_TRANS_DDI_FUNC_CTL_EDP));
     return EFI_SUCCESS;
 }
 EFI_STATUS EnablePipe()
@@ -244,8 +243,8 @@ EFI_STATUS EnableDDI()
     UINT32 port = controller->OutputPath.Port;
 
     /* Display WA #1143: skl,kbl,cfl */
-    DebugPrint(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
-               controller->read32(DDI_BUF_CTL(port)));
+    PRINT_DEBUG(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
+                controller->read32(DDI_BUF_CTL(port)));
     UINT32 saved_port_bits =
         controller->read32(DDI_BUF_CTL(port)) &
         (DDI_BUF_PORT_REVERSAL |
@@ -311,14 +310,14 @@ EFI_STATUS EnableDDI()
    * are ignored so nothing special needs to be done besides
    * enabling the port.
    */
-    DebugPrint(EFI_D_ERROR, "SAVED BTIS %08x \n", saved_port_bits);
+    PRINT_DEBUG(EFI_D_ERROR, "SAVED BTIS %08x \n", saved_port_bits);
     if (controller->OutputPath.ConType == eDP)
     {
         saved_port_bits |= ((controller->OutputPath.LaneCount - 1) << 1);
     }
     controller->write32(DDI_BUF_CTL(port), saved_port_bits | DDI_BUF_CTL_ENABLE);
-    DebugPrint(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
-               controller->read32(DDI_BUF_CTL(port)));
+    PRINT_DEBUG(EFI_D_ERROR, "DDI_BUF_CTL(port) = %08x\n",
+                controller->read32(DDI_BUF_CTL(port)));
 
     return EFI_SUCCESS;
 }
@@ -352,8 +351,8 @@ EFI_STATUS SetupAndEnablePlane()
     // controller->write32(_DSPACNTR,(word&~PLANE_CTL_FORMAT_MASK)|DISPLAY_PLANE_ENABLE|PLANE_CTL_FORMAT_XRGB_8888);
     //|PLANE_CTL_ORDER_RGBX
 
-    DebugPrint(EFI_D_ERROR, "i915: plane enabled, dspcntr: %08x, FbBase: %p\n",
-               controller->read32(_DSPACNTR), controller->FbBase);
+    PRINT_DEBUG(EFI_D_ERROR, "plane enabled, dspcntr: %08x, FbBase: %p\n",
+                controller->read32(_DSPACNTR), controller->FbBase);
     return EFI_SUCCESS;
 }
 static BOOLEAN isCurrentPortPresent(enum port port, UINT32 found)
@@ -379,7 +378,7 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
     if (controller->is_gvt)
     {
-        DebugPrint(EFI_D_ERROR, "i915: Gvt-g Detected. Trying HDMI with all GMBUS Pins\n");
+        PRINT_DEBUG(EFI_D_ERROR, "Gvt-g Detected. Trying HDMI with all GMBUS Pins\n");
 
         EDID *result;
         controller->OutputPath.ConType = HDMI;
@@ -412,25 +411,25 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
         struct ddi_vbt_port_info ddi_port_info = controller->vbt.ddi_port_info[i];
 
-        DebugPrint(EFI_D_ERROR,
-                   "Port %c VBT info: DVI:%d HDMI:%d DP:%d eDP:%d\n",
-                   port_name(ddi_port_info.port), ddi_port_info.supports_dvi,
-                   ddi_port_info.supports_hdmi, ddi_port_info.supports_dp, ddi_port_info.supports_edp);
+        PRINT_DEBUG(EFI_D_ERROR,
+                    "Port %c VBT info: DVI:%d HDMI:%d DP:%d eDP:%d\n",
+                    port_name(ddi_port_info.port), ddi_port_info.supports_dvi,
+                    ddi_port_info.supports_hdmi, ddi_port_info.supports_dp, ddi_port_info.supports_edp);
         // UINT32* port = &controller->OutputPath.Port;
         if (!isCurrentPortPresent(ddi_port_info.port, found))
         {
-            DebugPrint(EFI_D_ERROR, "i915: Port not connected\n");
+            PRINT_DEBUG(EFI_D_ERROR, "Port not connected\n");
             continue;
         }
-        DebugPrint(EFI_D_ERROR, "i915: Port Is Connected!\n");
+        PRINT_DEBUG(EFI_D_ERROR, "Port Is Connected!\n");
 
         if (ddi_port_info.supports_dp || ddi_port_info.supports_edp)
         {
             enum aux_ch portAux = intel_bios_port_aux_ch(controller, ddi_port_info.port);
-            DebugPrint(EFI_D_ERROR, "i915: Port is DP/EdP. Aux_ch is %d \n", portAux);
+            PRINT_DEBUG(EFI_D_ERROR, "Port is DP/EdP. Aux_ch is %d \n", portAux);
 
             Status = ReadEDIDDP(result, controller, portAux);
-            DebugPrint(EFI_D_ERROR, "i915: ReadEDIDDP returned %d \n", Status);
+            PRINT_DEBUG(EFI_D_ERROR, "ReadEDIDDP returned %d \n", Status);
 
             if (!Status)
             {
@@ -439,17 +438,17 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
                 controller->OutputPath.DPLL = 1;
                 controller->edid = *result;
                 controller->OutputPath.Port = ddi_port_info.port;
-                DebugPrint(EFI_D_ERROR, "I915: DUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
+                PRINT_DEBUG(EFI_D_ERROR, "DUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
 
                 return Status;
             }
         }
         if (ddi_port_info.supports_dvi || ddi_port_info.supports_hdmi)
         {
-            DebugPrint(EFI_D_ERROR, "i915: Port is HDMI. GMBUS Pin is %d \n", ddi_port_info.alternate_ddc_pin);
+            PRINT_DEBUG(EFI_D_ERROR, "Port is HDMI. GMBUS Pin is %d \n", ddi_port_info.alternate_ddc_pin);
 
             Status = ReadEDIDHDMI(result, controller, ddi_port_info.alternate_ddc_pin);
-            DebugPrint(EFI_D_ERROR, "i915: ReadEDIDHDMI returned %d \n", Status);
+            PRINT_DEBUG(EFI_D_ERROR, "ReadEDIDHDMI returned %d \n", Status);
 
             if (!Status)
             {
@@ -458,7 +457,7 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
                 controller->edid = *result;
 
                 controller->OutputPath.Port = ddi_port_info.port;
-                DebugPrint(EFI_D_ERROR, "I915: HUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
+                PRINT_DEBUG(EFI_D_ERROR, "HUsing Connector Mode: %d, On Port %d", controller->OutputPath.ConType, controller->OutputPath.Port);
 
                 return Status;
             }
@@ -499,8 +498,7 @@ static int cnp_rawclk(i915_CONTROLLER *controller)
 
 static void PrintReg(UINT64 reg, const char *name)
 {
-    // DebugPrint(EFI_D_ERROR, "%a\n", name);
-    DebugPrint(EFI_D_ERROR, "i915: Reg %a(%08x), val: %08x\n", name, reg, controller->read32(reg));
+    PRINT_DEBUG(EFI_D_ERROR, "Reg %a(%08x), val: %08x\n", name, reg, controller->read32(reg));
 }
 static void PrintAllRegs()
 {
@@ -534,17 +532,17 @@ static void PrintAllRegs()
     PrintReg(LCPLL2_CTL, "LCPLL2_CTL");
     PrintReg(LCPLL1_CTL, "LCPLL1_CTL");
     PrintReg(DPLL_CTRL2, "DPLL_CTRL2");
-    DebugPrint(EFI_D_ERROR, "i195: Controller: LR: %u, LC: %u, Port: %u, ContType: %u, DPLL: %u\n",
-               controller->OutputPath.LinkRate, controller->OutputPath.LaneCount,
-               controller->OutputPath.Port, controller->OutputPath.ConType, controller->OutputPath.DPLL);
+    PRINT_DEBUG(EFI_D_ERROR, "Controller: LR: %u, LC: %u, Port: %u, ContType: %u, DPLL: %u\n",
+                controller->OutputPath.LinkRate, controller->OutputPath.LaneCount,
+                controller->OutputPath.Port, controller->OutputPath.ConType, controller->OutputPath.DPLL);
 }
 EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 {
     EFI_STATUS status;
-    DebugPrint(EFI_D_ERROR, "i915: set mode %u\n", ModeNumber);
+    PRINT_DEBUG(EFI_D_ERROR, "set mode %u\n", ModeNumber);
     if (g_already_set > 1)
     {
-        DebugPrint(EFI_D_ERROR, "i915: mode already set\n");
+        PRINT_DEBUG(EFI_D_ERROR, "mode already set\n");
         goto error;
     }
 
@@ -568,11 +566,11 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
 
     if (controller->OutputPath.ConType == eDP || controller->OutputPath.ConType == DPSST)
     {
-        DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+        PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
         status = TrainDisplayPort(controller);
-        DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is %u\n",
-                   __LINE__, status);
+        PRINT_DEBUG(EFI_D_ERROR, "progressed to line %d, status is %u\n",
+                    __LINE__, status);
         if (status != EFI_SUCCESS)
         {
             goto error;
@@ -609,7 +607,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     // bad setup causes hanging when enabling trans / pipe, but what is it?
     // we got here
     // ddi
-    DebugPrint(EFI_D_ERROR, "i915: before DDI\n");
+    PRINT_DEBUG(EFI_D_ERROR, "before DDI\n");
     status = ConfigureTransMSAMISC();
 
     CHECK_STATUS_ERROR(status);
@@ -619,7 +617,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     {
         goto error;
     }
-    DebugPrint(EFI_D_ERROR, "i915: after DDI\n");
+    PRINT_DEBUG(EFI_D_ERROR, "after DDI\n");
     //g_SystemTable->RuntimeServices->ResetSystem(EfiResetShutdown,0,0,NULL);
     //return EFI_UNSUPPORTED;
 
@@ -645,18 +643,18 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
         counter += 1;
         if (counter >= 16384)
         {
-            DebugPrint(EFI_D_ERROR, "i915: failed to enable PIPE\n");
+            PRINT_DEBUG(EFI_D_ERROR, "failed to enable PIPE\n");
             break;
         }
         if (controller->read32(reg) & I965_PIPECONF_ACTIVE)
         {
-            DebugPrint(EFI_D_ERROR, "i915: pipe enabled\n");
+            PRINT_DEBUG(EFI_D_ERROR, "pipe enabled\n");
             break;
         }
     }
     status = EnableDDI();
-    DebugPrint(EFI_D_ERROR, "i915: progressed to line %d, status is%u\n",
-               __LINE__, status);
+    PRINT_DEBUG(EFI_D_ERROR, "progressed to line %d, status is%u\n",
+                __LINE__, status);
     if (status != EFI_SUCCESS)
     {
         goto error;
@@ -683,7 +681,7 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     return EFI_SUCCESS;
 
 error:
-    DebugPrint(EFI_D_ERROR, "exiting with error");
+    PRINT_DEBUG(EFI_D_ERROR, "exiting with error");
     return status;
 }
 
@@ -737,40 +735,38 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
         UINT32 stat = controller->read32(HSW_PWR_WELL_CTL1);
         if (counter > 16384)
         {
-            DebugPrint(EFI_D_ERROR, "i915: power well enabling timed out %08x\n",
-                       stat);
+            PRINT_DEBUG(EFI_D_ERROR, "power well enabling timed out %08x\n",
+                        stat);
             break;
         }
         if (stat & 0x50000155u)
         {
-            DebugPrint(EFI_D_ERROR, "i915: power well enabled %08x\n", stat);
+            PRINT_DEBUG(EFI_D_ERROR, "power well enabled %08x\n", stat);
             break;
         }
     }
     SetupPPS();
     //Turn panel on/off to ensure it is properly reset and ready to recieve data.
-    DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
     controller->write32(PP_CONTROL, 8);
     controller->write32(PP_CONTROL, 0);
     controller->write32(PP_CONTROL, 8);
     controller->write32(PP_CONTROL, 0);
     controller->write32(PP_CONTROL, 67);
-    DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
     gBS->Stall(500000);
-    DebugPrint(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
     //controller->write32(PP_CONTROL, 103);
     // disable VGA
     UINT32 vgaword = controller->read32(VGACNTRL);
     controller->write32(VGACNTRL, (vgaword & ~VGA_2X_MODE) | VGA_DISP_DISABLE);
-    // DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x
-    // %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
 
     ///* 5. Enable CDCLK. */
     // icl_init_cdclk(dev_priv);
     // 080002a1 on test machine
-    DebugPrint(EFI_D_ERROR, "i915: CDCLK = %08x\n", controller->read32(CDCLK_CTL)); //there seems no need to do so
+    PRINT_DEBUG(EFI_D_ERROR, "CDCLK = %08x\n", controller->read32(CDCLK_CTL)); //there seems no need to do so
 
     ///* 6. Enable DBUF. */
     // icl_dbuf_enable(dev_priv);
@@ -783,13 +779,13 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     {
         if (counter > 16384)
         {
-            DebugPrint(EFI_D_ERROR, "i915: DBUF timeout\n");
+            PRINT_DEBUG(EFI_D_ERROR, "DBUF timeout\n");
             break;
         }
         if (controller->read32(DBUF_CTL_S1) & controller->read32(DBUF_CTL_S2) &
             DBUF_POWER_STATE)
         {
-            DebugPrint(EFI_D_ERROR, "i915: DBUF good\n");
+            PRINT_DEBUG(EFI_D_ERROR, "DBUF good\n");
             break;
         }
     }
@@ -803,22 +799,22 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
 
     // set up display buffer
     // the value is from host
-    DebugPrint(EFI_D_ERROR, "i915: _PLANE_BUF_CFG_1_A = %08x\n",
-               controller->read32(_PLANE_BUF_CFG_1_A));
+    PRINT_DEBUG(EFI_D_ERROR, "_PLANE_BUF_CFG_1_A = %08x\n",
+                controller->read32(_PLANE_BUF_CFG_1_A));
     controller->write32(_PLANE_BUF_CFG_1_A, 0x035b0000);
-    DebugPrint(EFI_D_ERROR, "i915: _PLANE_BUF_CFG_1_A = %08x (after)\n",
-               controller->read32(_PLANE_BUF_CFG_1_A));
+    PRINT_DEBUG(EFI_D_ERROR, "_PLANE_BUF_CFG_1_A = %08x (after)\n",
+                controller->read32(_PLANE_BUF_CFG_1_A));
 
     // initialize output
     // need workaround: always initialize DDI
     // intel_dig_port->hdmi.hdmi_reg = DDI_BUF_CTL(port);
     // intel_ddi_init(PORT_A);
     UINT32 found = controller->read32(SFUSE_STRAP);
-    DebugPrint(EFI_D_ERROR, "i915: SFUSE_STRAP = %08x\n", found);
+    PRINT_DEBUG(EFI_D_ERROR, "SFUSE_STRAP = %08x\n", found);
     Status = setOutputPath(controller, found);
     if (EFI_ERROR(Status))
     {
-        DebugPrint(EFI_D_ERROR, "i915: failed to Set OutputPath\n");
+        PRINT_DEBUG(EFI_D_ERROR, "failed to Set OutputPath\n");
         return Status;
     }
     // UINT32* port = &controller->OutputPath.Port;
@@ -858,10 +854,10 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     }
     /*  if (EFI_ERROR(Status))
     {
-        DebugPrint(EFI_D_ERROR, "i915: failed to read EDID\n");
+        PRINT_DEBUG(EFI_D_ERROR,"failed to read EDID\n");
         
     } */
-    DebugPrint(EFI_D_ERROR, "i915: got EDID:\n");
+    PRINT_DEBUG(EFI_D_ERROR, "got EDID:\n");
     for (UINT32 i = 0; i < 16; i++)
     {
         for (UINT32 j = 0; j < 8; j++)

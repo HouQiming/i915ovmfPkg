@@ -4,7 +4,7 @@
 #include <Uefi.h>
 #include "i915_display.h"
 #include <Protocol/GraphicsOutput.h>
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include <Library/FrameBufferBltLib.h>
 #include "i915_reg.h"
 #include <Library/MemoryAllocationLib.h>

@@ -13,7 +13,7 @@
 #include <IndustryStandard/Pci.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include <Library/DevicePathLib.h>
 #include <Library/FrameBufferBltLib.h>
 #include <Library/MemoryAllocationLib.h>

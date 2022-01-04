@@ -13,7 +13,7 @@
 #include <IndustryStandard/Pci.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include <Library/DevicePathLib.h>
 #include <Library/FrameBufferBltLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -25,19 +25,22 @@
 
 i915_CONTROLLER g_private = {SIGNATURE_32('i', '9', '1', '5')};
 
-static void write32(UINT64 reg, UINT32 data) {
+static void write32(UINT64 reg, UINT32 data)
+{
   g_private.PciIo->Mem.Write(g_private.PciIo, EfiPciIoWidthFillUint32,
                              PCI_BAR_IDX0, reg, 1, &data);
 }
 
-static UINT32 read32(UINT64 reg) {
+static UINT32 read32(UINT64 reg)
+{
   UINT32 data = 0;
   g_private.PciIo->Mem.Read(g_private.PciIo, EfiPciIoWidthFillUint32,
                             PCI_BAR_IDX0, reg, 1, &data);
   return data;
 }
 
-static UINT64 read64(UINT64 reg) {
+static UINT64 read64(UINT64 reg)
+{
   UINT64 data = 0;
   g_private.PciIo->Mem.Read(g_private.PciIo, EfiPciIoWidthFillUint64,
                             PCI_BAR_IDX0, reg, 1, &data);
@@ -84,7 +87,8 @@ EFI_STATUS
 Allocate32BitAlignedPagesWithType(IN EFI_MEMORY_TYPE MemoryType,
                                   IN UINTN NumberOfPages,
                                   IN UINTN AlignmentInPages,
-                                  OUT EFI_PHYSICAL_ADDRESS *Address) {
+                                  OUT EFI_PHYSICAL_ADDRESS *Address)
+{
   EFI_STATUS Status;
   EFI_PHYSICAL_ADDRESS PageAlignedAddress;
   EFI_PHYSICAL_ADDRESS FullyAlignedAddress;
@@ -95,19 +99,22 @@ Allocate32BitAlignedPagesWithType(IN EFI_MEMORY_TYPE MemoryType,
   // AlignmentInPages must be a power of two.
   //
   if (AlignmentInPages == 0 ||
-      (AlignmentInPages & (AlignmentInPages - 1)) != 0) {
+      (AlignmentInPages & (AlignmentInPages - 1)) != 0)
+  {
     return EFI_INVALID_PARAMETER;
   }
   //
   // (NumberOfPages + (AlignmentInPages - 1)) must not overflow UINTN.
   //
-  if (AlignmentInPages - 1 > MAX_UINTN - NumberOfPages) {
+  if (AlignmentInPages - 1 > MAX_UINTN - NumberOfPages)
+  {
     return EFI_OUT_OF_RESOURCES;
   }
   //
   // EFI_PAGES_TO_SIZE (AlignmentInPages) must not overflow UINTN.
   //
-  if (AlignmentInPages > (MAX_UINTN >> EFI_PAGE_SHIFT)) {
+  if (AlignmentInPages > (MAX_UINTN >> EFI_PAGE_SHIFT))
+  {
     return EFI_OUT_OF_RESOURCES;
   }
 
@@ -119,7 +126,8 @@ Allocate32BitAlignedPagesWithType(IN EFI_MEMORY_TYPE MemoryType,
   Status = gBS->AllocatePages(AllocateMaxAddress, MemoryType,
                               NumberOfPages + (AlignmentInPages - 1),
                               &PageAlignedAddress);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
   FullyAlignedAddress = ALIGN_VALUE(
@@ -131,11 +139,13 @@ Allocate32BitAlignedPagesWithType(IN EFI_MEMORY_TYPE MemoryType,
   BottomPages =
       EFI_SIZE_TO_PAGES((UINTN)(FullyAlignedAddress - PageAlignedAddress));
   TopPages = (AlignmentInPages - 1) - BottomPages;
-  if (BottomPages > 0) {
+  if (BottomPages > 0)
+  {
     Status = gBS->FreePages(PageAlignedAddress, BottomPages);
     ASSERT_EFI_ERROR(Status);
   }
-  if (TopPages > 0) {
+  if (TopPages > 0)
+  {
     Status = gBS->FreePages(
         FullyAlignedAddress + EFI_PAGES_TO_SIZE(NumberOfPages), TopPages);
     ASSERT_EFI_ERROR(Status);
@@ -147,7 +157,8 @@ Allocate32BitAlignedPagesWithType(IN EFI_MEMORY_TYPE MemoryType,
 
 // CHAR8 OPREGION_SIGNATURE[]="IntelGraphicsMem";
 
-typedef struct {
+typedef struct
+{
   UINT16 VendorId;
   UINT8 ClassCode[3];
   UINTN Segment;
@@ -157,7 +168,8 @@ typedef struct {
   CHAR8 Name[sizeof "0000:00:02.0"];
 } CANDIDATE_PCI_INFO;
 
-STATIC CHAR8 *GetPciName(IN CANDIDATE_PCI_INFO *PciInfo) {
+STATIC CHAR8 *GetPciName(IN CANDIDATE_PCI_INFO *PciInfo)
+{
   return PciInfo->Name;
 }
 
@@ -177,25 +189,29 @@ STATIC CHAR8 *GetPciName(IN CANDIDATE_PCI_INFO *PciInfo) {
 **/
 STATIC
 EFI_STATUS
-InitPciInfo(IN EFI_PCI_IO_PROTOCOL *PciIo, OUT CANDIDATE_PCI_INFO *PciInfo) {
+InitPciInfo(IN EFI_PCI_IO_PROTOCOL *PciIo, OUT CANDIDATE_PCI_INFO *PciInfo)
+{
   EFI_STATUS Status;
 
   Status = PciIo->Pci.Read(PciIo, EfiPciIoWidthUint16, PCI_VENDOR_ID_OFFSET,
                            1, // Count
                            &PciInfo->VendorId);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
 
   Status = PciIo->Pci.Read(PciIo, EfiPciIoWidthUint8, PCI_CLASSCODE_OFFSET,
                            sizeof PciInfo->ClassCode, PciInfo->ClassCode);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
 
   Status = PciIo->GetLocation(PciIo, &PciInfo->Segment, &PciInfo->Bus,
                               &PciInfo->Device, &PciInfo->Function);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
 
@@ -247,14 +263,16 @@ InitPciInfo(IN EFI_PCI_IO_PROTOCOL *PciIo, OUT CANDIDATE_PCI_INFO *PciInfo) {
 STATIC
 EFI_STATUS
 SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
-              IN OUT CANDIDATE_PCI_INFO *PciInfo) {
+              IN OUT CANDIDATE_PCI_INFO *PciInfo)
+{
   UINTN OpRegionPages;
   UINTN OpRegionResidual;
   EFI_STATUS Status;
   EFI_PHYSICAL_ADDRESS Address;
   UINT8 *BytePointer;
   struct intel_opregion OpRegion;
-  if (mOpRegionSize == 0) {
+  if (mOpRegionSize == 0)
+  {
     return EFI_INVALID_PARAMETER;
   }
   OpRegionPages =
@@ -268,9 +286,10 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   Status = Allocate32BitAlignedPagesWithType(EfiACPIMemoryNVS, OpRegionPages,
                                              1, // AlignmentInPages
                                              &Address);
-  if (EFI_ERROR(Status)) {
-   DebugPrint(EFI_D_ERROR, "%a: %a: failed to allocate OpRegion: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: failed to allocate OpRegion: %r\n",
+                __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
 
@@ -280,22 +299,23 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
   BytePointer = (UINT8 *)(UINTN)Address;
   QemuFwCfgSelectItem(mOpRegionItem);
   QemuFwCfgReadBytes(mOpRegionSize, BytePointer);
-  if (OpRegionResidual) {
+  if (OpRegionResidual)
+  {
     ZeroMem(BytePointer + mOpRegionSize, OpRegionResidual);
   }
 
-  OpRegion.header=(struct opregion_header *) BytePointer;
-  OpRegion.vbt =(struct vbt_header *) (BytePointer + 1024);
+  OpRegion.header = (struct opregion_header *)BytePointer;
+  OpRegion.vbt = (struct vbt_header *)(BytePointer + 1024);
 
   Status = decodeVBT(&OpRegion, 1024);
 
   g_private.opRegion = &OpRegion;
-  if (EFI_ERROR(Status)) {
-    DebugPrint(EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: failed to decode OpRegion: %r\n",
+                __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
-
 
   // for(int i=0;i<sizeof(OPREGION_SIGNATURE);i++){
   //    BytePointer[i]=(UINT8)OPREGION_SIGNATURE[i];
@@ -309,14 +329,15 @@ SetupOpRegion(IN EFI_PCI_IO_PROTOCOL *PciIo,
       PciIo->Pci.Write(PciIo, EfiPciIoWidthUint32, ASSIGNED_IGD_PCI_ASLS_OFFSET,
                        1, // Count
                        &Address);
-  if (EFI_ERROR(Status)) {
-   DebugPrint(EFI_D_ERROR, "%a: %a: failed to write OpRegion address: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: failed to write OpRegion address: %r\n",
+                __FUNCTION__, GetPciName(PciInfo), Status);
     goto FreeOpRegion;
   }
 
-  DebugPrint(EFI_D_ERROR, "i915: %a: OpRegion @ 0x%Lx size 0x%Lx in %d pages\n",
-             __FUNCTION__, Address, (UINT64)mOpRegionSize, (int)OpRegionPages);
+  PRINT_DEBUG(EFI_D_ERROR, "%a: OpRegion @ 0x%Lx size 0x%Lx in %d pages\n",
+              __FUNCTION__, Address, (UINT64)mOpRegionSize, (int)OpRegionPages);
   return EFI_SUCCESS;
 
 FreeOpRegion:
@@ -343,12 +364,14 @@ FreeOpRegion:
 STATIC
 EFI_STATUS
 SetupStolenMemory(IN EFI_PCI_IO_PROTOCOL *PciIo,
-                  IN OUT CANDIDATE_PCI_INFO *PciInfo) {
+                  IN OUT CANDIDATE_PCI_INFO *PciInfo)
+{
   UINTN BdsmPages;
   EFI_STATUS Status;
   EFI_PHYSICAL_ADDRESS Address;
 
-  if (mBdsmSize == 0) {
+  if (mBdsmSize == 0)
+  {
     return EFI_INVALID_PARAMETER;
   }
   BdsmPages = EFI_SIZE_TO_PAGES(mBdsmSize);
@@ -356,9 +379,10 @@ SetupStolenMemory(IN EFI_PCI_IO_PROTOCOL *PciIo,
   Status = Allocate32BitAlignedPagesWithType(
       EfiReservedMemoryType, //
       BdsmPages, EFI_SIZE_TO_PAGES((UINTN)ASSIGNED_IGD_BDSM_ALIGN), &Address);
-  if (EFI_ERROR(Status)) {
-   DebugPrint(EFI_D_ERROR, "%a: %a: failed to allocate stolen memory: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: failed to allocate stolen memory: %r\n",
+                __FUNCTION__, GetPciName(PciInfo), Status);
     return Status;
   }
 
@@ -374,14 +398,15 @@ SetupStolenMemory(IN EFI_PCI_IO_PROTOCOL *PciIo,
       PciIo->Pci.Write(PciIo, EfiPciIoWidthUint32, ASSIGNED_IGD_PCI_BDSM_OFFSET,
                        1, // Count
                        &Address);
-  if (EFI_ERROR(Status)) {
-   DebugPrint(EFI_D_ERROR, "%a: %a: failed to write stolen memory address: %r\n",
-           __FUNCTION__, GetPciName(PciInfo), Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: failed to write stolen memory address: %r\n",
+                __FUNCTION__, GetPciName(PciInfo), Status);
     goto FreeStolenMemory;
   }
 
-  DebugPrint(EFI_D_ERROR, "%a: %a: stolen memory @ 0x%Lx size 0x%Lx\n", __FUNCTION__,
-         GetPciName(PciInfo), Address, (UINT64)mBdsmSize);
+  PRINT_DEBUG(EFI_D_ERROR, "%a: %a: stolen memory @ 0x%Lx size 0x%Lx\n", __FUNCTION__,
+              GetPciName(PciInfo), Address, (UINT64)mBdsmSize);
   return EFI_SUCCESS;
 
 FreeStolenMemory:
@@ -389,7 +414,8 @@ FreeStolenMemory:
   return Status;
 }
 
-STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
+STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo)
+{
   EFI_STATUS OpRegionStatus = QemuFwCfgFindFile(ASSIGNED_IGD_FW_CFG_OPREGION,
                                                 &mOpRegionItem, &mOpRegionSize);
   FIRMWARE_CONFIG_ITEM BdsmItem;
@@ -400,51 +426,60 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
   // If neither fw_cfg file is available, assume no IGD is assigned.
   //
 
-  if (EFI_ERROR(OpRegionStatus) && EFI_ERROR(BdsmStatus)) {
-    DebugPrint(EFI_D_ERROR, "%a: bdsmStatus: %d  OpRegionStatus: %d\n", __FUNCTION__,
-             BdsmStatus, OpRegionStatus);
+  if (EFI_ERROR(OpRegionStatus) && EFI_ERROR(BdsmStatus))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: bdsmStatus: %d  OpRegionStatus: %d\n", __FUNCTION__,
+                BdsmStatus, OpRegionStatus);
     return EFI_UNSUPPORTED;
   }
 
   //
   // Require all fw_cfg files that are present to be well-formed.
   //
-  if (!EFI_ERROR(OpRegionStatus) && mOpRegionSize == 0) {
-   DebugPrint(EFI_D_ERROR, "%a: %a: zero size\n", __FUNCTION__,
-           ASSIGNED_IGD_FW_CFG_OPREGION);
+  if (!EFI_ERROR(OpRegionStatus) && mOpRegionSize == 0)
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "%a: %a: zero size\n", __FUNCTION__,
+                ASSIGNED_IGD_FW_CFG_OPREGION);
     return EFI_PROTOCOL_ERROR;
   }
 
-  if (!EFI_ERROR(BdsmStatus)) {
+  if (!EFI_ERROR(BdsmStatus))
+  {
     UINT64 BdsmSize;
 
-    if (BdsmItemSize != sizeof BdsmSize) {
-     DebugPrint(EFI_D_ERROR, "%a: %a: invalid fw_cfg size: %Lu\n", __FUNCTION__,
-             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, (UINT64)BdsmItemSize);
+    if (BdsmItemSize != sizeof BdsmSize)
+    {
+      PRINT_DEBUG(EFI_D_ERROR, "%a: %a: invalid fw_cfg size: %Lu\n", __FUNCTION__,
+                  ASSIGNED_IGD_FW_CFG_BDSM_SIZE, (UINT64)BdsmItemSize);
       return EFI_PROTOCOL_ERROR;
     }
     QemuFwCfgSelectItem(BdsmItem);
     QemuFwCfgReadBytes(BdsmItemSize, &BdsmSize);
 
-    if (BdsmSize == 0 || BdsmSize > MAX_UINTN) {
-     DebugPrint(EFI_D_ERROR, "%a: %a: invalid value: %Lu\n", __FUNCTION__,
-             ASSIGNED_IGD_FW_CFG_BDSM_SIZE, BdsmSize);
+    if (BdsmSize == 0 || BdsmSize > MAX_UINTN)
+    {
+      PRINT_DEBUG(EFI_D_ERROR, "%a: %a: invalid value: %Lu\n", __FUNCTION__,
+                  ASSIGNED_IGD_FW_CFG_BDSM_SIZE, BdsmSize);
       return EFI_PROTOCOL_ERROR;
     }
-    DebugPrint(EFI_D_ERROR, "BdsmSize=%Lu\n", BdsmSize);
+    PRINT_DEBUG(EFI_D_ERROR, "BdsmSize=%Lu\n", BdsmSize);
     mBdsmSize = (UINTN)BdsmSize;
-  } else {
+  }
+  else
+  {
     // assume 64M
-    DebugPrint(EFI_D_ERROR, "BdsmSize not found\n");
+    PRINT_DEBUG(EFI_D_ERROR, "BdsmSize not found\n");
     // mBdsmSize = (UINTN)(64<<20);
   }
 
   CANDIDATE_PCI_INFO PciInfo = {};
   InitPciInfo(PciIo, &PciInfo);
-  if (mOpRegionSize > 0) {
+  if (mOpRegionSize > 0)
+  {
     SetupOpRegion(PciIo, &PciInfo);
   }
-  if (mBdsmSize > 0) {
+  if (mBdsmSize > 0)
+  {
     SetupStolenMemory(PciIo, &PciInfo);
   }
   return EFI_SUCCESS;
@@ -452,14 +487,15 @@ STATIC EFI_STATUS SetupFwcfgStuff(EFI_PCI_IO_PROTOCOL *PciIo) {
 ////POWER EDP
 EFI_STATUS EFIAPI i915ControllerDriverStart(
     IN EFI_DRIVER_BINDING_PROTOCOL *This, IN EFI_HANDLE Controller,
-    IN EFI_DEVICE_PATH_PROTOCOL *RemainingDevicePath) {
+    IN EFI_DEVICE_PATH_PROTOCOL *RemainingDevicePath)
+{
   EFI_TPL OldTpl;
   EFI_STATUS Status;
   i915_CONTROLLER *Private;
   PCI_TYPE00 Pci;
   // SANITY CHECKS AND INTIALIZATION OF Driver
   OldTpl = gBS->RaiseTPL(TPL_CALLBACK);
-  DebugPrint(EFI_D_ERROR, "i915: start\n");
+  PRINT_DEBUG(EFI_D_ERROR, "start\n");
 
   Private = &g_private;
 
@@ -468,13 +504,15 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   Status = gBS->OpenProtocol(
       Controller, &gEfiPciIoProtocolGuid, (VOID **)&Private->PciIo,
       This->DriverBindingHandle, Controller, EFI_OPEN_PROTOCOL_BY_DRIVER);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto RestoreTpl;
   }
 
   Status = Private->PciIo->Pci.Read(Private->PciIo, EfiPciIoWidthUint32, 0,
                                     sizeof(Pci) / sizeof(UINT32), &Pci);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto ClosePciIo;
   }
 
@@ -482,11 +520,12 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
       Private->PciIo, EfiPciIoAttributeOperationEnable,
       EFI_PCI_DEVICE_ENABLE, // | EFI_PCI_IO_ATTRIBUTE_VGA_MEMORY,
       NULL);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto ClosePciIo;
   }
 
-  DebugPrint(EFI_D_ERROR, "i915: set pci attrs\n");
+  PRINT_DEBUG(EFI_D_ERROR, "set pci attrs\n");
 
   //
   // Get ParentDevicePath
@@ -494,7 +533,8 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   EFI_DEVICE_PATH_PROTOCOL *ParentDevicePath;
   Status = gBS->HandleProtocol(Controller, &gEfiDevicePathProtocolGuid,
                                (VOID **)&ParentDevicePath);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto ClosePciIo;
   }
 
@@ -511,11 +551,12 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
 
   Private->GopDevicePath = AppendDevicePathNode(
       ParentDevicePath, (EFI_DEVICE_PATH_PROTOCOL *)&AcpiDeviceNode);
-  if (Private->GopDevicePath == NULL) {
+  if (Private->GopDevicePath == NULL)
+  {
     Status = EFI_OUT_OF_RESOURCES;
     goto ClosePciIo;
   }
-  DebugPrint(EFI_D_ERROR, "i915: made gop path\n");
+  PRINT_DEBUG(EFI_D_ERROR, "made gop path\n");
 
   //
   // Create new child handle and install the device path protocol on it.
@@ -523,20 +564,18 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   Status = gBS->InstallMultipleProtocolInterfaces(&Private->Handle,
                                                   &gEfiDevicePathProtocolGuid,
                                                   Private->GopDevicePath, NULL);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto FreeGopDevicePath;
   }
-  DebugPrint(EFI_D_ERROR, "i915: installed child handle\n");
+  PRINT_DEBUG(EFI_D_ERROR, "installed child handle\n");
 
   g_private.write32 = write32;
   g_private.read32 = read32;
   g_private.read64 = read64;
 
-
-
-
   // setup OpRegion from fw_cfg (IgdAssignmentDxe)
-  DebugPrint(EFI_D_ERROR, "i915: before QEMU shenanigans\n");
+  PRINT_DEBUG(EFI_D_ERROR, "before QEMU shenanigans\n");
 
   QemuFwCfgInitialize();
 
@@ -544,35 +583,39 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
 
       QemuFwCfgIsAvailable()
 
-  ) {
+  )
+  {
     // setup opregion
     Status = SetupFwcfgStuff(Private->PciIo);
-    if (EFI_ERROR(Status)) {
-          DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff Error %d. Please see https://github.com/RotatingFans/i915ovmfPkg/wiki/Qemu-FwCFG-Workaround for more information\n", Status);
+    if (EFI_ERROR(Status))
+    {
+      PRINT_DEBUG(EFI_D_ERROR, "SetupFwcfgStuff Error %d. Please see https://github.com/RotatingFans/i915ovmfPkg/wiki/Qemu-FwCFG-Workaround for more information\n", Status);
 
       return Status; //TODO Better cleanup
     }
-    DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff returns %d\n", Status);
+    PRINT_DEBUG(EFI_D_ERROR, "SetupFwcfgStuff returns %d\n", Status);
   }
-  DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n");
+  PRINT_DEBUG(EFI_D_ERROR, "after QEMU shenanigans\n");
 
   parse_ddi_ports(&g_private, 228); //TODO Dyn bdb Version
 
   g_private.gmadr = 0;
   g_private.is_gvt = 0;
-  if (read64(0x78000) == 0x4776544776544776ULL) {
-    DebugPrint(EFI_D_ERROR, "GVT-G Enabled\n");
+  if (read64(0x78000) == 0x4776544776544776ULL)
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "GVT-G Enabled\n");
     g_private.gmadr = read32(0x78040);
     g_private.is_gvt = 1;
     // apertureSize=read32(0x78044);
   }
   // BEGIN IG AND DISPLAY CONFIG
   Status = DisplayInit(&g_private);
-if (EFI_ERROR(Status)) {
-          DebugPrint(EFI_D_ERROR, "i915: DisplayInit Error. %d\n", Status);
+  if (EFI_ERROR(Status))
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "DisplayInit Error. %d\n", Status);
 
-      return Status; //TODO Better cleanup
-    }
+    return Status; //TODO Better cleanup
+  }
   // get BAR 0 address and size
   EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR *bar0Desc;
   Private->PciIo->GetBarAttributes(Private->PciIo, PCI_BAR_IDX0, NULL,
@@ -580,15 +623,15 @@ if (EFI_ERROR(Status)) {
   EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR *bar2Desc;
   Private->PciIo->GetBarAttributes(Private->PciIo, PCI_BAR_IDX1, NULL,
                                    (VOID **)&bar2Desc);
-  DebugPrint(EFI_D_ERROR, "i915: bar ranges - %llx %llx, %llx %llx\n",
-             bar0Desc->AddrRangeMin, bar0Desc->AddrLen, bar2Desc->AddrRangeMin,
-             bar2Desc->AddrLen);
+  PRINT_DEBUG(EFI_D_ERROR, "bar ranges - %llx %llx, %llx %llx\n",
+              bar0Desc->AddrRangeMin, bar0Desc->AddrLen, bar2Desc->AddrRangeMin,
+              bar2Desc->AddrLen);
   UINT32 bar0Size = bar0Desc->AddrLen;
   EFI_PHYSICAL_ADDRESS mmio_base = bar0Desc->AddrRangeMin;
 
   // get BAR 2 address
   EFI_PHYSICAL_ADDRESS aperture_base = bar2Desc->AddrRangeMin;
-  DebugPrint(EFI_D_ERROR, "i915: aperture at %p\n", aperture_base);
+  PRINT_DEBUG(EFI_D_ERROR, "aperture at %p\n", aperture_base);
   // Private->PciIo->Pci.Write
   // (Private->PciIo,EfiPciIoWidthUint32,0x18,1,&aperture_base);
   // Private->PciIo->Pci.Read
@@ -596,10 +639,10 @@ if (EFI_ERROR(Status)) {
   // DebugPrint(EFI_D_ERROR,"i915: aperture confirmed at %016x\n",bar_work);
   // GVT-g gmadr issue
 
-  DebugPrint(EFI_D_ERROR,
-             "i915: gmadr = %08x, size = %08x, hgmadr = %08x, hsize = %08x\n",
-             g_private.gmadr, read32(0x78044), read32(0x78048),
-             read32(0x7804c));
+  PRINT_DEBUG(EFI_D_ERROR,
+              "i915: gmadr = %08x, size = %08x, hgmadr = %08x, hsize = %08x\n",
+              g_private.gmadr, read32(0x78044), read32(0x78048),
+              read32(0x7804c));
 
   UINT32 x_active =
       g_private.edid.detailTimings[DETAIL_TIME_SELCTION].horzActive |
@@ -618,26 +661,27 @@ if (EFI_ERROR(Status)) {
       (UINT32)(g_private.edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock) *
       10;
 
-  DebugPrint(EFI_D_ERROR, "i915: %ux%u clock=%u\n", x_active, y_active,
-             pixel_clock);
+  PRINT_DEBUG(EFI_D_ERROR, "%ux%u clock=%u\n", x_active, y_active,
+              pixel_clock);
   // create Global GTT entries to actually back the framebuffer
   g_private.FbBase = aperture_base + (UINT64)(g_private.gmadr);
   UINTN MaxFbSize = ((x_active * 4 + 64) & -64) * y_active;
   UINTN Pages = EFI_SIZE_TO_PAGES((MaxFbSize + 65535) & -65536);
   EFI_PHYSICAL_ADDRESS fb_backing =
       (EFI_PHYSICAL_ADDRESS)AllocateReservedPages(Pages);
-  if (!fb_backing) {
-    DebugPrint(EFI_D_ERROR, "i915: failed to allocate framebuffer\n");
+  if (!fb_backing)
+  {
+    PRINT_DEBUG(EFI_D_ERROR, "failed to allocate framebuffer\n");
     Status = EFI_OUT_OF_RESOURCES;
     goto FreeGopDevicePath;
   }
   EFI_PHYSICAL_ADDRESS ggtt_base = mmio_base + (bar0Size >> 1);
   UINT64 *ggtt = (UINT64 *)ggtt_base;
-  DebugPrint(
-      EFI_D_ERROR,
-      "i915: ggtt_base at %p, entries: %08x %08x, backing fb: %p, %x bytes\n",
-      ggtt_base, ggtt[0], ggtt[g_private.gmadr >> 12], fb_backing, MaxFbSize);
-  for (UINTN i = 0; i < MaxFbSize; i += 4096) {
+  PRINT_DEBUG(EFI_D_ERROR,
+              "i915: ggtt_base at %p, entries: %08x %08x, backing fb: %p, %x bytes\n",
+              ggtt_base, ggtt[0], ggtt[g_private.gmadr >> 12], fb_backing, MaxFbSize);
+  for (UINTN i = 0; i < MaxFbSize; i += 4096)
+  {
     // create one PTE entry for each page
     // cache is whatever cache used by the linux driver on my host
     EFI_PHYSICAL_ADDRESS addr = fb_backing + i;
@@ -645,8 +689,8 @@ if (EFI_ERROR(Status)) {
         ((UINT32)(addr >> 32) & 0x7F0u) | ((UINT32)addr & 0xFFFFF000u) | 11;
   }
 
-/*   // setup OpRegion from fw_cfg (IgdAssignmentDxe)
-  DebugPrint(EFI_D_ERROR, "i915: before QEMU shenanigans\n");
+  /*   // setup OpRegion from fw_cfg (IgdAssignmentDxe)
+  PRINT_DEBUG(EFI_D_ERROR,"before QEMU shenanigans\n");
 
   QemuFwCfgInitialize();
 
@@ -657,9 +701,9 @@ if (EFI_ERROR(Status)) {
   ) {
     // setup opregion
     Status = SetupFwcfgStuff(Private->PciIo);
-    DebugPrint(EFI_D_ERROR, "i915: SetupFwcfgStuff returns %d\n", Status);
+    PRINT_DEBUG(EFI_D_ERROR,"SetupFwcfgStuff returns %d\n", Status);
   }
-  DebugPrint(EFI_D_ERROR, "i915: after QEMU shenanigans\n"); */
+  PRINT_DEBUG(EFI_D_ERROR,"after QEMU shenanigans\n"); */
 
   // TODO: turn on backlight if found in OpRegion, need eDP initialization
   // first...
@@ -669,19 +713,21 @@ if (EFI_ERROR(Status)) {
   //
   EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput;
   GraphicsOutput = &g_private.GraphicsOutput;
-        DebugPrint(EFI_D_ERROR, "i915: progressed to mline %d, status is %u\n",
-               __LINE__, Status);
+  PRINT_DEBUG(EFI_D_ERROR, "progressed to mline %d, status is %u\n",
+              __LINE__, Status);
   Status = i915GraphicsSetupOutput(GraphicsOutput, x_active, y_active);
-      DebugPrint(EFI_D_ERROR, "i915: progressed to mline %d, status is %u\n",
-               __LINE__, Status);
-  if (EFI_ERROR(Status)) {
+  PRINT_DEBUG(EFI_D_ERROR, "progressed to mline %d, status is %u\n",
+              __LINE__, Status);
+  if (EFI_ERROR(Status))
+  {
     goto FreeGopDevicePath;
   }
 
   Status = gBS->InstallMultipleProtocolInterfaces(
       &Private->Handle, &gEfiGraphicsOutputProtocolGuid,
       &Private->GraphicsOutput, NULL);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto Destructi915Graphics;
   }
 
@@ -693,11 +739,12 @@ if (EFI_ERROR(Status)) {
       gBS->OpenProtocol(Controller, &gEfiPciIoProtocolGuid,
                         (VOID **)&ChildPciIo, This->DriverBindingHandle,
                         Private->Handle, EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto UninstallGop;
   }
 
-  DebugPrint(EFI_D_ERROR, "i915: gop ready\n");
+  PRINT_DEBUG(EFI_D_ERROR, "gop ready\n");
 
   gBS->RestoreTPL(OldTpl);
   return EFI_SUCCESS;
@@ -724,15 +771,17 @@ RestoreTpl:
 EFI_STATUS EFIAPI i915ControllerDriverStop(IN EFI_DRIVER_BINDING_PROTOCOL *This,
                                            IN EFI_HANDLE Controller,
                                            IN UINTN NumberOfChildren,
-                                           IN EFI_HANDLE *ChildHandleBuffer) {
-  DebugPrint(EFI_D_ERROR, "i915ControllerDriverStop\n");
+                                           IN EFI_HANDLE *ChildHandleBuffer)
+{
+  PRINT_DEBUG(EFI_D_ERROR, "ControllerDriverStop\n");
   // we don't support this, Windows can clean up our mess without this anyway
   return EFI_UNSUPPORTED;
 }
 
 EFI_STATUS EFIAPI i915ControllerDriverSupported(
     IN EFI_DRIVER_BINDING_PROTOCOL *This, IN EFI_HANDLE Controller,
-    IN EFI_DEVICE_PATH_PROTOCOL *RemainingDevicePath) {
+    IN EFI_DEVICE_PATH_PROTOCOL *RemainingDevicePath)
+{
   EFI_STATUS Status;
   EFI_PCI_IO_PROTOCOL *PciIo;
   PCI_TYPE00 Pci;
@@ -744,7 +793,8 @@ EFI_STATUS EFIAPI i915ControllerDriverSupported(
   Status = gBS->OpenProtocol(Controller, &gEfiPciIoProtocolGuid,
                              (VOID **)&PciIo, This->DriverBindingHandle,
                              Controller, EFI_OPEN_PROTOCOL_BY_DRIVER);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
 
@@ -753,24 +803,28 @@ EFI_STATUS EFIAPI i915ControllerDriverSupported(
   //
   Status = PciIo->Pci.Read(PciIo, EfiPciIoWidthUint32, 0,
                            sizeof(Pci) / sizeof(UINT32), &Pci);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     goto Done;
   }
 
   Status = EFI_UNSUPPORTED;
-  if (Pci.Hdr.VendorId == 0x8086 && IS_PCI_DISPLAY(&Pci)) {
+  if (Pci.Hdr.VendorId == 0x8086 && IS_PCI_DISPLAY(&Pci))
+  {
     Status = EFI_SUCCESS;
     //
     // If this is an Intel graphics controller,
     // go further check RemainingDevicePath validation
     //
-    if (RemainingDevicePath != NULL) {
+    if (RemainingDevicePath != NULL)
+    {
       Node = (EFI_DEV_PATH *)RemainingDevicePath;
       //
       // Check if RemainingDevicePath is the End of Device Path Node,
       // if yes, return EFI_SUCCESS
       //
-      if (!IsDevicePathEnd(Node)) {
+      if (!IsDevicePathEnd(Node))
+      {
         //
         // If RemainingDevicePath isn't the End of Device Path Node,
         // check its validation
@@ -778,14 +832,16 @@ EFI_STATUS EFIAPI i915ControllerDriverSupported(
         if (Node->DevPath.Type != ACPI_DEVICE_PATH ||
             Node->DevPath.SubType != ACPI_ADR_DP ||
             DevicePathNodeLength(&Node->DevPath) !=
-                sizeof(ACPI_ADR_DEVICE_PATH)) {
+                sizeof(ACPI_ADR_DEVICE_PATH))
+        {
           Status = EFI_UNSUPPORTED;
         }
       }
     }
-    if (Status == EFI_SUCCESS) {
-      DebugPrint(EFI_D_ERROR, "i915: found device %04x-%04x %p\n",
-                 Pci.Hdr.VendorId, Pci.Hdr.DeviceId, RemainingDevicePath);
+    if (Status == EFI_SUCCESS)
+    {
+      PRINT_DEBUG(EFI_D_ERROR, "found device %04x-%04x %p\n",
+                  Pci.Hdr.VendorId, Pci.Hdr.DeviceId, RemainingDevicePath);
       // DebugPrint(EFI_D_ERROR,"i915: bars %08x %08x %08x
       // %08x\n",Pci.Device.Bar[0],Pci.Device.Bar[1],Pci.Device.Bar[2],Pci.Device.Bar[3]);
       // Status=EFI_UNSUPPORTED;
@@ -817,7 +873,8 @@ GLOBAL_REMOVE_IF_UNREFERENCED extern EFI_COMPONENT_NAME_PROTOCOL
 EFI_STATUS
 EFIAPI
 i915ComponentNameGetDriverName(IN EFI_COMPONENT_NAME_PROTOCOL *This,
-                               IN CHAR8 *Language, OUT CHAR16 **DriverName) {
+                               IN CHAR8 *Language, OUT CHAR16 **DriverName)
+{
   return LookupUnicodeString2(Language, This->SupportedLanguages,
                               mi915DriverNameTable, DriverName,
                               (BOOLEAN)(This == &gi915ComponentName));
@@ -829,13 +886,15 @@ i915ComponentNameGetControllerName(IN EFI_COMPONENT_NAME_PROTOCOL *This,
                                    IN EFI_HANDLE ControllerHandle,
                                    IN EFI_HANDLE ChildHandle OPTIONAL,
                                    IN CHAR8 *Language,
-                                   OUT CHAR16 **ControllerName) {
+                                   OUT CHAR16 **ControllerName)
+{
   EFI_STATUS Status;
 
   //
   // This is a device driver, so ChildHandle must be NULL.
   //
-  if (ChildHandle != NULL) {
+  if (ChildHandle != NULL)
+  {
     return EFI_UNSUPPORTED;
   }
 
@@ -845,7 +904,8 @@ i915ComponentNameGetControllerName(IN EFI_COMPONENT_NAME_PROTOCOL *This,
   Status = EfiTestManagedDevice(ControllerHandle,
                                 gi915DriverBinding.DriverBindingHandle,
                                 &gEfiPciIoProtocolGuid);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR(Status))
+  {
     return Status;
   }
 
@@ -866,15 +926,16 @@ GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME2_PROTOCOL gi915ComponentName2 =
 EFI_DRIVER_SUPPORTED_EFI_VERSION_PROTOCOL gi915SupportedEfiVersion = {
     sizeof(EFI_DRIVER_SUPPORTED_EFI_VERSION_PROTOCOL), // Size of Protocol
                                                        // structure.
-    0 // Version number to be filled at start up.
+    0                                                  // Version number to be filled at start up.
 };
 static EFI_SYSTEM_TABLE *g_SystemTable = NULL;
 
 EFI_STATUS EFIAPI efi_main(IN EFI_HANDLE ImageHandle,
-                           IN EFI_SYSTEM_TABLE *SystemTable) {
+                           IN EFI_SYSTEM_TABLE *SystemTable)
+{
   ////////////
   g_SystemTable = SystemTable;
-  DebugPrint(EFI_D_ERROR, "Driver starts!\n");
+  PRINT_DEBUG(EFI_D_ERROR, "Driver starts!\n");
   EFI_STATUS Status;
   Status = EfiLibInstallDriverBindingComponentName2(
       ImageHandle, SystemTable, &gi915DriverBinding, ImageHandle,

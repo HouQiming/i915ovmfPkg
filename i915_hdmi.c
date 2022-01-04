@@ -1,5 +1,5 @@
 #include "i915_controller.h"
-#include <Library/DebugLib.h>
+#include "i915_debug.h"
 #include "i915_gmbus.h"
 #include "i915_ddi.h"
 #include "i915_dp.h"
@@ -47,7 +47,7 @@ static BOOLEAN intel_hdmi_valid_link_rate(UINT32 pixelClock)
 
     mode_rate = intel_hdmi_link_required(pixelClock * 10, 8);
     max_rate = hdmi_port_clock_limit();
-    DebugPrint(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
+    PRINT_DEBUG(EFI_D_ERROR, "Mode: %u, Max:%u\n", mode_rate, max_rate);
     if (mode_rate > max_rate)
         return FALSE;
 
@@ -87,7 +87,7 @@ EFI_STATUS ConvertFallbackEDIDToHDMIEDID(EDID *result, i915_CONTROLLER *controll
                         return EFI_SUCCESS;
                     }
                 }
-                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+                PRINT_DEBUG(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
 
                 for (int j = 0; j < 4; j++)
                 {
@@ -98,7 +98,7 @@ EFI_STATUS ConvertFallbackEDIDToHDMIEDID(EDID *result, i915_CONTROLLER *controll
                         return EFI_SUCCESS;
                     }
                 }
-                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+                PRINT_DEBUG(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
             }
             // if (result->detailTimings[DETAIL_TIME_SELCTION].pixelClock > 3) {
             //     result->detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
@@ -114,7 +114,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
     UINT32 *p = (UINT32 *)result;
     // try all the pins on GMBUS
     {
-        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        PRINT_DEBUG(EFI_D_ERROR, "trying pin %d\n", pin);
         controller->write32(gmbusSelect, pin);
         if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
         {
@@ -129,7 +129,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
                                               GMBUS_SW_RDY);
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
-        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        PRINT_DEBUG(EFI_D_ERROR, "trying pin %d\n", pin);
 
         // read the edid: i2cRead(0x50, &edid, 128);
         // note that we could fail here!
@@ -142,7 +142,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
         {
             if (EFI_ERROR(gmbusWait(controller, GMBUS_HW_RDY)))
             {
-                DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+                PRINT_DEBUG(EFI_D_ERROR, "trying pin %d\n", pin);
 
                 break;
             }
@@ -150,7 +150,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
         }
         // gmbusWait(controller,GMBUS_HW_WAIT_PHASE);
         gmbusWait(controller, GMBUS_HW_RDY);
-        DebugPrint(EFI_D_ERROR, "i915: trying pin %d\n", pin);
+        PRINT_DEBUG(EFI_D_ERROR, "trying pin %d\n", pin);
 
         for (UINT32 i = 0; i < 16; i++)
         {
@@ -172,7 +172,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
                         return EFI_SUCCESS;
                     }
                 }
-                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+                PRINT_DEBUG(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
 
                 for (int j = 0; j < 4; j++)
                 {
@@ -183,7 +183,7 @@ EFI_STATUS ReadEDIDHDMI(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
                         return EFI_SUCCESS;
                     }
                 }
-                DebugPrint(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
+                PRINT_DEBUG(EFI_D_ERROR, "pixelClock: %d\n", result->detailTimings[DETAIL_TIME_SELCTION].pixelClock);
             }
             // if (result->detailTimings[DETAIL_TIME_SELCTION].pixelClock > 3) {
             //     result->detailTimings[DETAIL_TIME_SELCTION].pixelClock >> 1;
@@ -297,7 +297,7 @@ static void skl_wrpll_params_populate(struct skl_wrpll_params *params,
         params->pdiv = 4;
         break;
     default:
-        DebugPrint(EFI_D_ERROR, "Incorrect PDiv\n");
+        PRINT_DEBUG(EFI_D_ERROR, "Incorrect PDiv\n");
     }
 
     switch (p2)
@@ -315,7 +315,7 @@ static void skl_wrpll_params_populate(struct skl_wrpll_params *params,
         params->kdiv = 3;
         break;
     default:
-        DebugPrint(EFI_D_ERROR, "Incorrect KDiv\n");
+        PRINT_DEBUG(EFI_D_ERROR, "Incorrect KDiv\n");
     }
 
     params->qdiv_ratio = p1;
@@ -430,7 +430,7 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
 
         if (!ctx.p)
         {
-            DebugPrint(EFI_D_ERROR, "i915: No valid divider found for %dHz\n", clock);
+            PRINT_DEBUG(EFI_D_ERROR, "No valid divider found for %dHz\n", clock);
             return EFI_UNSUPPORTED;
         }
 
@@ -483,9 +483,9 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
     controller->read32(_DPLL1_CFGCR2);
 
     //845 80400173 3a5
-    DebugPrint(EFI_D_ERROR, "i915: DPLL_CTRL1 = %08x\n", controller->read32(DPLL_CTRL1));
-    DebugPrint(EFI_D_ERROR, "i915: _DPLL1_CFGCR1 = %08x\n", controller->read32(_DPLL1_CFGCR1));
-    DebugPrint(EFI_D_ERROR, "i915: _DPLL1_CFGCR2 = %08x\n", controller->read32(_DPLL1_CFGCR2));
+    PRINT_DEBUG(EFI_D_ERROR, "DPLL_CTRL1 = %08x\n", controller->read32(DPLL_CTRL1));
+    PRINT_DEBUG(EFI_D_ERROR, "_DPLL1_CFGCR1 = %08x\n", controller->read32(_DPLL1_CFGCR1));
+    PRINT_DEBUG(EFI_D_ERROR, "_DPLL1_CFGCR2 = %08x\n", controller->read32(_DPLL1_CFGCR2));
 
     /* the enable bit is always bit 31 */
     controller->write32(LCPLL2_CTL, controller->read32(LCPLL2_CTL) | LCPLL_PLL_ENABLE);
@@ -494,12 +494,12 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
     {
         if (controller->read32(DPLL_STATUS) & DPLL_LOCK(1))
         {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d locked\n", 1);
+            PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", 1);
             break;
         }
         if (counter > 16384)
         {
-            DebugPrint(EFI_D_ERROR, "i915: DPLL %d not locked\n", 1);
+            PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", 1);
             break;
         }
     }
@@ -508,7 +508,7 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
     //could be intel_ddi_pre_enable_hdmi
     //intel_ddi_clk_select(encoder, crtc_state);
     UINT32 port = controller->OutputPath.Port;
-    DebugPrint(EFI_D_ERROR, "i915: port is %d\n", port);
+    PRINT_DEBUG(EFI_D_ERROR, "port is %d\n", port);
     {
         UINT32 val = controller->read32(DPLL_CTRL2);
 
@@ -524,7 +524,7 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
 
         controller->write32(DPLL_CTRL2, val);
     }
-    DebugPrint(EFI_D_ERROR, "i915: DPLL_CTRL2 = %08x\n", controller->read32(DPLL_CTRL2));
+    PRINT_DEBUG(EFI_D_ERROR, "DPLL_CTRL2 = %08x\n", controller->read32(DPLL_CTRL2));
     return EFI_SUCCESS;
 }
 EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER *controller)
@@ -581,17 +581,17 @@ EFI_STATUS SetupTranscoderAndPipeHDMI(i915_CONTROLLER *controller)
     UINT32 multiplier = 1;
     controller->write32(PIPE_MULT_A, multiplier - 1);
 
-    DebugPrint(EFI_D_ERROR, "i915: HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: VTOTAL_A (%x) = %08x\n", VTOTAL_A, controller->read32(VTOTAL_A));
-    DebugPrint(EFI_D_ERROR, "i915: VBLANK_A (%x) = %08x\n", VBLANK_A, controller->read32(VBLANK_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNC_A (%x) = %08x\n", VSYNC_A, controller->read32(VSYNC_A));
-    DebugPrint(EFI_D_ERROR, "i915: PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
-    DebugPrint(EFI_D_ERROR, "i915: BCLRPAT_A (%x) = %08x\n", BCLRPAT_A, controller->read32(BCLRPAT_A));
-    DebugPrint(EFI_D_ERROR, "i915: VSYNCSHIFT_A (%x) = %08x\n", VSYNCSHIFT_A, controller->read32(VSYNCSHIFT_A));
-    DebugPrint(EFI_D_ERROR, "i915: PIPE_MULT_A (%x) = %08x\n", PIPE_MULT_A, controller->read32(PIPE_MULT_A));
+    PRINT_DEBUG(EFI_D_ERROR, "HTOTAL_A (%x) = %08x\n", HTOTAL_A, controller->read32(HTOTAL_A));
+    PRINT_DEBUG(EFI_D_ERROR, "HBLANK_A (%x) = %08x\n", HBLANK_A, controller->read32(HBLANK_A));
+    PRINT_DEBUG(EFI_D_ERROR, "HSYNC_A (%x) = %08x\n", HSYNC_A, controller->read32(HSYNC_A));
+    PRINT_DEBUG(EFI_D_ERROR, "VTOTAL_A (%x) = %08x\n", VTOTAL_A, controller->read32(VTOTAL_A));
+    PRINT_DEBUG(EFI_D_ERROR, "VBLANK_A (%x) = %08x\n", VBLANK_A, controller->read32(VBLANK_A));
+    PRINT_DEBUG(EFI_D_ERROR, "VSYNC_A (%x) = %08x\n", VSYNC_A, controller->read32(VSYNC_A));
+    PRINT_DEBUG(EFI_D_ERROR, "PIPEASRC (%x) = %08x\n", PIPEASRC, controller->read32(PIPEASRC));
+    PRINT_DEBUG(EFI_D_ERROR, "BCLRPAT_A (%x) = %08x\n", BCLRPAT_A, controller->read32(BCLRPAT_A));
+    PRINT_DEBUG(EFI_D_ERROR, "VSYNCSHIFT_A (%x) = %08x\n", VSYNCSHIFT_A, controller->read32(VSYNCSHIFT_A));
+    PRINT_DEBUG(EFI_D_ERROR, "PIPE_MULT_A (%x) = %08x\n", PIPE_MULT_A, controller->read32(PIPE_MULT_A));
 
-    DebugPrint(EFI_D_ERROR, "i915: before pipe gamma\n");
+    PRINT_DEBUG(EFI_D_ERROR, "before pipe gamma\n");
     return EFI_SUCCESS;
 }
