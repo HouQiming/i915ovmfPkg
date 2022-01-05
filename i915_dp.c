@@ -1863,7 +1863,7 @@ BOOLEAN drm_dp_channel_eq_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 								DP_LANE_ALIGN_STATUS_UPDATED);
 	if ((lane_align & DP_INTERLANE_ALIGN_DONE) == 0)
 	{
-		PRINT_DEBUG(EFI_D_ERROR, "NO Lane Align");
+		PRINT_DEBUG(EFI_D_ERROR, "NO Lane Align\n");
 		return FALSE;
 	}
 	for (lane = 0; lane < lane_count; lane++)
@@ -1871,7 +1871,7 @@ BOOLEAN drm_dp_channel_eq_ok(const UINT8 link_status[DP_LINK_STATUS_SIZE],
 		lane_status = dp_get_lane_status(link_status, lane);
 		if ((lane_status & DP_CHANNEL_EQ_BITS) != DP_CHANNEL_EQ_BITS)
 		{
-			PRINT_DEBUG(EFI_D_ERROR, "NO EQ BITS");
+			PRINT_DEBUG(EFI_D_ERROR, "NO EQ BITS\n");
 			return FALSE;
 		}
 	}
@@ -1909,12 +1909,12 @@ intel_dp_link_training_channel_equalization(struct intel_dp *intel_dp)
 						"failed to get link status\n");
 			break;
 		}
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[0]);
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[1]);
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[2]);
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[3]);
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[4]);
-		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status: %x", link_status[5]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 0: %x\n", link_status[0]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 1: %x\n", link_status[1]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 2: %x\n", link_status[2]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 3: %x\n", link_status[3]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 4: %x\n", link_status[4]);
+		PRINT_DEBUG(EFI_D_ERROR, "Read Link Status 5: %x\n", link_status[5]);
 
 		/* Make sure clock is still ok */
 		if (!drm_dp_clock_recovery_ok(link_status,
@@ -2037,6 +2037,7 @@ static void intel_dp_set_common_rates(struct intel_dp *intel_dp)
 		intel_dp->common_rates[0] = 162000;
 		intel_dp->num_common_rates = 1;
 	}
+	intel_dp->max_link_rate = intel_dp->common_rates[intel_dp->num_common_rates - 1];
 }
 static int intel_dp_rate_index(const int *rates, int len, int rate)
 {
@@ -2120,10 +2121,12 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 	};
 	static const int g4x_rates[] = {
 		162000, 270000
-	}; */
-
+	}; 
+*/
 	static const int skl_rates[] = {
 		162000, 216000, 270000, 324000, 432000, 540000};
+/*			static const int skl_rates[] = {
+		162000, 216000, 270000}; */
 	/* 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct intel_encoder *encoder = &dig_port->base;
 	struct drm_i915_private *dev_priv = to_i915(dig_port->base.base.dev); */
@@ -2174,7 +2177,7 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 {
 	static const int dp_rates[] = {
-		162000, 270000, 324000, 540000, 810000};
+		162000, 270000, 540000, 810000};
 	int i, max_rate;
 
 	/* if (drm_dp_has_quirk(&intel_dp->desc, 0,
@@ -2188,7 +2191,7 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 	return;
 	} */
 
-	max_rate = dp_rates[4];
+	max_rate = dp_rates[3];
 
 	for (i = 0; i < ARRAY_SIZE(dp_rates); i++)
 	{
@@ -2280,7 +2283,7 @@ static EFI_STATUS i915_dp_get_link_config(struct intel_dp *intel_dp)
 	limits.min_bpp = 18;
 	//limits.max_bpp = intel_dp_max_bpp(intel_dp, pipe_config);
 	limits.max_bpp = 24; //Setting a reasonable(hopefully) default
-
+	PRINT_DEBUG(EFI_D_ERROR, "max_clock index: %d, common_len: %d, clock rate[0]: %d, max_link_rate: %d, clockrate[3]: %d \n", limits.max_clock, common_len, intel_dp->common_rates[0],intel_dp->max_link_rate,0);
 	if (intel_dp->use_max_rate)
 	{
 		/*
@@ -2297,7 +2300,7 @@ static EFI_STATUS i915_dp_get_link_config(struct intel_dp *intel_dp)
 
 	//intel_dp_adjust_compliance_config(intel_dp, pipe_config, &limits); //Ignoring. Hopefully still works.
 
-	PRINT_DEBUG(EFI_D_ERROR, "DP link computation with max lane count %i max rate %d max bpp %d pixel clock %iKHz\n",
+	PRINT_DEBUG(EFI_D_ERROR, "DP link computation with max lane count %d max rate %d max bpp %d pixel clock %dKHz\n",
 				limits.max_lane_count,
 				intel_dp->common_rates[limits.max_clock],
 				limits.max_bpp, intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10);
@@ -2348,7 +2351,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp *intel_dp)
 	DP |= DP_TP_CTL_LINK_TRAIN_NORMAL;
 
 	intel_dp->controller->write32(DP_TP_CTL(port), DP);
-	PRINT_DEBUG(EFI_D_ERROR, "Link Rate: %d, lane count: %d",
+	PRINT_DEBUG(EFI_D_ERROR, "Link Rate: %d, lane count: %d\n",
 				intel_dp->controller->OutputPath.LinkRate, intel_dp->lane_count);
 	intel_dp->controller->OutputPath.LinkRate = intel_dp->link_rate;
 	intel_dp->controller->OutputPath.LaneCount = intel_dp->lane_count;
@@ -2356,7 +2359,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp *intel_dp)
 	return EFI_SUCCESS;
 failure_handling:
 	PRINT_DEBUG(EFI_D_ERROR,
-				" Link Training failed at link rate = %d, lane count = %d",
+				" Link Training failed at link rate = %d, lane count = %d\n",
 				intel_dp->link_rate, intel_dp->lane_count);
 	if (!intel_dp_get_link_train_fallback_values(intel_dp,
 												 intel_dp->link_rate,
