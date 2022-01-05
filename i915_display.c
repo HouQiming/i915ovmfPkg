@@ -285,17 +285,9 @@ EFI_STATUS EnableDDI()
 
         controller->write32(reg, val);
         controller->read32(reg);
-
+        gBS->Stall(1);
         //... don't have timer
-        for (UINT32 counter = 0;;)
-        {
-            // controller->read32(reg);
-            counter += 1;
-            if (counter >= 16384)
-            {
-                break;
-            }
-        }
+
         // udelay(1);
 
         if (port == PORT_E)
@@ -632,25 +624,25 @@ EFI_STATUS setDisplayGraphicsMode(UINT32 ModeNumber)
     {
         goto error;
     }
-    UINT32 counter = 0;
+    UINTN TimeOut = 0;
     UINT64 reg = _PIPEACONF;
     if (controller->OutputPath.ConType == eDP)
     {
         reg = _PIPEEDPCONF;
     }
-    for (;;)
+    for (TimeOut = 0; TimeOut <= 100; TimeOut++)
     {
-        counter += 1;
-        if (counter >= 16384)
-        {
-            PRINT_DEBUG(EFI_D_ERROR, "failed to enable PIPE\n");
-            break;
-        }
+
         if (controller->read32(reg) & I965_PIPECONF_ACTIVE)
         {
             PRINT_DEBUG(EFI_D_ERROR, "pipe enabled\n");
             break;
         }
+        gBS->Stall(1000);
+    }
+    if (TimeOut > 100)
+    {
+        PRINT_DEBUG(EFI_D_ERROR, "failed to enable PIPE\n");
     }
     status = EnableDDI();
     PRINT_DEBUG(EFI_D_ERROR, "progressed to line %d, status is%u\n",
@@ -705,7 +697,7 @@ EFI_STATUS SetupPPS()
 EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
 {
     EFI_STATUS Status;
-
+    UINTN TimeOut = 0;
     controller = iController;
     /* 1. Enable PCH reset handshake. */
     // intel_pch_reset_handshake(dev_priv, !HAS_PCH_NOP(dev_priv));
@@ -730,21 +722,23 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     //#define   SKL_PW_CTL_IDX_MISC_IO		0
     controller->write32(HSW_PWR_WELL_CTL1,
                         controller->read32(HSW_PWR_WELL_CTL1) | 0xA00002AAu);
-    for (UINT32 counter = 0;; counter++)
+    UINT32 stat;
+    for (TimeOut = 0; TimeOut <= 5; TimeOut++)
     {
         UINT32 stat = controller->read32(HSW_PWR_WELL_CTL1);
-        if (counter > 16384)
-        {
-            PRINT_DEBUG(EFI_D_ERROR, "power well enabling timed out %08x\n",
-                        stat);
-            break;
-        }
         if (stat & 0x50000155u)
         {
             PRINT_DEBUG(EFI_D_ERROR, "power well enabled %08x\n", stat);
             break;
         }
+        gBS->Stall(1);
     }
+    if (TimeOut > 5)
+    {
+        PRINT_DEBUG(EFI_D_ERROR, "power well enabling timed out %08x\n",
+                    stat);
+    }
+
     SetupPPS();
     //Turn panel on/off to ensure it is properly reset and ready to recieve data.
     PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
@@ -777,7 +771,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     controller->read32(DBUF_CTL_S2);
     for (UINT32 counter = 0;; counter++)
     {
-        if (counter > 16384)
+        if (counter > 10)
         {
             PRINT_DEBUG(EFI_D_ERROR, "DBUF timeout\n");
             break;
@@ -788,6 +782,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
             PRINT_DEBUG(EFI_D_ERROR, "DBUF good\n");
             break;
         }
+        gBS->Stall(1);
     }
 
     ///* 7. Setup MBUS. */

@@ -6,6 +6,8 @@
 #include "i915_hdmi.h"
 #include "i915_reg.h"
 #include <Uefi.h>
+#include <Library/UefiBootServicesTableLib.h>
+
 static int intel_hdmi_source_max_tmds_clock()
 {
     // struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
@@ -497,11 +499,12 @@ EFI_STATUS SetupClockHDMI(i915_CONTROLLER *controller)
             PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", 1);
             break;
         }
-        if (counter > 16384)
+        if (counter > 500)
         {
             PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", 1);
             break;
         }
+        gBS->Stall(10);
     }
 
     //intel_encoders_pre_enable(crtc, pipe_config, old_state);

@@ -1,6 +1,7 @@
 #include <Uefi.h>
 #include "i915_gmbus.h"
 #include "i915_debug.h"
+#include <Library/UefiBootServicesTableLib.h>
 
 EFI_STATUS gmbusWait(i915_CONTROLLER *controller, UINT32 wanted)
 {
@@ -10,7 +11,7 @@ EFI_STATUS gmbusWait(i915_CONTROLLER *controller, UINT32 wanted)
     {
         UINT32 status = controller->read32(gmbusStatus);
         counter += 1;
-        if (counter >= 1024)
+        if (counter >= 100)
         {
             //failed
             PRINT_DEBUG(EFI_D_ERROR, "gmbus timeout\n");
@@ -27,5 +28,6 @@ EFI_STATUS gmbusWait(i915_CONTROLLER *controller, UINT32 wanted)
             //worked
             return EFI_SUCCESS;
         }
+        gBS->Stall(100);
     }
 }

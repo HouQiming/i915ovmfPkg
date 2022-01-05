@@ -60,11 +60,12 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 			break;
 		}
 		counter += 1;
-		if (counter >= 16384)
+		if (counter >= 1500)
 		{
 			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
 			break;
 		}
+		gBS->Stall(10);
 	}
 	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
 						aux_status | DP_AUX_CH_CTL_DONE |
@@ -90,11 +91,12 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 			break;
 		}
 		counter += 1;
-		if (counter >= 16384)
+		if (counter >= 1500)
 		{
 			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
 			break;
 		}
+		gBS->Stall(10);
 	}
 	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
 						aux_status | DP_AUX_CH_CTL_DONE |
@@ -130,11 +132,12 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 			break;
 		}
 		counter += 1;
-		if (counter >= 16384)
+		if (counter >= 1500)
 		{
 			PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
 			break;
 		}
+		gBS->Stall(10);
 	}
 	controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
 						aux_status | DP_AUX_CH_CTL_DONE |
@@ -161,11 +164,12 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 				break;
 			}
 			counter += 1;
-			if (counter >= 16384)
+			if (counter >= 1500)
 			{
 				PRINT_DEBUG(EFI_D_ERROR, "DP AUX channel timeout");
 				break;
 			}
+			gBS->Stall(10);
 		}
 		controller->write32(_DPA_AUX_CH_CTL + (pin << 8),
 							aux_status | DP_AUX_CH_CTL_DONE |
@@ -435,11 +439,12 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER *controller)
 			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", id);
 			break;
 		}
-		if (counter > 16384)
+		if (counter > 500)
 		{
 			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", id);
 			break;
 		}
+		gBS->Stall(10);
 	}
 	//it's clock id!
 	//how's port clock comptued?
@@ -483,11 +488,12 @@ EFI_STATUS SetupClockeDP(i915_CONTROLLER *controller)
 			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d locked\n", id);
 			break;
 		}
-		if (counter > 16384)
+		if (counter > 500)
 		{
 			PRINT_DEBUG(EFI_D_ERROR, "DPLL %d not locked\n", id);
 			break;
 		}
+		gBS->Stall(10);
 	}
 
 	//intel_encoders_pre_enable(crtc, pipe_config, old_state);
@@ -2203,15 +2209,7 @@ EFI_STATUS _TrainDisplayPort(struct intel_dp *intel_dp)
 	val |= DDI_PORT_WIDTH(intel_dp->lane_count);
 	intel_dp->controller->write32(DDI_BUF_CTL(port), val);
 
-	for (UINT32 counter = 0;;)
-	{
-		//controller->read32(reg);
-		counter += 1;
-		if (counter >= 16384)
-		{
-			break;
-		}
-	}
+	gBS->Stall(600);
 	val = intel_dp->controller->read32(DP_TP_CTL(port));
 	val |= DP_TP_CTL_ENABLE;
 	intel_dp->controller->write32(DP_TP_CTL(port), val);
@@ -2272,16 +2270,8 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER *controller)
 	val |= DDI_A_4_LANES;
 	val |= DDI_PORT_WIDTH(2);
 	controller->write32(DDI_BUF_CTL(port), val);
+	gBS->Stall(500);
 
-	for (UINT32 counter = 0;;)
-	{
-		//controller->read32(reg);
-		counter += 1;
-		if (counter >= 16384)
-		{
-			break;
-		}
-	}
 	struct intel_dp intel_dp;
 	intel_dp.controller = controller;
 
