@@ -2391,13 +2391,13 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER *controller)
 
 	val |= DDI_BUF_TRANS_SELECT(0);
 	val |= DDI_A_4_LANES;
-	val |= DDI_PORT_WIDTH(2);
+	val |= DDI_PORT_WIDTH(4);
 	controller->write32(DDI_BUF_CTL(port), val);
 	gBS->Stall(500);
 
 	struct intel_dp intel_dp;
 	intel_dp.controller = controller;
-
+	intel_dp.max_link_lane_count = 4;
 	// intel_dp.lane_count = 2;
 	// if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 	// 	intel_dp.link_rate = 162000;
