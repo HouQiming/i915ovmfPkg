@@ -1376,8 +1376,10 @@ struct intel_dp
 {
 	UINT8 lane_count;
 	UINT8 train_set[4];
+	UINT8 pipe_bpp;
 	int link_rate;
 	i915_CONTROLLER *controller;
+	bool use_max_rate;
 	/* source rates */
 	int num_source_rates;
 	const int *source_rates;
@@ -2056,7 +2058,11 @@ int intel_dp_get_link_train_fallback_values(struct intel_dp *intel_dp,
 {
 	//	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
 	int index;
-
+	if (intel_dp->controller->OutputPath.ConType == eDP && !intel_dp->use_max_rate)
+	{
+		intel_dp->use_max_rate = true;
+		return 0;
+	}
 	index = intel_dp_rate_index(intel_dp->common_rates,
 								intel_dp->num_common_rates,
 								link_rate);
@@ -2164,11 +2170,11 @@ intel_dp_set_source_rates(struct intel_dp *intel_dp)
 	intel_dp->num_source_rates = size;
 }
 
-/* update sink rates from dpcd */
+/* update sink rates from dpcd. We don't read the dpcd(Should we?) So manually adding the 324000 sink rate */
 static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 {
 	static const int dp_rates[] = {
-		162000, 270000, 540000, 810000};
+		162000, 270000, 324000, 540000, 810000};
 	int i, max_rate;
 
 	/* if (drm_dp_has_quirk(&intel_dp->desc, 0,
@@ -2182,7 +2188,7 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 	return;
 	} */
 
-	max_rate = dp_rates[3];
+	max_rate = dp_rates[4];
 
 	for (i = 0; i < ARRAY_SIZE(dp_rates); i++)
 	{
@@ -2193,6 +2199,117 @@ static void intel_dp_set_sink_rates(struct intel_dp *intel_dp)
 
 	intel_dp->num_sink_rates = i;
 }
+/* Get length of rates array potentially limited by max_rate. */
+static int intel_dp_rate_limit_len(const int *rates, int len, int max_rate)
+{
+	int i;
+
+	/* Limit results by potentially reduced max rate */
+	for (i = 0; i < len; i++)
+	{
+		if (rates[len - i - 1] <= max_rate)
+			return len - i;
+	}
+
+	return 0;
+}
+
+/* Get length of common rates array potentially limited by max_rate. */
+static int intel_dp_common_len_rate_limit(const struct intel_dp *intel_dp,
+										  int max_rate)
+{
+	return intel_dp_rate_limit_len(intel_dp->common_rates,
+								   intel_dp->num_common_rates, max_rate);
+}
+/* Optimize link config in order: max bpp, min clock, min lanes */
+static EFI_STATUS
+intel_dp_compute_link_config_wide(struct intel_dp *intel_dp,
+								  const struct link_config_limits *limits)
+{
+	int bpp, clock, lane_count;
+	int mode_rate, link_clock, link_avail;
+
+	for (bpp = limits->max_bpp; bpp >= limits->min_bpp; bpp -= 2 * 3)
+	{
+		//int output_bpp = intel_dp_output_bpp(pipe_config->output_format, bpp);
+		int output_bpp = bpp;
+
+		mode_rate = intel_dp_link_required(intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10,
+										   output_bpp);
+
+		for (clock = limits->min_clock; clock <= limits->max_clock; clock++)
+		{
+			for (lane_count = limits->min_lane_count;
+				 lane_count <= limits->max_lane_count;
+				 lane_count <<= 1)
+			{
+				link_clock = intel_dp->common_rates[clock];
+				link_avail = intel_dp_max_data_rate(link_clock,
+													lane_count);
+
+				if (mode_rate <= link_avail)
+				{
+					intel_dp->lane_count = lane_count;
+					intel_dp->pipe_bpp = bpp;
+					intel_dp->link_rate = link_clock;
+
+					return 0;
+				}
+			}
+		}
+	}
+
+	return EFI_UNSUPPORTED;
+}
+
+static EFI_STATUS i915_dp_get_link_config(struct intel_dp *intel_dp)
+{
+	struct link_config_limits limits;
+	int common_len;
+	int ret;
+
+	common_len = intel_dp_common_len_rate_limit(intel_dp,
+												intel_dp->max_link_rate);
+
+	limits.min_clock = 0;
+	limits.max_clock = common_len - 1;
+
+	limits.min_lane_count = 1;
+	limits.max_lane_count = intel_dp->max_link_lane_count;
+
+	limits.min_bpp = 18;
+	//limits.max_bpp = intel_dp_max_bpp(intel_dp, pipe_config);
+	limits.max_bpp = 24; //Setting a reasonable(hopefully) default
+
+	if (intel_dp->use_max_rate)
+	{
+		/*
+		 * Use the maximum clock and number of lanes the eDP panel
+		 * advertizes being capable of in case the initial fast
+		 * optimal params failed us. The panels are generally
+		 * designed to support only a single clock and lane
+		 * configuration, and typically on older panels these
+		 * values correspond to the native resolution of the panel.
+		 */
+		limits.min_lane_count = limits.max_lane_count;
+		limits.min_clock = limits.max_clock;
+	}
+
+	//intel_dp_adjust_compliance_config(intel_dp, pipe_config, &limits); //Ignoring. Hopefully still works.
+
+	PRINT_DEBUG(EFI_D_ERROR, "DP link computation with max lane count %i max rate %d max bpp %d pixel clock %iKHz\n",
+				limits.max_lane_count,
+				intel_dp->common_rates[limits.max_clock],
+				limits.max_bpp, intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10);
+
+	/*
+	 * Optimize for slow and wide for everything, because there are some
+	 * eDP 1.3 and 1.4 panels don't work well with fast and narrow.
+	 */
+	ret = intel_dp_compute_link_config_wide(intel_dp, &limits);
+	return ret;
+}
+
 EFI_STATUS _TrainDisplayPort(struct intel_dp *intel_dp)
 {
 	UINT32 port = intel_dp->controller->OutputPath.Port;
@@ -2252,8 +2369,14 @@ failure_handling:
 		/* Schedule a Hotplug Uevent to userspace to start modeset */
 		return _TrainDisplayPort(intel_dp);
 	}
+	else if (intel_dp->use_max_rate)
+	{
+		i915_dp_get_link_config(intel_dp);
+		return _TrainDisplayPort(intel_dp);
+	}
 	return EFI_ABORTED;
 }
+
 EFI_STATUS TrainDisplayPort(i915_CONTROLLER *controller)
 {
 	UINT32 port = controller->OutputPath.Port;
@@ -2275,17 +2398,18 @@ EFI_STATUS TrainDisplayPort(i915_CONTROLLER *controller)
 	struct intel_dp intel_dp;
 	intel_dp.controller = controller;
 
-	intel_dp.lane_count = 2;
-	if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
-		intel_dp.link_rate = 162000;
-	else
-		intel_dp.link_rate = 270000;
+	// intel_dp.lane_count = 2;
+	// if ((controller->read32(0x64000) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
+	// 	intel_dp.link_rate = 162000;
+	// else
+	// 	intel_dp.link_rate = 270000;
 
 	intel_dp_set_source_rates(&intel_dp);
 
 	intel_dp_set_sink_rates(&intel_dp);
 
 	intel_dp_set_common_rates(&intel_dp);
+	i915_dp_get_link_config(&intel_dp);
 	status = _TrainDisplayPort(&intel_dp);
 	UINT8 count = 0;
 	while (!intel_dp_can_link_train_fallback_for_edp(&intel_dp, intel_dp.link_rate, intel_dp.lane_count) && count < 4)
