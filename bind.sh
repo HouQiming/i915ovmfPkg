@@ -1,4 +1,5 @@
-
-     echo 0000:00:02.0 > /sys/bus/pci/devices/0000\:00\:02\.0/driver/unbind
-     echo 0000:00:02.0 > /sys/bus/pci/drivers/i915/bind
+#!/bin/bash
+source ./config
+     echo $PCILOC > /sys/bus/pci/devices/$PCILOC/driver/unbind
+     echo $PCILOC > /sys/bus/pci/drivers/i915/bind
 systemctl start display-manager.service
