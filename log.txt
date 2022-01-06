@@ -1,0 +1,471 @@
+i915 Message: efi_main(938)Driver starts!
+i915 Message: i915ControllerDriverSupported(843)found device 8086-9BCA 0
+i915 Message: i915ControllerDriverStart(498)start
+i915 Message: i915ControllerDriverStart(528)set pci attrs
+i915 Message: i915ControllerDriverStart(559)made gop path
+i915 Message: i915ControllerDriverStart(571)installed child handle
+i915 Message: i915ControllerDriverStart(578)before QEMU shenanigans
+i915 Message: SetupFwcfgStuff(465)BdsmSize=8388608
+i915 Message: decodeVBT(415)vbt: 0x7FBFD400, bdb: 0x7FBFD430, sig: $B KLK    d0\A5\ED0, bsig: BO_AABOK\E4t\FE 
+i915 Message: find_section(32)finding section 2
+i915 Message: decode_vbt_child_blocks(375)Boot display type: 0x0000
+i915 Message: decode_vbt_child_blocks(378)Child device size: 39
+i915 Message: decode_vbt_child_blocks(379)Child device count: 8
+i915 Message: SetupOpRegion(339)SetupOpRegion: OpRegion @ 0x7FBFD000 size 0x2000 in 2 pages
+i915 Message: SetupStolenMemory(408)SetupStolenMemory: : stolen memory @ 0x7E100000 size 0x800000
+i915 Message: i915ControllerDriverStart(596)SetupFwcfgStuff returns 0
+i915 Message: i915ControllerDriverStart(598)after QEMU shenanigans
+i915 Message: parse_ddi_port(690)Port A VBT info: CRT:0 DVI:0 HDMI:0 DP:1 eDP:1 USB-Type-C:0 TBT:0 type:1806
+i915 Message: parse_ddi_port(722)VBT HDMI level shift for port A: 0
+i915 Message: parse_ddi_port(787)VBT DP max link rate for port A: 810000
+i915 Message: parse_ddi_port(690)Port B VBT info: CRT:0 DVI:1 HDMI:1 DP:1 eDP:0 USB-Type-C:0 TBT:0 type:60D6
+i915 Message: parse_ddi_port(722)VBT HDMI level shift for port B: 0
+i915 Message: parse_ddi_port(787)VBT DP max link rate for port B: 810000
+i915 Message: parse_ddi_port(690)Port C VBT info: CRT:0 DVI:0 HDMI:0 DP:1 eDP:0 USB-Type-C:0 TBT:0 type:68C6
+i915 Message: parse_ddi_port(722)VBT HDMI level shift for port C: 0
+i915 Message: parse_ddi_port(787)VBT DP max link rate for port C: 810000
+i915 Message: parse_ddi_port(658)More than one child device for port A in VBT, using the first.
+i915 Message: parse_ddi_port(658)More than one child device for port A in VBT, using the first.
+i915 Message: parse_ddi_port(658)More than one child device for port A in VBT, using the first.
+i915 Message: parse_ddi_port(658)More than one child device for port A in VBT, using the first.
+i915 Message: parse_ddi_port(658)More than one child device for port A in VBT, using the first.
+i915 Message: DisplayInit(731)power well enabled F00003FF
+i915 Message: intel_dp_init_panel_power_sequencer_registers(387)panel power sequencer register settings: PP_ON #x, PP_OFF #x, PP_DIV #x
+i915 Message: DisplayInit(744)PP_CTL:  00000000, PP_STAT  00000000 
+i915 Message: DisplayInit(751)PP_CTL:  00000043, PP_STAT  9000000A 
+i915 Message: DisplayInit(754)PP_CTL:  00000043, PP_STAT  80000008 
+i915 Message: DisplayInit(763)CDCLK = 080002A1
+i915 Message: DisplayInit(776)DBUF timeout
+i915 Message: DisplayInit(797)_PLANE_BUF_CFG_1_A = 00000000
+i915 Message: DisplayInit(800)_PLANE_BUF_CFG_1_A = 035B0000 (after)
+i915 Message: DisplayInit(808)SFUSE_STRAP = 00000106
+i915 Message: setOutputPath(406)Port A VBT info: DVI:0 HDMI:0 DP:1 eDP:1
+i915 Message: setOutputPath(416)Port Is Connected!
+i915 Message: intel_bios_port_aux_ch(866)using AUX A for port A (VBT)
+i915 Message: setOutputPath(421)Port is DP/EdP. Aux_ch is 0 
+i915 Message: ReadEDIDDP(37)trying DP aux 0
+i915 Message: ReadEDIDDP(111)reading DP aux 0
+00 FF FF FF FF FF FF 00 
+0D AE E4 14 00 00 00 00 
+27 1C 01 04 A5 1F 11 78 
+02 EE 95 A3 54 4C 99 26 
+0F 50 54 00 00 00 01 01 
+01 01 01 01 01 01 01 01 
+01 01 01 01 01 01 B4 3B 
+80 4A 71 38 34 40 50 3C 
+68 00 35 AD 10 00 00 18 
+00 00 00 FE 00 4E 31 34 
+30 48 43 52 2D 47 41 32 
+0A 20 00 00 00 FE 00 43 
+4D 4E 0A 20 20 20 20 20 
+20 20 20 20 00 00 00 FE 
+00 4E 31 34 30 48 43 52 
+2D 47 41 32 0A 20 00 FC 
+i915 Message: setOutputPath(424)ReadEDIDDP returned 0 
+i915 Message: setOutputPath(433)DUsing Connector Mode: 3, On Port 0i915 Message: ReadEDID(43)Reading PP_STATUS: 2147483656 
+i915 Message: DisplayInit(855)got EDID:
+00 FF FF FF FF FF FF 00 
+0D AE E4 14 00 00 00 00 
+27 1C 01 04 A5 1F 11 78 
+02 EE 95 A3 54 4C 99 26 
+0F 50 54 00 00 00 01 01 
+01 01 01 01 01 01 01 01 
+01 01 01 01 01 01 B4 3B 
+80 4A 71 38 34 40 50 3C 
+68 00 35 AD 10 00 00 18 
+00 00 00 FE 00 4E 31 34 
+30 48 43 52 2D 47 41 32 
+0A 20 00 00 00 FE 00 43 
+4D 4E 0A 20 20 20 20 20 
+20 20 20 20 00 00 00 FE 
+00 4E 31 34 30 48 43 52 
+2D 47 41 32 0A 20 00 FC 
+i915 Message: i915ControllerDriverStart(626)bar ranges - 810000000 1000000, 800000000 10000000
+i915 Message: i915ControllerDriverStart(634)aperture at 800000000
+i915 Message: i915ControllerDriverStart(642)i915: gmadr = 00000000, size = 00000000, hgmadr = 00000000, hsize = 00000000
+i915 Message: i915ControllerDriverStart(664)1920x1080 clock=152840
+i915 Message: i915ControllerDriverStart(680)i915: ggtt_base at 810800000, entries: 00000000 00000000, backing fb: 7D900000, 7F9E00 bytes
+i915 Message: i915ControllerDriverStart(716)progressed to mline 717, status is 0
+i915 Message: setDisplayGraphicsMode(534)set mode 0
+i915 Message: SetupClockeDP(444)DPLL 1 not locked
+i915 Message: SetupClockeDP(452)Link Rate: 0
+i915 Message: SetupClockeDP(476)DPLL_CTRL1 = 00000545
+i915 Message: SetupClockeDP(477)_DPLL1_CFGCR1 = 00000000
+i915 Message: SetupClockeDP(478)_DPLL1_CFGCR2 = 00000000
+i915 Message: SetupClockeDP(488)DPLL 1 locked
+i915 Message: SetupClockeDP(502)port is 0
+i915 Message: SetupClockeDP(518)DPLL_CTRL2 = 00A00003
+i915 Message: setDisplayGraphicsMode(561)PP_CTL:  00000043, PP_STAT  80000008 
+i915 Message: i915_dp_get_link_config(2286)max_clock index: 2, common_len: 3, clock rate[0]: 162000, max_link_rate: 540000, clockrate[3]: 0 
+i915 Message: i915_dp_get_link_config(2303)DP link computation with max lane count 4 max rate 540000 max bpp 24 pixel clock 152840KHz
+i915 Message: intel_dp_link_training_clock_recovery(1707)Using LINK_BW_SET value 6
+i915 Message: intel_dp_link_training_clock_recovery(1767)clock recovery OK
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 80
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1952)Channel equalization failed 5 times
+i915 Message: _TrainDisplayPort(2361) Link Training failed at link rate = 162000, lane count = 4
+i915 Message: SetupClockeDP(444)DPLL 1 not locked
+i915 Message: SetupClockeDP(452)Link Rate: 162000
+i915 Message: SetupClockeDP(476)DPLL_CTRL1 = 00000545
+i915 Message: SetupClockeDP(477)_DPLL1_CFGCR1 = 00000000
+i915 Message: SetupClockeDP(478)_DPLL1_CFGCR2 = 00000000
+i915 Message: SetupClockeDP(488)DPLL 1 locked
+i915 Message: SetupClockeDP(502)port is 0
+i915 Message: SetupClockeDP(518)DPLL_CTRL2 = 00A00003
+i915 Message: intel_dp_link_training_clock_recovery(1707)Using LINK_BW_SET value 6
+i915 Message: intel_dp_link_training_clock_recovery(1767)clock recovery OK
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 80
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 33
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1952)Channel equalization failed 5 times
+i915 Message: _TrainDisplayPort(2361) Link Training failed at link rate = 162000, lane count = 4
+i915 Message: intel_dp_can_link_train_fallback_for_edp(2018)Mode: 458520, Max:1080000
+i915 Message: SetupClockeDP(444)DPLL 1 not locked
+i915 Message: SetupClockeDP(452)Link Rate: 540000
+i915 Message: SetupClockeDP(476)DPLL_CTRL1 = 000004C5
+i915 Message: SetupClockeDP(477)_DPLL1_CFGCR1 = 00000000
+i915 Message: SetupClockeDP(478)_DPLL1_CFGCR2 = 00000000
+i915 Message: SetupClockeDP(488)DPLL 1 locked
+i915 Message: SetupClockeDP(502)port is 0
+i915 Message: SetupClockeDP(518)DPLL_CTRL2 = 00A00003
+i915 Message: intel_dp_link_training_clock_recovery(1707)Using LINK_BW_SET value 20
+i915 Message: intel_dp_link_training_clock_recovery(1767)clock recovery OK
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 80
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 33
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 0
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: drm_dp_channel_eq_ok(1866)NO Lane Align
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1412)this_v:0 v:0  this_p:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1427)v:0  p:0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[0]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[1]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[2]: 0 
+i915 Message: intel_dp_get_adjust_train(1437)TrainSet[3]: 0 
+i915 Message: g4x_set_signal_levels(1531)Using signal levels 00000000
+i915 Message: intel_dp_link_training_channel_equalization(1952)Channel equalization failed 5 times
+i915 Message: _TrainDisplayPort(2361) Link Training failed at link rate = 540000, lane count = 2
+i915 Message: intel_dp_can_link_train_fallback_for_edp(2018)Mode: 458520, Max:540000
+i915 Message: SetupClockeDP(444)DPLL 1 not locked
+i915 Message: SetupClockeDP(452)Link Rate: 270000
+i915 Message: SetupClockeDP(476)DPLL_CTRL1 = 000004C5
+i915 Message: SetupClockeDP(477)_DPLL1_CFGCR1 = 00000000
+i915 Message: SetupClockeDP(478)_DPLL1_CFGCR2 = 00000000
+i915 Message: SetupClockeDP(488)DPLL 1 locked
+i915 Message: SetupClockeDP(502)port is 0
+i915 Message: SetupClockeDP(518)DPLL_CTRL2 = 00A00003
+i915 Message: intel_dp_link_training_clock_recovery(1707)Using LINK_BW_SET value 10
+i915 Message: intel_dp_link_training_clock_recovery(1767)clock recovery OK
+i915 Message: intel_dp_link_training_channel_equalization(1912)Read Link Status 0: 77
+i915 Message: intel_dp_link_training_channel_equalization(1913)Read Link Status 1: 0
+i915 Message: intel_dp_link_training_channel_equalization(1914)Read Link Status 2: 81
+i915 Message: intel_dp_link_training_channel_equalization(1915)Read Link Status 3: 0
+i915 Message: intel_dp_link_training_channel_equalization(1916)Read Link Status 4: 0
+i915 Message: intel_dp_link_training_channel_equalization(1917)Read Link Status 5: 0
+i915 Message: intel_dp_link_training_channel_equalization(1933)Channel EQ done. DP Training successful
+i915 Message: _TrainDisplayPort(2354)Link Rate: 270000, lane count: 2
+i915 Message: intel_dp_can_link_train_fallback_for_edp(2018)Mode: 458520, Max:540000
+i915 Message: setDisplayGraphicsMode(564)progressed to line 565, status is 0
+i915 Message: SetupTranscoderAndPipe(138)before TranscoderPipe  3 
+i915 Message: intel_link_compute_m_n(2539)intel_link_compute_m_n: bpp: 24, lanes: 2, pclock:152840, link_clock: 270000
+i915 Message: intel_link_compute_m_n(2544)progressed to dpline 2545
+i915 Message: intel_link_compute_m_n(2547)progressed to dpline 2548
+i915 Message: compute_m_n(2512)progressed to dpline 2513
+i915 Message: compute_m_n(2519)progressed to dpline 2520
+i915 Message: compute_m_n(2521)m: 3668160, n: 4320000, ret_n: 8388608
+i915 Message: intel_link_compute_m_n(2553)progressed to dpline 2554
+i915 Message: compute_m_n(2512)progressed to dpline 2513
+i915 Message: compute_m_n(2519)progressed to dpline 2520
+i915 Message: compute_m_n(2521)m: 152840, n: 270000, ret_n: 524288
+i915 Message: intel_link_compute_m_n(2558)progressed to dpline 2559
+i915 Message: SetupTranscoderAndPipeEDP(2695)progressed to dpline 2696
+i915 Message: SetupTranscoderAndPipeEDP(2697)PIPEEDP_DATA_M1 (6F030) = 7E6CAFAC
+i915 Message: SetupTranscoderAndPipeEDP(2698)PIPEEDP_DATA_N1 (6F034) = 00800000
+i915 Message: SetupTranscoderAndPipeEDP(2699)PIPEEDP_LINK_M1 (6F040) = 00048751
+i915 Message: SetupTranscoderAndPipeEDP(2700)PIPEEDP_LINK_N1 (6F044) = 00080000
+i915 Message: SetupTranscoderAndPipeEDP(2710)HTOTAL_EDP (6F000) = 08C9077F
+i915 Message: SetupTranscoderAndPipeEDP(2711)HBLANK_EDP (6F004) = 08C9077F
+i915 Message: SetupTranscoderAndPipeEDP(2712)HSYNC_EDP (6F008) = 080B07CF
+i915 Message: SetupTranscoderAndPipeEDP(2713)VTOTAL_EDP (6F00C) = 046B0437
+i915 Message: SetupTranscoderAndPipeEDP(2714)VBLANK_EDP (6F010) = 046B0437
+i915 Message: SetupTranscoderAndPipeEDP(2715)VSYNC_EDP (6F014) = 0445043D
+i915 Message: SetupTranscoderAndPipeEDP(2716)PIPEASRC (6001C) = 077F0437
+i915 Message: SetupTranscoderAndPipeEDP(2717)BCLRPAT_EDP (6F020) = 00000000
+i915 Message: SetupTranscoderAndPipeEDP(2718)VSYNCSHIFT_EDP (6F028) = 00000000
+i915 Message: SetupTranscoderAndPipeEDP(2720)before pipe gamma
+i915 Message: SetupTranscoderAndPipe(159)after TranscoderPipe
+i915 Message: ConfigurePipeGamma(165)before gamma
+i915 Message: ConfigurePipeGamma(171)before pipe gamma
+i915 Message: ConfigurePipeGamma(178)REGISTER 7F008 
+i915 Message: ConfigurePipeGamma(181)Setting _SKL_BOTTOM_COLOR_A to 0
+i915 Message: ConfigurePipeGamma(184)Setting _GAMMA_MODE_A to 0
+i915 Message: ConfigurePipeGamma(187)Finished Pipe Gamma
+i915 Message: setDisplayGraphicsMode(602)before DDI
+i915 Message: ConfigureTransDDI(205)DDI Port: 0 
+i915 Message: ConfigureTransDDI(227)REG TransDDI: 82000002
+i915 Message: setDisplayGraphicsMode(612)after DDI
+i915 Message: setDisplayGraphicsMode(638)pipe enabled
+i915 Message: EnableDDI(246)DDI_BUF_CTL(port) = 80000013
+i915 Message: EnableDDI(305)SAVED BTIS 00000010 
+i915 Message: EnableDDI(311)DDI_BUF_CTL(port) = 80000013
+i915 Message: setDisplayGraphicsMode(648)progressed to line 649, status is0
+i915 Message: SetupAndEnablePlane(346)plane enabled, dspcntr: 84002000, FbBase: 800000000
+i915 Message: PrintReg(493)Reg PP_CONTROL(000C7204), val: 00000007
+i915 Message: PrintReg(493)Reg _BXT_BLC_PWM_FREQ1(000C8254), val: 0001D4C0
+i915 Message: PrintReg(493)Reg _BXT_BLC_PWM_DUTY1(000C8258), val: 0001D4C0
+i915 Message: PrintReg(493)Reg PP_STATUS(000C7200), val: 80000008
+i915 Message: PrintReg(493)Reg DP_TP_CTL(00064040), val: 80040300
+i915 Message: PrintReg(493)Reg _PIPEEDPCONF(0007F008), val: C0000000
+i915 Message: PrintReg(493)Reg _PIPEACONF(00070008), val: 00000000
+i915 Message: PrintReg(493)Reg _DSPAOFFSET(000701A4), val: 00000000
+i915 Message: PrintReg(493)Reg _DSPAPOS(0007018C), val: 00000000
+i915 Message: PrintReg(493)Reg _DSPASTRIDE(00070188), val: 00000078
+i915 Message: PrintReg(493)Reg _DSPASIZE(00070190), val: 0437077F
+i915 Message: PrintReg(493)Reg _DSPACNTR(00070180), val: 84002000
+i915 Message: PrintReg(493)Reg _DSPASURF(0007019C), val: 00000000
+i915 Message: PrintReg(493)Reg DDI_BUF_CTL(00064000), val: 80000013
+i915 Message: PrintReg(493)Reg _TRANS_DDI_FUNC_CTL_EDP(0006F400), val: 82000002
+i915 Message: PrintReg(493)Reg _TRANS_EDP_MSA_MISC(0006F410), val: 00000021
+i915 Message: PrintReg(493)Reg _SKL_BOTTOM_COLOR_A(00070034), val: 00000000
+i915 Message: PrintReg(493)Reg _GAMMA_MODE_A(0004A480), val: 00000000
+i915 Message: PrintReg(493)Reg _LGC_PALETTE_A(0004A000), val: 00000000
+i915 Message: PrintReg(493)Reg DISPIO_CR_TX_BMU_CR0(0006C00C), val: 00000000
+i915 Message: PrintReg(493)Reg PP_ON(000C7208), val: 041A01F4
+i915 Message: PrintReg(493)Reg PP_OFF(000C720C), val: 09C401F4
+i915 Message: PrintReg(493)Reg PP_DIVISOR(00061210), val: 00000003
+i915 Message: PrintReg(493)Reg DPLL_CTRL1(0006C058), val: 000004C5
+i915 Message: PrintReg(493)Reg LCPLL2_CTL(00046014), val: 80000000
+i915 Message: PrintReg(493)Reg LCPLL1_CTL(00046010), val: C0000000
+i915 Message: PrintReg(493)Reg DPLL_CTRL2(0006C05C), val: 00A00003
+i915 Message: PrintAllRegs(527)Controller: LR: 270000, LC: 2, Port: 0, ContType: 3, DPLL: 1
+i915 Message: i915GraphicsSetupOutput(195)progressed to gopline 196, status is 0
+i915 Message: i915ControllerDriverStart(719)progressed to mline 720, status is 0
+i915 Message: i915ControllerDriverStart(747)gop ready
+i915 Message: i915GraphicsOutputQueryMode(33)i915: query mode

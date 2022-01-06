@@ -178,13 +178,13 @@ EFI_STATUS ConfigurePipeGamma()
     PRINT_DEBUG(EFI_D_ERROR, "REGISTER %x \n", reg);
     controller->write32(reg, PIPECONF_PROGRESSIVE |
                                  PIPECONF_GAMMA_MODE_8BIT);
-    PRINT_DEBUG(EFI_D_ERROR, "Setting _SKL_BOTTOM_COLOR_A to 0");
+    PRINT_DEBUG(EFI_D_ERROR, "Setting _SKL_BOTTOM_COLOR_A to 0\n");
 
     controller->write32(_SKL_BOTTOM_COLOR_A, 0);
-    PRINT_DEBUG(EFI_D_ERROR, "Setting _GAMMA_MODE_A to %x", GAMMA_MODE_MODE_8BIT);
+    PRINT_DEBUG(EFI_D_ERROR, "Setting _GAMMA_MODE_A to %x\n", GAMMA_MODE_MODE_8BIT);
 
     controller->write32(_GAMMA_MODE_A, GAMMA_MODE_MODE_8BIT);
-    PRINT_DEBUG(EFI_D_ERROR, "Finished Pipe Gamma");
+    PRINT_DEBUG(EFI_D_ERROR, "Finished Pipe Gamma\n");
 
     return EFI_SUCCESS;
 }
