@@ -1518,6 +1518,7 @@ static UINT32 g4x_signal_levels(UINT8 train_set)
 	}
 	return signal_levels;
 }
+#define DP_PORT_EN (1 << 31)
 
 static void
 g4x_set_signal_levels(struct intel_dp *intel_dp)
@@ -1530,8 +1531,15 @@ g4x_set_signal_levels(struct intel_dp *intel_dp)
 
 	PRINT_DEBUG(EFI_D_ERROR, "Using signal levels %08x\n",
 				signal_levels);
+	PRINT_DEBUG(EFI_D_ERROR, "Using vswing level %d%a, pre-emphasis level %d%a\n",
+				train_set & DP_TRAIN_VOLTAGE_SWING_MASK,
+				train_set & DP_TRAIN_MAX_SWING_REACHED ? " (max)" : "",
+				(train_set & DP_TRAIN_PRE_EMPHASIS_MASK) >>
+					DP_TRAIN_PRE_EMPHASIS_SHIFT,
+				train_set & DP_TRAIN_MAX_PRE_EMPHASIS_REACHED ? " (max)" : "");
 	UINT32 DP = intel_dp->controller->read32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port));
-	DP &= ~(15 << 24);
+	DP |= DP_PORT_EN;
+	DP &= ~(DP_VOLTAGE_MASK | DP_PRE_EMPHASIS_MASK);
 	DP |= signal_levels;
 
 	intel_dp->controller->write32(DDI_BUF_CTL(intel_dp->controller->OutputPath.Port), DP);
@@ -1539,6 +1547,7 @@ g4x_set_signal_levels(struct intel_dp *intel_dp)
 }
 static void intel_dp_set_signal_levels(struct intel_dp *intel_dp)
 {
+
 	//Write to Appropraite DDI_BUF_CTL
 	g4x_set_signal_levels(intel_dp);
 }
@@ -1642,8 +1651,11 @@ static BOOLEAN
 intel_dp_reset_link_train(struct intel_dp *intel_dp,
 						  UINT8 dp_train_pat, i915_CONTROLLER *controller)
 {
-	//memset(intel_dp->train_set, 0, sizeof(intel_dp->train_set));
-	//intel_dp_set_signal_levels(intel_dp);
+	for (int i = 0; i < 4; i++)
+	{
+		intel_dp->train_set[i] = 0;
+	}
+	intel_dp_set_signal_levels(intel_dp);
 	return intel_dp_set_link_train(intel_dp, dp_train_pat);
 }
 
@@ -1782,7 +1794,8 @@ intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
 		}
 
 		voltage = intel_dp->train_set[0] & DP_TRAIN_VOLTAGE_SWING_MASK;
-
+		PRINT_DEBUG(EFI_D_ERROR,
+					"Voltage used: %08x\n", voltage);
 		/* Update training set as requested by target */
 		intel_dp_get_adjust_train(intel_dp, link_status);
 		if (!intel_dp_update_link_train(intel_dp))
@@ -2297,7 +2310,7 @@ static EFI_STATUS i915_dp_get_link_config(struct intel_dp *intel_dp)
 
 	//intel_dp_adjust_compliance_config(intel_dp, pipe_config, &limits); //Ignoring. Hopefully still works.
 
-	PRINT_DEBUG(EFI_D_ERROR, "DP link computation with max lane count %i max rate %d max bpp %d pixel clock %iKHz\n",
+	PRINT_DEBUG(EFI_D_ERROR, "DP link computation with max lane count %d max rate %d max bpp %d pixel clock %dKHz\n",
 				limits.max_lane_count,
 				intel_dp->common_rates[limits.max_clock],
 				limits.max_bpp, intel_dp->controller->edid.detailTimings[DETAIL_TIME_SELCTION].pixelClock * 10);
