@@ -391,10 +391,14 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
         if (ddi_port_info.supports_dp || ddi_port_info.supports_edp)
         {
+	    struct intel_dp intel_dp = {};
+	    intel_dp.controller = controller;
+	    controller->intel_dp = &intel_dp;
             if (ddi_port_info.supports_edp)
             {
                 Status = SetupPPS(controller);
             }
+
             enum aux_ch portAux = intel_bios_port_aux_ch(controller, ddi_port_info.port);
             PRINT_DEBUG(EFI_D_ERROR, "Port is DP/EdP. Aux_ch is %d \n", portAux);
 

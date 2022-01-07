@@ -29,6 +29,8 @@
 #define PP_REFERENCE_DIVIDER_SHIFT 8
 #define PANEL_POWER_CYCLE_DELAY_MASK (0x1f)
 #define PANEL_POWER_CYCLE_DELAY_SHIFT 0
+static bool edp_panel_vdd_on(struct intel_dp *intel_dp);
+
 void memcpy(void *dest, void *src, UINTN n)
 {
 	// Typecast src and dest addresses to (char *)
@@ -78,6 +80,7 @@ EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin)
 {
 
 	UINT32 *p = (UINT32 *)result;
+	edp_panel_vdd_on(controller->intel_dp);
 
 	PRINT_DEBUG(EFI_D_ERROR, "trying DP aux %d\n", pin);
 	// aux message header is 3-4 bytes: ctrl8 addr16 len8
@@ -544,10 +547,12 @@ intel_dp_init_panel_power_sequencer(struct intel_dp *intel_dp)
 
 	//	lockdep_assert_held(&dev_priv->pps_mutex);
 
-	/* already initialized? */
-	if (final->t11_t12 != 0)
-		return;
 
+	/* already initialized? */
+	if (final->t11_t12 != 0) {
+	PRINT_DEBUG(EFI_D_ERROR, "PPS already set. Exiting. t11_t12: %d\n", final->t11_t12);
+	return;
+	}
 	intel_pps_readout_hw_state(intel_dp, &cur);
 
 	intel_pps_dump_state("cur", &cur);
@@ -586,7 +591,10 @@ intel_dp_init_panel_power_sequencer(struct intel_dp *intel_dp)
 
 	/* Use the max of the register settings and vbt. If both are
 	 * unset, fall back to the spec limits. */
-#define assign_final(field) final->field = (max(cur.field, vbt.field) == 0 ? spec.field : max(cur.field, vbt.field))
+#define assign_final(field) do {\
+	final->field = (max(cur.field, vbt.field) == 0 ? spec.field : max(cur.field, vbt.field)); \
+	PRINT_DEBUG(EFI_D_ERROR, "Assigning val %d as cur: %d, vbt: %d, spec: %d\n", final->field, cur.field, vbt.field, spec.field);\
+	} while (0)
 	assign_final(t1_t3);
 	assign_final(t8);
 	assign_final(t9);
@@ -1158,7 +1166,7 @@ static EFI_STATUS intel_wait_for_register(i915_CONTROLLER *controller,
 {
 	for (int i = 0; i < timeout_ms; i++)
 	{
-		if (controller->read32(reg) && mask == value)
+		if ((controller->read32(reg) & mask) == value)
 		{
 			return EFI_SUCCESS;
 		}
@@ -1250,6 +1258,7 @@ static void wait_panel_power_cycle(struct intel_dp *intel_dp)
 	// if (panel_power_off_duration < (s64)intel_dp->panel_power_cycle_delay)
 	// 	wait_remaining_ms_from_jiffies(jiffies,
 	// 								   intel_dp->panel_power_cycle_delay - panel_power_off_duration);
+	PRINT_DEBUG(EFI_D_ERROR, "Panel Power Cycle Delay: %d\n", intel_dp->panel_power_cycle_delay);
 	gBS->Stall(intel_dp->panel_power_cycle_delay);
 	wait_panel_status(intel_dp, IDLE_CYCLE_MASK, IDLE_CYCLE_VALUE);
 }
@@ -3253,6 +3262,7 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER *controller)
 }
 EFI_STATUS SetupPPS(i915_CONTROLLER *controller)
 {
+	PRINT_DEBUG(EFI_D_ERROR, "Setting up PPS\n");
 	gBS->Stall(6000);
 	UINT32 max = DIV_ROUND_CLOSEST(KHz(cnp_rawclk(controller)),
 								   200);
