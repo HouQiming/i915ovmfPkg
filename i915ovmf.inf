@@ -51,6 +51,8 @@
   intel_opregion.h
   intel_opregion.c
 
+  
+  
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec

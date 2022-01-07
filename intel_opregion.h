@@ -765,14 +765,6 @@ struct edp_full_link_params
 	UINT8 preemphasis : 4;
 	UINT8 vswing : 4;
 } __packed;
-struct edp_power_seq
-{
-	UINT16 t3;
-	UINT16 t7;
-	UINT16 t9;
-	UINT16 t10;
-	UINT16 t12;
-} __attribute__((packed));
 
 struct bdb_edp
 {
@@ -1120,6 +1112,7 @@ struct bdb_compression_parameters
 	UINT16 entry_size;
 	struct dsc_compression_parameters_entry data[16];
 } __packed;
+void intel_bios_init(i915_CONTROLLER *controller);
 
 EFI_STATUS decodeVBT(struct intel_opregion *opRegion, int vbt_off);
 void parse_ddi_ports(i915_CONTROLLER *dev_priv, UINT8 bdb_version);

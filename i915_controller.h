@@ -141,55 +141,57 @@ struct intel_opregion
 	struct vbt_header *vbt;
 	struct bdb_header *bdb;
 	struct opregion_asle_ext *asle_ext;
-		struct child_device_config * children;
-		UINT8 numChildren;
-
+	struct child_device_config *children;
+	UINT8 numChildren;
 };
 
 #pragma pack(1)
-typedef struct {
-    UINT8 magic[8];
-    UINT16 vendorId;
-    UINT16 productId;
-    UINT32 serialNumber;
-    UINT8 manufactureWeek;
-    UINT8 manufactureYear;
-    UINT8 structVersion;
-    UINT8 structRevision;
-    UINT8 inputParameters;
-    UINT8 screenWidth;
-    UINT8 screenHeight;
-    UINT8 gamma;
-    UINT8 features;
-    UINT8 colorCoordinates[10];
-    UINT8 estTimings1;
-    UINT8 estTimings2;
-    UINT8 vendorTimings;
-    struct {
-        UINT8 resolution;
-        UINT8 frequency;
-    } standardTimings[8];
-    struct {
-        UINT16 pixelClock;
-        UINT8 horzActive;
-        UINT8 horzBlank;
-        UINT8 horzActiveBlankMsb;
-        UINT8 vertActive;
-        UINT8 vertBlank;
-        UINT8 vertActiveBlankMsb;
-        UINT8 horzSyncOffset;
-        UINT8 horzSyncPulse;
-        UINT8 vertSync;
-        UINT8 syncMsb;
-        UINT8 dimensionWidth;
-        UINT8 dimensionHeight;
-        UINT8 dimensionMsb;
-        UINT8 horzBorder;
-        UINT8 vertBorder;
-        UINT8 features;
-    } detailTimings[4];
-    UINT8 numExtensions;
-    UINT8 checksum;
+typedef struct
+{
+	UINT8 magic[8];
+	UINT16 vendorId;
+	UINT16 productId;
+	UINT32 serialNumber;
+	UINT8 manufactureWeek;
+	UINT8 manufactureYear;
+	UINT8 structVersion;
+	UINT8 structRevision;
+	UINT8 inputParameters;
+	UINT8 screenWidth;
+	UINT8 screenHeight;
+	UINT8 gamma;
+	UINT8 features;
+	UINT8 colorCoordinates[10];
+	UINT8 estTimings1;
+	UINT8 estTimings2;
+	UINT8 vendorTimings;
+	struct
+	{
+		UINT8 resolution;
+		UINT8 frequency;
+	} standardTimings[8];
+	struct
+	{
+		UINT16 pixelClock;
+		UINT8 horzActive;
+		UINT8 horzBlank;
+		UINT8 horzActiveBlankMsb;
+		UINT8 vertActive;
+		UINT8 vertBlank;
+		UINT8 vertActiveBlankMsb;
+		UINT8 horzSyncOffset;
+		UINT8 horzSyncPulse;
+		UINT8 vertSync;
+		UINT8 syncMsb;
+		UINT8 dimensionWidth;
+		UINT8 dimensionHeight;
+		UINT8 dimensionMsb;
+		UINT8 horzBorder;
+		UINT8 vertBorder;
+		UINT8 features;
+	} detailTimings[4];
+	UINT8 numExtensions;
+	UINT8 checksum;
 } EDID;
 #pragma pack()
 /*
@@ -300,7 +302,8 @@ struct child_device_config
 	UINT8 dp_max_link_rate_reserved : 6; /* 216 */
 } __packed;
 
-struct ddi_vbt_port_info {
+struct ddi_vbt_port_info
+{
 	/* Non-NULL if port present. */
 	const struct child_device_config *child;
 
@@ -308,54 +311,63 @@ struct ddi_vbt_port_info {
 
 	/* This is an index in the HDMI/DVI DDI buffer translation table. */
 	u8 hdmi_level_shift;
-	u8 hdmi_level_shift_set:1;
+	u8 hdmi_level_shift_set : 1;
 
-	u8 supports_dvi:1;
-	u8 supports_hdmi:1;
-	u8 supports_dp:1;
-	u8 supports_edp:1;
-	u8 supports_typec_usb:1;
-	u8 supports_tbt:1;
+	u8 supports_dvi : 1;
+	u8 supports_hdmi : 1;
+	u8 supports_dp : 1;
+	u8 supports_edp : 1;
+	u8 supports_typec_usb : 1;
+	u8 supports_tbt : 1;
 
 	u8 alternate_aux_channel;
 	u8 alternate_ddc_pin;
 
 	u8 dp_boost_level;
 	u8 hdmi_boost_level;
-	int dp_max_link_rate;		/* 0 for not limited by VBT */
-    	enum port port;
-
+	int dp_max_link_rate; /* 0 for not limited by VBT */
+	enum port port;
 };
-struct intel_vbt_data {
+struct edp_power_seq
+{
+	u16 t1_t3;
+	u16 t8;
+	u16 t9;
+	u16 t10;
+	u16 t11_t12;
+} __packed;
+struct intel_vbt_data
+{
 	//struct drm_display_mode *lfp_lvds_vbt_mode; /* if any */
 	//struct drm_display_mode *sdvo_lvds_vbt_mode; /* if any */
 
 	/* Feature bits */
-	unsigned int int_tv_support:1;
-	unsigned int lvds_dither:1;
-	unsigned int int_crt_support:1;
-	unsigned int lvds_use_ssc:1;
-	unsigned int int_lvds_support:1;
-	unsigned int display_clock_mode:1;
-	unsigned int fdi_rx_polarity_inverted:1;
-	unsigned int panel_type:4;
+	unsigned int int_tv_support : 1;
+	unsigned int lvds_dither : 1;
+	unsigned int int_crt_support : 1;
+	unsigned int lvds_use_ssc : 1;
+	unsigned int int_lvds_support : 1;
+	unsigned int display_clock_mode : 1;
+	unsigned int fdi_rx_polarity_inverted : 1;
+	unsigned int panel_type : 4;
 	int lvds_ssc_freq;
 	unsigned int bios_lvds_val; /* initial [PCH_]LVDS reg val in VBIOS */
 	//enum drm_panel_orientation orientation;
 
-//	enum drrs_support_type drrs_type;
+	//	enum drrs_support_type drrs_type;
 
-	// struct {
-	// 	int rate;
-	// 	int lanes;
-	// 	int preemphasis;
-	// 	int vswing;
-	// 	bool low_vswing;
-	// 	bool initialized;
-	// 	int bpp;
-	// 	struct edp_power_seq pps;
-	// 	bool hobl;
-	// } edp;
+	struct
+	{
+		int rate;
+		int lanes;
+		int preemphasis;
+		int vswing;
+		bool low_vswing;
+		bool initialized;
+		int bpp;
+		struct edp_power_seq pps;
+		bool hobl;
+	} edp;
 
 	// struct {
 	// 	bool enable;
@@ -399,34 +411,47 @@ struct intel_vbt_data {
 	struct ddi_vbt_port_info ddi_port_info[I915_MAX_PORTS];
 	//struct sdvo_device_mapping sdvo_mappings[2];
 };
-typedef enum ConnectorTypes {HDMI, DVI, VGA, eDP, DPSST, DPMST} ConnectorType;
-typedef struct {
-    UINT64 Signature;
-    EFI_HANDLE Handle;
-    EFI_PCI_IO_PROTOCOL *PciIo;
-    EFI_GRAPHICS_OUTPUT_PROTOCOL GraphicsOutput;
-    EFI_DEVICE_PATH_PROTOCOL *GopDevicePath;
-    EDID edid;
-    EFI_PHYSICAL_ADDRESS FbBase;
-    UINT32 stride;
-    UINT32 gmadr;
-    UINT32 is_gvt;
-    UINT8 generation;
-    UINTN fbsize;
-    void (*write32)(UINT64 reg, UINT32 data);
+typedef enum ConnectorTypes
+{
+	HDMI,
+	DVI,
+	VGA,
+	eDP,
+	DPSST,
+	DPMST
+} ConnectorType;
+typedef struct
+{
+	UINT64 Signature;
+	EFI_HANDLE Handle;
+	EFI_PCI_IO_PROTOCOL *PciIo;
+	EFI_GRAPHICS_OUTPUT_PROTOCOL GraphicsOutput;
+	EFI_DEVICE_PATH_PROTOCOL *GopDevicePath;
+	EDID edid;
+	EFI_PHYSICAL_ADDRESS FbBase;
+	UINT32 stride;
+	UINT32 gmadr;
+	UINT32 is_gvt;
+	UINT8 generation;
+	UINTN fbsize;
+	void (*write32)(UINT64 reg, UINT32 data);
+	UINT32 rawclk_freq;
+	UINT32(*read32)
+	(UINT64 reg);
 
-    UINT32 (*read32)(UINT64 reg);
-
-    UINT64 (*read64)(UINT64 reg);
-    struct {
-        UINT32 Port;
-        UINT32 AuxCh;
-        ConnectorType ConType;
-        UINT8 DPLL;
-        UINT32 LinkRate;
-        UINT8 LaneCount;
-    } OutputPath;
-    struct intel_opregion * opRegion;
-    struct intel_vbt_data vbt;
+	UINT64(*read64)
+	(UINT64 reg);
+	struct
+	{
+		UINT32 Port;
+		UINT32 AuxCh;
+		ConnectorType ConType;
+		UINT8 DPLL;
+		UINT32 LinkRate;
+		UINT8 LaneCount;
+	} OutputPath;
+	struct intel_opregion *opRegion;
+	struct intel_vbt_data vbt;
+	struct intel_dp *intel_dp;
 } i915_CONTROLLER;
 #endif

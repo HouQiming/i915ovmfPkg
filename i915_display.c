@@ -19,32 +19,6 @@ STATIC UINT8 edid_fallback[] = {
     // 0,255,255,255,255,255,255,0,6,179,192,39,141,30,0,0,49,26,1,3,128,60,34,120,42,83,165,167,86,82,156,38,17,80,84,191,239,0,209,192,179,0,149,0,129,128,129,64,129,192,113,79,1,1,2,58,128,24,113,56,45,64,88,44,69,0,86,80,33,0,0,30,0,0,0,255,0,71,67,76,77,84,74,48,48,55,56,50,49,10,0,0,0,253,0,50,75,24,83,17,0,10,32,32,32,32,32,32,0,0,0,252,0,65,83,85,83,32,86,90,50,55,57,10,32,32,1,153,2,3,34,113,79,1,2,3,17,18,19,4,20,5,14,15,29,30,31,144,35,9,23,7,131,1,0,0,101,3,12,0,32,0,140,10,208,138,32,224,45,16,16,62,150,0,86,80,33,0,0,24,1,29,0,114,81,208,30,32,110,40,85,0,86,80,33,0,0,30,1,29,0,188,82,208,30,32,184,40,85,64,86,80,33,0,0,30,140,10,208,144,32,64,49,32,12,64,85,0,86,80,33,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,237
 };
 
-static EFI_STATUS ReadEDID(EDID *result)
-{
-    EFI_STATUS status = EFI_SUCCESS;
-    /* switch (controller->OutputPath.ConType)
-    {
-    case HDMI:
-        status = ReadEDIDHDMI(result, controller);
-        break;
-    case eDP:
-        status = ReadEDIDDP(result, controller);
-
-        break;
-    case DPSST:
-        status = ReadEDIDDP(result, controller);
-
-        break;
-    default:
-        status = EFI_NOT_FOUND;
-        break;
-    } */
-
-    PRINT_DEBUG(EFI_D_ERROR, "Reading PP_STATUS: %u \n", controller->read32(PP_STATUS));
-
-    return status;
-}
-
 STATIC INTN g_already_set = 0;
 
 EFI_STATUS SetupClocks()
@@ -417,6 +391,10 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
 
         if (ddi_port_info.supports_dp || ddi_port_info.supports_edp)
         {
+            if (ddi_port_info.supports_edp)
+            {
+                Status = SetupPPS(controller);
+            }
             enum aux_ch portAux = intel_bios_port_aux_ch(controller, ddi_port_info.port);
             PRINT_DEBUG(EFI_D_ERROR, "Port is DP/EdP. Aux_ch is %d \n", portAux);
 
@@ -467,25 +445,6 @@ static EFI_STATUS setOutputPath(i915_CONTROLLER *controller, UINT32 found)
     controller->OutputPath.Port = PORT_B;  */
 
     return Status;
-}
-
-static int cnp_rawclk(i915_CONTROLLER *controller)
-{
-    int divider, fraction;
-
-    if (controller->read32(SFUSE_STRAP) & SFUSE_STRAP_RAW_FREQUENCY)
-    {
-        /* 24 MHz */
-        divider = 24000;
-        fraction = 0;
-    }
-    else
-    {
-        /* 19.2 MHz */
-        divider = 19000;
-        fraction = 200;
-    }
-    return divider + fraction;
 }
 
 static void PrintReg(UINT64 reg, const char *name)
@@ -677,23 +636,6 @@ error:
     return status;
 }
 
-EFI_STATUS SetupPPS()
-{
-    gBS->Stall(6000);
-    UINT32 max = DIV_ROUND_CLOSEST(KHz(cnp_rawclk(controller)),
-                                   200);
-    controller->write32(_BXT_BLC_PWM_FREQ1, max);
-    controller->write32(_BXT_BLC_PWM_DUTY1, max);
-
-    UINT32 val = controller->read32(BKL_GRAN_CTL);
-    val |= 1;
-    controller->write32(BKL_GRAN_CTL, val);
-    controller->write32(SBLC_PWM_CTL1, (1 << 31) | (0 << 29));
-    gBS->Stall(6000);
-    intel_dp_pps_init(controller);
-
-    return EFI_SUCCESS;
-}
 EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
 {
     EFI_STATUS Status;
@@ -739,19 +681,19 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
                     stat);
     }
 
-    SetupPPS();
-    //Turn panel on/off to ensure it is properly reset and ready to recieve data.
-    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    // SetupPPS();
+    // //Turn panel on/off to ensure it is properly reset and ready to recieve data.
+    // PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
-    controller->write32(PP_CONTROL, 8);
-    controller->write32(PP_CONTROL, 0);
-    controller->write32(PP_CONTROL, 8);
-    controller->write32(PP_CONTROL, 0);
-    controller->write32(PP_CONTROL, 67);
-    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    // controller->write32(PP_CONTROL, 8);
+    // controller->write32(PP_CONTROL, 0);
+    // controller->write32(PP_CONTROL, 8);
+    // controller->write32(PP_CONTROL, 0);
+    // controller->write32(PP_CONTROL, 67);
+    // PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
 
-    gBS->Stall(500000);
-    PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
+    // gBS->Stall(500000);
+    // PRINT_DEBUG(EFI_D_ERROR, "PP_CTL:  %08x, PP_STAT  %08x \n", controller->read32(PP_CONTROL), controller->read32(PP_STATUS));
     //controller->write32(PP_CONTROL, 103);
     // disable VGA
     UINT32 vgaword = controller->read32(VGACNTRL);
@@ -771,7 +713,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     controller->read32(DBUF_CTL_S2);
     for (UINT32 counter = 0;; counter++)
     {
-        if (counter > 10)
+        if (counter > 2)
         {
             PRINT_DEBUG(EFI_D_ERROR, "DBUF timeout\n");
             break;
@@ -782,7 +724,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
             PRINT_DEBUG(EFI_D_ERROR, "DBUF good\n");
             break;
         }
-        gBS->Stall(1);
+        gBS->Stall(10);
     }
 
     ///* 7. Setup MBUS. */
@@ -839,7 +781,7 @@ EFI_STATUS DisplayInit(i915_CONTROLLER *iController)
     // query EDID and initialize the mode
     // it somehow fails on real hardware
     // Verified functional on i7-10710U
-    Status = ReadEDID(&controller->edid);
+    // Status = ReadEDID(&controller->edid);
     if (*(UINT64 *)controller->edid.magic != 0x00FFFFFFFFFFFF00uLL)
     {
         for (UINT32 i = 0; i < 128; i++)

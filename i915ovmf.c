@@ -573,6 +573,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   g_private.write32 = write32;
   g_private.read32 = read32;
   g_private.read64 = read64;
+  g_private.rawclk_freq = 24000; //Should be the same for all compatible
 
   // setup OpRegion from fw_cfg (IgdAssignmentDxe)
   PRINT_DEBUG(EFI_D_ERROR, "before QEMU shenanigans\n");
@@ -597,8 +598,7 @@ EFI_STATUS EFIAPI i915ControllerDriverStart(
   }
   PRINT_DEBUG(EFI_D_ERROR, "after QEMU shenanigans\n");
 
-  parse_ddi_ports(&g_private, 228); //TODO Dyn bdb Version
-
+  intel_bios_init(&g_private);
   g_private.gmadr = 0;
   g_private.is_gvt = 0;
   if (read64(0x78000) == 0x4776544776544776ULL)

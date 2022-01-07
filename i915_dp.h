@@ -2,6 +2,15 @@
 #define i915_DPH
 #define PP_ON (0xC7208)
 #define PP_OFF (0xC720C)
+#define PANEL_UNLOCK_REGS (0xabcd << 16)
+#define PANEL_UNLOCK_MASK (0xffff << 16)
+#define BXT_POWER_CYCLE_DELAY_MASK 0x1f0
+#define BXT_POWER_CYCLE_DELAY_SHIFT 4
+#define EDP_FORCE_VDD (1 << 3)
+#define EDP_BLC_ENABLE (1 << 2)
+#define PANEL_POWER_RESET (1 << 1)
+#define PANEL_POWER_OFF (0 << 0)
+#define PANEL_POWER_ON (1 << 0)
 #define PP_DIVISOR 0x61210 /* Cedartrail */
 #define PP_STATUS (0xC7200)
 #define PP_CONTROL (0xC7204)
@@ -1364,6 +1373,40 @@ struct link_config_limits
 	int min_bpp, max_bpp;
 };
 
+struct intel_dp
+{
+	UINT8 lane_count;
+	UINT8 train_set[4];
+	UINT8 pipe_bpp;
+	int link_rate;
+	i915_CONTROLLER *controller;
+	bool use_max_rate;
+	/* source rates */
+	int num_source_rates;
+	const int *source_rates;
+	/* sink rates as reported by DP_MAX_LINK_RATE/DP_SUPPORTED_LINK_RATES */
+	int num_sink_rates;
+	int sink_rates[DP_MAX_SUPPORTED_RATES];
+	//BOOLEAN use_rate_select;
+	/* intersection of source and sink rates */
+	int num_common_rates;
+	int common_rates[DP_MAX_SUPPORTED_RATES];
+	/* Max lane count for the current link */
+	int max_link_lane_count;
+	/* Max rate for the current link */
+	int max_link_rate;
+	int panel_power_up_delay;
+	int panel_power_down_delay;
+	int panel_power_cycle_delay;
+	int backlight_on_delay;
+	int backlight_off_delay;
+	//struct delayed_work panel_vdd_work;
+	bool want_panel_vdd;
+	unsigned long last_power_on;
+	unsigned long last_backlight_off;
+	//ktime_t panel_power_off_time;
+	struct edp_power_seq pps_delays;
+};
 EFI_STATUS SetupClockeDP(i915_CONTROLLER *controller);
 EFI_STATUS SetupClockDP(i915_CONTROLLER *controller);
 EFI_STATUS SetupDDIBufferDP(i915_CONTROLLER *controller);
@@ -1371,4 +1414,5 @@ EFI_STATUS SetupTranscoderAndPipeEDP(i915_CONTROLLER *controller);
 EFI_STATUS SetupTranscoderAndPipeDP(i915_CONTROLLER *controller);
 void intel_dp_pps_init(i915_CONTROLLER *controller);
 EFI_STATUS ReadEDIDDP(EDID *result, i915_CONTROLLER *controller, UINT8 pin);
+EFI_STATUS SetupPPS(i915_CONTROLLER *controller);
 #endif
