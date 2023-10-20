@@ -1,3 +1,6 @@
+# Archival Notice
+NOTICE: I will be archiving this project On November 1, 2023, Eastern Time. I will be closing all issues over the next week or two and redirecting all troubleshooting to the discord.
+
 ## Repository Activity Notice
 As you may have noticed, I am not very active in development of this anymore. While I do not plan to fully step away from this, I will be less likely to respond to issues quickly. I welcome the community to come together to work on this. I am happy to provide support to anyone who wants to expand this codebase to more generations of intel GPUs or fix any of the various bugs. 
 
