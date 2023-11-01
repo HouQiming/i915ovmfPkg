@@ -1,12 +1,7 @@
 # Archival Notice
-NOTICE: I will be archiving this project On November 1, 2023, Eastern Time. I will be closing all issues over the next week or two and redirecting all troubleshooting to the discord.
+As of November 1, 2023 this project is officially archived and I will not be responsible for any past or future support, maintenance, bug fixes, or compatibility troubleshooting. Great wishes to all those who were able to get this working for their needs and thank you to everyone who helped support people to get it working.
 
-## Repository Activity Notice
-As you may have noticed, I am not very active in development of this anymore. While I do not plan to fully step away from this, I will be less likely to respond to issues quickly. I welcome the community to come together to work on this. I am happy to provide support to anyone who wants to expand this codebase to more generations of intel GPUs or fix any of the various bugs. 
-
-## Discord
-Since I will not be as active, I have created a discord server that I encourage everyone to join to better recieve support from the community (and myself when I can).
-
+Despite the archival, the code still works for many people. If you try to use it and require assistance or support, please check out the discord server: 
 <a href="https://discord.gg/pZyzrfCYrJ">
 <img src="https://img.shields.io/discord/925800342598340660?logo=discord&label=Discord&style=for-the-badge&color=228B22"
  alt="chat on Discord"></a>
