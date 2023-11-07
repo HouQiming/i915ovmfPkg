@@ -28,7 +28,8 @@
   SUPPORTED_ARCHITECTURES        = X64
   BUILD_TARGETS                  = NOOPT|DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
-
+
+
   #
   # Flash size selection. Setting FD_SIZE_IN_KB on the command line directly to
   # one of the supported values, in place of any of the convenience macros, is
@@ -110,7 +111,7 @@
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
   UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
   HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
-  NetLib|MdeModulePkg/Library/DxeNetLib/DxeNetLib.inf
+  NetLib|NetworkPkg/Library/DxeNetLib/DxeNetLib.inf
 
   ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
   ShellCommandLib|ShellPkg/Library/UefiShellCommandLib/UefiShellCommandLib.inf

@@ -1,0 +1,270 @@
+Linux kernel EDID COde: https://github.com/torvalds/linux/blob/faa392181a0bd42c5478175cef601adeecdc91b6/drivers/gpu/drm/drm_edid.c
+EDID Wikipedia(Table of values):https://en.wikipedia.org/wiki/Extended_Display_Identification_Data
+GMBUS: https://wiki.osdev.org/Intel_HD_Graphics
+Intel PRMS https://01.org/linuxgraphics/documentation/hardware-specification-prms
+  -- Need Volume: Display
+Another EFI Software that implements intel graphics: https://www.coreboot.org/developers.html
+Display Port Information: https://www.quantumdata.com/assets/displayport_protocols_webinar.pdf
+Display Port Training: https://odr.chalmers.se/bitstream/20.500.12380/249904/1/249904.pdf
+More Display Port Info: https://www.quantumdata.com/assets/displayport_linklayer_compliance_webinar.pdf
+
+eDP Power Sequence info: https://books.google.com/books?id=CO2cBAAAQBAJ&pg=PA101&lpg=PA101&dq=edp+t10&source=bl&ots=f-xk9DqpXG&sig=ACfU3U2DYh6su56pJJR9is_zOAqjR2dJhg&hl=en&sa=X&ved=2ahUKEwjBqMyRgcHqAhVxYjUKHWR3CwUQ6AEwBXoECAoQAQ#v=onepage&q=edp%20t10&f=false
+
+eDP Power Sequence:
+Set PP_DIVISOR, PP_ON_DELAYS, PP_OFF_DELAYS to appropriate values(Read Linux kenrel and above rsc for info) Read VOl 2c-2 pg 620(pdf 645)
+Trigger Panel On with PP_CONTROL
+Read Panel Status with PP_STATUS
+
+
+
+
+LInux Kernel Method
+ - COmpute the rate
+    - If using rate_select, selects from pre-defined rates
+    - If using Link_rate, rate = rate / 27000
+    -Write the LinkConfig to the DP AUX CHannel
+
+	/* Write the link configuration data */
+	link_config[0] = link_bw;
+	link_config[1] = intel_dp->lane_count;
+	drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_BW_SET, link_config, 2);
+	if (!link_bw)
+		drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_RATE_SET,
+				  &rate_select, 1);
+
+  - Set DOWNSPREADCTRL 	link_config[0] = 0;
+	link_config[1] = DP_SET_ANSI_8B10B;
+	drm_dp_dpcd_write(&intel_dp->aux, DP_DOWNSPREAD_CTRL, link_config, 2);
+
+  --Write the Training Pattern over AUX
+buf[0] = dp_train_pat;
+	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
+	    DP_TRAINING_PATTERN_DISABLE) {
+		/* don't write DP_TRAINING_LANEx_SET on disable */
+		len = 1;
+	} else {
+		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
+		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
+		len = intel_dp->lane_count + 1;
+	}
+
+	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
+				buf, len);
+
+
+  -Begin Training
+   Loop
+    - Dealy set amount: drm_dp_link_train_clock_recovery_delay
+    - Retrieve Link Status
+    /*
+ * Fetch AUX CH registers 0x202 - 0x207 which contain
+ * link status information
+ */
+bool
+intel_dp_get_link_status(struct intel_dp *intel_dp, u8 link_status[DP_LINK_STATUS_SIZE])
+{
+	return drm_dp_dpcd_read(&intel_dp->aux, DP_LANE0_1_STATUS, link_status,
+				DP_LINK_STATUS_SIZE) == DP_LINK_STATUS_SIZE;
+}
+bool drm_dp_clock_recovery_ok(const u8 link_status[DP_LINK_STATUS_SIZE],
+			      int lane_count)
+{
+	int lane;
+	u8 lane_status;
+
+	for (lane = 0; lane < lane_count; lane++) {
+		lane_status = dp_get_lane_status(link_status, lane);
+		if ((lane_status & DP_LANE_CR_DONE) == 0)
+			return false;
+	}
+	return true;
+}
+EXPORT_SYMBOL(drm_dp_clock_recovery_ok);
+/* Helpers for DP link training */
+static u8 dp_link_status(const u8 link_status[DP_LINK_STATUS_SIZE], int r)
+{
+	return link_status[r - DP_LANE0_1_STATUS];
+}
+
+static u8 dp_get_lane_status(const u8 link_status[DP_LINK_STATUS_SIZE],
+			     int lane)
+{
+	int i = DP_LANE0_1_STATUS + (lane >> 1);
+	int s = (lane & 1) * 4;
+	u8 l = dp_link_status(link_status, i);
+	return (l >> s) & 0xf;
+}
+If failed, try new:
+void intel_dp_get_adjust_train(struct intel_dp *intel_dp,
+			       const u8 link_status[DP_LINK_STATUS_SIZE])
+{
+	u8 v = 0;
+	u8 p = 0;
+	int lane;
+	u8 voltage_max;
+	u8 preemph_max;
+
+	for (lane = 0; lane < intel_dp->lane_count; lane++) {
+		u8 this_v = drm_dp_get_adjust_request_voltage(link_status, lane);
+		u8 this_p = drm_dp_get_adjust_request_pre_emphasis(link_status, lane);
+
+		if (this_v > v)
+			v = this_v;
+		if (this_p > p)
+			p = this_p;
+	}
+
+	voltage_max = intel_dp_voltage_max(intel_dp);
+	if (v >= voltage_max)
+		v = voltage_max | DP_TRAIN_MAX_SWING_REACHED;
+
+	preemph_max = intel_dp_pre_emphasis_max(intel_dp, v);
+	if (p >= preemph_max)
+		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+
+	for (lane = 0; lane < 4; lane++)
+		intel_dp->train_set[lane] = v | p;
+}
+static bool
+intel_dp_update_link_train(struct intel_dp *intel_dp)
+{
+	int ret;
+
+	intel_dp_set_signal_levels(intel_dp);
+
+	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_LANE0_SET,
+				intel_dp->train_set, intel_dp->lane_count);
+
+	return ret == intel_dp->lane_count;
+}
+
+
+
+
+
+Display Port Initialization:
+  DP_TP_CTL_A 64040h
+    B 64140
+    C64240
+    D64340
+    E64440
+    ENable 1 <<31
+    ModeSST 0 << 27
+    ModeMST 1 << 27
+    ForceACT 1 << 25
+    SSTENchancedFraming 1 << 18
+    DPTrainPattern1 000 to bits 10:8
+    DPTrainPat2 001
+    DPTrainIDle 010
+    DPTRainNorm 011
+    DPTrainPat3 100
+    AlternateSREnable 1 << 6
+  Pre-Program DDI_BUF_TRANS
+    Refer to table on vol 12 pg 181(pdf 195) for values
+    DDI_BUF_TRANS_A_* 64E00h-64E4fh
+    B 64E60h-64EAfh
+    C 64EC0h-64F0fh
+    D 64F20h-64F6fh
+    E 64F80h-64FCfh
+  Configure DDI-BUF_CTL
+    DDI_BUF_CTL_A 64000h
+    DDI_BUF_CTL_b 64100h
+    DDI_BUF_CTL_c 64200h
+    DDI_BUF_CTL_d 64300h
+    DDI_BUF_CTL_e 64400h
+      DDI_BUF_ENABLE 1 << 31
+      DDI_BUF_TRANS_* 000b-1000b bits 27:24
+      DDI_BUF_TRANS_9 1001b bits 27:24
+      DDI_PORT_LANE_REVERSAL 1 << 16
+      DDIA_LANE_CAP 1 << 4
+      DDI_PORT_WIDTH bits 3:1
+        000b x1
+        001b x2
+        011b x4
+    Wait >518 us
+    Begin Training Sequence:
+      Clock Recovery
+        Start with lowest swing/emph
+        Send Test pattern 
+        Check AUX for clock recovery
+        If no recovery try with next highest swing/emph
+        Repeat 5 times, then lower Lane speed
+        Repeat until success or max swing/emph on lowest speed
+      Channel Eq
+        Start with Prev settings
+        Send Test and wait delay
+        Check AUx for success
+        Use suggested Swing/emph
+        Repeat until success or 5 times
+        Lower link speed and Repeat
+        Fail if lowest bit rate
+  Set DP_TP_CTL to Normal Pattern
+ENable Planes/Pipes for DP
+  Similar to HDMI
+
+Panel power:
+		intel_dp_enable_port(intel_dp, pipe_config);
+
+		edp_panel_vdd_on(intel_dp);
+		edp_panel_on(intel_dp);
+		edp_panel_vdd_off(intel_dp, true);
+
+    	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	u32 pp;
+	i915_reg_t pp_ctrl_reg;
+
+	lockdep_assert_held(&dev_priv->pps_mutex);
+
+	if (!intel_dp_is_edp(intel_dp))
+		return;
+
+	drm_dbg_kms(&dev_priv->drm, "Turn [ENCODER:%d:%s] panel power on\n",
+		    dp_to_dig_port(intel_dp)->base.base.base.id,
+		    dp_to_dig_port(intel_dp)->base.base.name);
+
+	if (drm_WARN(&dev_priv->drm, edp_have_panel_power(intel_dp),
+		     "[ENCODER:%d:%s] panel power already on\n",
+		     dp_to_dig_port(intel_dp)->base.base.base.id,
+		     dp_to_dig_port(intel_dp)->base.base.name))
+		return;
+
+	wait_panel_power_cycle(intel_dp);
+
+	pp_ctrl_reg = _pp_ctrl_reg(intel_dp);
+	pp = ilk_get_pp_control(intel_dp);
+	if (IS_GEN(dev_priv, 5)) {
+		/* ILK workaround: disable reset around power sequence */
+		pp &= ~PANEL_POWER_RESET;
+		intel_de_write(dev_priv, pp_ctrl_reg, pp);
+		intel_de_posting_read(dev_priv, pp_ctrl_reg);
+	}
+
+	pp |= PANEL_POWER_ON;
+	if (!IS_GEN(dev_priv, 5))
+		pp |= PANEL_POWER_RESET;
+
+	intel_de_write(dev_priv, pp_ctrl_reg, pp);
+	intel_de_posting_read(dev_priv, pp_ctrl_reg);
+
+	wait_panel_on(intel_dp);
+	intel_dp->last_power_on = jiffies;
+
+	if (IS_GEN(dev_priv, 5)) {
+		pp |= PANEL_POWER_RESET; /* restore panel reset bit */
+		intel_de_write(dev_priv, pp_ctrl_reg, pp);
+		intel_de_posting_read(dev_priv, pp_ctrl_reg);
+	}
+  intel_dp_pps_init
+
+
+
+
+
+
+
+  		panel->backlight.setup = cnp_setup_backlight;
+		panel->backlight.enable = cnp_enable_backlight;
+		panel->backlight.disable = cnp_disable_backlight;
+		panel->backlight.set = bxt_set_backlight;
+		panel->backlight.get = bxt_get_backlight;
+		panel->backlight.hz_to_pwm = cnp_hz_to_pwm;

@@ -1,0 +1,239 @@
+                    GEN6_RP_CONTROL (0x0000a024): 0x00000d92 (enabled)
+                      GEN6_RPNSWREQ (0x0000a008): 0x09000000
+               GEN6_RP_DOWN_TIMEOUT (0x0000a010): 0x00000000
+           GEN6_RP_INTERRUPT_LIMITS (0x0000a014): 0x00000000
+               GEN6_RP_UP_THRESHOLD (0x0000a02c): 0x00001bd5
+                      GEN6_RP_UP_EI (0x0000a068): 0x00001d4c
+                    GEN6_RP_DOWN_EI (0x0000a06c): 0x00005dc0
+             GEN6_RP_IDLE_HYSTERSIS (0x0000a070): 0x0000000a
+                      GEN6_RC_STATE (0x0000a094): 0x00040000
+                    GEN6_RC_CONTROL (0x0000a090): 0x00040000
+           GEN6_RC1_WAKE_RATE_LIMIT (0x0000a098): 0x00000000
+           GEN6_RC6_WAKE_RATE_LIMIT (0x0000a09c): 0x00360000
+        GEN6_RC_EVALUATION_INTERVAL (0x0000a0a8): 0x0001e848
+             GEN6_RC_IDLE_HYSTERSIS (0x0000a0ac): 0x00000019
+                      GEN6_RC_SLEEP (0x0000a0b0): 0x00000000
+                GEN6_RC1e_THRESHOLD (0x0000a0b4): 0x00000000
+                 GEN6_RC6_THRESHOLD (0x0000a0b8): 0x0000927c
+                 GEN6_RC_VIDEO_FREQ (0x0000a00c): 0x09000000
+                         GEN6_PMIER (0x0004402c): 0x00000000
+                         GEN6_PMIMR (0x00044024): 0x00000000
+                     GEN6_PMINTRMSK (0x0000a168): 0x00003ffe
+                      FENCE START 0 (0x00100000): 0x00840001
+                        FENCE END 0 (0x00100004): 0x0104603b
+                      FENCE START 1 (0x00100008): 0x010c0001
+                        FENCE END 1 (0x0010000c): 0x018c603b
+                      FENCE START 2 (0x00100010): 0x00000000
+                        FENCE END 2 (0x00100014): 0x00000000
+                      FENCE START 3 (0x00100018): 0x00000000
+                        FENCE END 3 (0x0010001c): 0x00000000
+                      FENCE START 4 (0x00100020): 0x00000000
+                        FENCE END 4 (0x00100024): 0x00000000
+                      FENCE START 5 (0x00100028): 0x00000000
+                        FENCE END 5 (0x0010002c): 0x00000000
+                      FENCE START 6 (0x00100030): 0x00000000
+                        FENCE END 6 (0x00100034): 0x00000000
+                      FENCE START 7 (0x00100038): 0x00000000
+                        FENCE END 7 (0x0010003c): 0x00000000
+                      FENCE START 8 (0x00100040): 0x00000000
+                        FENCE END 8 (0x00100044): 0x00000000
+                      FENCE START 9 (0x00100048): 0x00000000
+                        FENCE END 9 (0x0010004c): 0x00000000
+                     FENCE START 10 (0x00100050): 0x00000000
+                       FENCE END 10 (0x00100054): 0x00000000
+                     FENCE START 11 (0x00100058): 0x00000000
+                       FENCE END 11 (0x0010005c): 0x00000000
+                     FENCE START 12 (0x00100060): 0x00000000
+                       FENCE END 12 (0x00100064): 0x00000000
+                     FENCE START 13 (0x00100068): 0x00000000
+                       FENCE END 13 (0x0010006c): 0x00000000
+                     FENCE START 14 (0x00100070): 0x00000000
+                       FENCE END 14 (0x00100074): 0x00000000
+                     FENCE START 15 (0x00100078): 0x00000000
+                       FENCE END 15 (0x0010007c): 0x00000000
+                     FENCE START 16 (0x00100080): 0x00000000
+                       FENCE END 16 (0x00100084): 0x00000000
+                     FENCE START 17 (0x00100088): 0x00000000
+                       FENCE END 17 (0x0010008c): 0x00000000
+                     FENCE START 18 (0x00100090): 0x00000000
+                       FENCE END 18 (0x00100094): 0x00000000
+                     FENCE START 19 (0x00100098): 0x00000000
+                       FENCE END 19 (0x0010009c): 0x00000000
+                     FENCE START 20 (0x001000a0): 0x00000000
+                       FENCE END 20 (0x001000a4): 0x00000000
+                     FENCE START 20 (0x001000a0): 0x00000000
+                       FENCE END 20 (0x001000a4): 0x00000000
+                     FENCE START 21 (0x001000a8): 0x00000000
+                       FENCE END 21 (0x001000ac): 0x00000000
+                     FENCE START 22 (0x001000b0): 0x00000000
+                       FENCE END 22 (0x001000b4): 0x00000000
+                     FENCE START 23 (0x001000b8): 0x00000000
+                       FENCE END 23 (0x001000bc): 0x00000000
+                     FENCE START 24 (0x001000c0): 0x00000000
+                       FENCE END 24 (0x001000c4): 0x00000000
+                     FENCE START 25 (0x001000c8): 0x00000000
+                       FENCE END 25 (0x001000cc): 0x00000000
+                     FENCE START 26 (0x001000d0): 0x00000000
+                       FENCE END 26 (0x001000d4): 0x00000000
+                     FENCE START 27 (0x001000d8): 0x00000000
+                       FENCE END 27 (0x001000dc): 0x00000000
+                     FENCE START 28 (0x001000e0): 0x00000000
+                       FENCE END 28 (0x001000e4): 0x00000000
+                     FENCE START 29 (0x001000e8): 0x00000000
+                       FENCE END 29 (0x001000ec): 0x00000000
+                     FENCE START 30 (0x001000f0): 0x00000000
+                       FENCE END 30 (0x001000f4): 0x00000000
+                     FENCE START 31 (0x001000f8): 0x00000000
+                       FENCE END 31 (0x001000fc): 0x00000000
+                  HSW_PWR_WELL_CTL1 (0x00045400): 0x10000005
+                  HSW_PWR_WELL_CTL2 (0x00045404): 0x3000000f
+                  HSW_PWR_WELL_CTL3 (0x00045408): 0x00000000
+                  HSW_PWR_WELL_CTL4 (0x0004540c): 0x10000005
+                  HSW_PWR_WELL_CTL5 (0x00045410): 0x050f0000
+                  HSW_PWR_WELL_CTL6 (0x00045414): 0x0000050f
+                PIPE_DDI_FUNC_CTL_A (0x00060400): 0x00000000 (disabled, no port, HDMI, 8 bpc, -VSync, -HSync, EDP A ON, x1)
+                PIPE_DDI_FUNC_CTL_B (0x00061400): 0x00000000 (disabled, no port, HDMI, 8 bpc, -VSync, -HSync, EDP A ON, x1)
+                PIPE_DDI_FUNC_CTL_C (0x00062400): 0x00000000 (disabled, no port, HDMI, 8 bpc, -VSync, -HSync, EDP A ON, x1)
+              PIPE_DDI_FUNC_CTL_EDP (0x0006f400): 0x82000002 (enabled, no port, DP SST, 8 bpc, -VSync, -HSync, EDP A ON, x2)
+                        DP_TP_CTL_A (0x00064040): 0x80040300
+                        DP_TP_CTL_B (0x00064140): 0x00000000
+                        DP_TP_CTL_C (0x00064240): 0x00000000
+                        DP_TP_CTL_D (0x00064340): 0x00000000
+                        DP_TP_CTL_E (0x00064440): 0x00000000
+                     DP_TP_STATUS_B (0x00064144): 0x00000000
+                     DP_TP_STATUS_C (0x00064244): 0x00000000
+                     DP_TP_STATUS_D (0x00064344): 0x00000000
+                     DP_TP_STATUS_E (0x00064444): 0x00000000
+                      DDI_BUF_CTL_A (0x00064000): 0x80000003 (enabled not reversed x2 detected)
+                      DDI_BUF_CTL_B (0x00064100): 0x00000000 (disabled not reversed x1 not detected)
+                      DDI_BUF_CTL_C (0x00064200): 0x00000000 (disabled not reversed x1 not detected)
+                      DDI_BUF_CTL_D (0x00064300): 0x00000000 (disabled not reversed x1 not detected)
+                      DDI_BUF_CTL_E (0x00064400): 0x00000000 (disabled not reversed x1 not detected)
+                           SPLL_CTL (0x00046020): 0x00000000
+                          LCPLL_CTL (0x00130040): 0x00000000
+                         WRPLL_CTL1 (0x00046040): 0x00202418
+                         WRPLL_CTL2 (0x00046060): 0x00202418
+                     PORT_CLK_SEL_A (0x00046100): 0x70000000 (SPLL)
+                     PORT_CLK_SEL_B (0x00046104): 0x70000000 (SPLL)
+                     PORT_CLK_SEL_C (0x00046108): 0x70000000 (SPLL)
+                     PORT_CLK_SEL_D (0x0004610c): 0x70000000 (SPLL)
+                     PORT_CLK_SEL_E (0x00046110): 0x70000000 (SPLL)
+                     PIPE_CLK_SEL_A (0x00046140): 0x00000000 (None)
+                     PIPE_CLK_SEL_B (0x00046144): 0x00000000 (None)
+                     PIPE_CLK_SEL_C (0x00046148): 0x00000000 (None)
+                          WM_PIPE_A (0x00045100): 0x00000000 (primary 0, sprite 0, pipe 0)
+                          WM_PIPE_B (0x00045104): 0x00000000 (primary 0, sprite 0, pipe 0)
+                          WM_PIPE_C (0x00045200): 0x00000000 (primary 0, sprite 0, pipe 0)
+                             WM_LP1 (0x00045108): 0x00000000 (disabled, latency 0, fbc 0, pri 0, cur 0)
+                             WM_LP2 (0x0004510c): 0x00000000 (disabled, latency 0, fbc 0, pri 0, cur 0)
+                             WM_LP3 (0x00045110): 0x00000000 (disabled, latency 0, fbc 0, pri 0, cur 0)
+                         WM_LP1_SPR (0x00045120): 0x00000000
+                         WM_LP2_SPR (0x00045124): 0x00000000
+                         WM_LP3_SPR (0x00045128): 0x00000000
+                            WM_MISC (0x00045260): 0x20000000
+                          WM_SR_CNT (0x00045264): 0x51c3af16
+                 PIPE_WM_LINETIME_A (0x00045270): 0x00000076
+                 PIPE_WM_LINETIME_B (0x00045274): 0x00000000
+                 PIPE_WM_LINETIME_C (0x00045278): 0x00000000
+                             WM_DBG (0x00045280): 0x4c000000
+                        SFUSE_STRAP (0x000c2014): 0x00000106 (display enabled, crt no, lane reversal no, port b yes, port c yes, port d no)
+                           PIPEASRC (0x0006001c): 0x077f0437 (1920, 1080)
+                           DSPACNTR (0x00070180): 0xc4042400 (enabled)
+                         DSPASTRIDE (0x00070188): 0x0000000f (0)
+                           DSPASURF (0x0007019c): 0x010c0000
+                        DSPATILEOFF (0x000701a4): 0x00000000 (0, 0)
+                           PIPEBSRC (0x0006101c): 0x00000000 (1, 1)
+                           DSPBCNTR (0x00071180): 0x00000000 (disabled)
+                         DSPBSTRIDE (0x00071188): 0x00000000 (0)
+                           DSPBSURF (0x0007119c): 0x00000000
+                        DSPBTILEOFF (0x000711a4): 0x00000000 (0, 0)
+                           PIPECSRC (0x0006201c): 0x00000000 (1, 1)
+                           DSPCCNTR (0x00072180): 0x00000000 (disabled)
+                         DSPCSTRIDE (0x00072188): 0x00000000 (0)
+                           DSPCSURF (0x0007219c): 0x00000000
+                        DSPCTILEOFF (0x000721a4): 0x00000000 (0, 0)
+                          PIPEACONF (0x00070008): 0x00000000 (disabled, inactive, pf-pd)
+                           HTOTAL_A (0x00060000): 0x00000000 (1 active, 1 total)
+                           HBLANK_A (0x00060004): 0x00000000 (1 start, 1 end)
+                            HSYNC_A (0x00060008): 0x00000000 (1 start, 1 end)
+                           VTOTAL_A (0x0006000c): 0x00000000 (1 active, 1 total)
+                           VBLANK_A (0x00060010): 0x00000000 (1 start, 1 end)
+                            VSYNC_A (0x00060014): 0x00000000 (1 start, 1 end)
+                       VSYNCSHIFT_A (0x00060028): 0x00000000
+                      PIPEA_DATA_M1 (0x00060030): 0x00000000 (TU 1, val 0x0 0)
+                      PIPEA_DATA_N1 (0x00060034): 0x00000000 (val 0x0 0)
+                      PIPEA_LINK_M1 (0x00060040): 0x00000000 (val 0x0 0)
+                      PIPEA_LINK_N1 (0x00060044): 0x00000000 (val 0x0 0)
+                          PIPEBCONF (0x00071008): 0x00000000 (disabled, inactive, pf-pd)
+                           HTOTAL_B (0x00061000): 0x00000000 (1 active, 1 total)
+                           HBLANK_B (0x00061004): 0x00000000 (1 start, 1 end)
+                            HSYNC_B (0x00061008): 0x00000000 (1 start, 1 end)
+                           VTOTAL_B (0x0006100c): 0x00000000 (1 active, 1 total)
+                           VBLANK_B (0x00061010): 0x00000000 (1 start, 1 end)
+                            VSYNC_B (0x00061014): 0x00000000 (1 start, 1 end)
+                       VSYNCSHIFT_B (0x00061028): 0x00000000
+                      PIPEB_DATA_M1 (0x00061030): 0x00000000 (TU 1, val 0x0 0)
+                      PIPEB_DATA_N1 (0x00061034): 0x00000000 (val 0x0 0)
+                      PIPEB_LINK_M1 (0x00061040): 0x00000000 (val 0x0 0)
+                      PIPEB_LINK_N1 (0x00061044): 0x00000000 (val 0x0 0)
+                          PIPECCONF (0x00072008): 0x00000000 (disabled, inactive, pf-pd)
+                           HTOTAL_C (0x00062000): 0x00000000 (1 active, 1 total)
+                           HBLANK_C (0x00062004): 0x00000000 (1 start, 1 end)
+                            HSYNC_C (0x00062008): 0x00000000 (1 start, 1 end)
+                           VTOTAL_C (0x0006200c): 0x00000000 (1 active, 1 total)
+                           VBLANK_C (0x00062010): 0x00000000 (1 start, 1 end)
+                            VSYNC_C (0x00062014): 0x00000000 (1 start, 1 end)
+                       VSYNCSHIFT_C (0x00062028): 0x00000000
+                      PIPEC_DATA_M1 (0x00062030): 0x00000000 (TU 1, val 0x0 0)
+                      PIPEC_DATA_N1 (0x00062034): 0x00000000 (val 0x0 0)
+                      PIPEC_LINK_M1 (0x00062040): 0x00000000 (val 0x0 0)
+                      PIPEC_LINK_N1 (0x00062044): 0x00000000 (val 0x0 0)
+                        PIPEEDPCONF (0x0007f008): 0xc0000000 (enabled, active, pf-pd)
+                         HTOTAL_EDP (0x0006f000): 0x08c9077f (1920 active, 2250 total)
+                         HBLANK_EDP (0x0006f004): 0x08c9077f (1920 start, 2250 end)
+                          HSYNC_EDP (0x0006f008): 0x080b07cf (2000 start, 2060 end)
+                         VTOTAL_EDP (0x0006f00c): 0x046b0437 (1080 active, 1132 total)
+                         VBLANK_EDP (0x0006f010): 0x046b0437 (1080 start, 1132 end)
+                          VSYNC_EDP (0x0006f014): 0x0445043d (1086 start, 1094 end)
+                     VSYNCSHIFT_EDP (0x0006f028): 0x00000000
+                    PIPEEDP_DATA_M1 (0x0006f030): 0x7e6cafac (TU 64, val 0x6cafac 7122860)
+                    PIPEEDP_DATA_N1 (0x0006f034): 0x00800000 (val 0x800000 8388608)
+                    PIPEEDP_LINK_M1 (0x0006f040): 0x00048751 (val 0x48751 296785)
+                    PIPEEDP_LINK_N1 (0x0006f044): 0x00080000 (val 0x80000 524288)
+                          PFA_CTL_1 (0x00068080): 0x00000000 (disable, auto_scale yes, auto_scale_cal no, v_filter enable, vadapt disable, mode least, filter_sel programmed,chroma pre-filter disable, vert3tap auto, v_inter_invert field 1)
+                        PFA_WIN_POS (0x00068070): 0x00000000 (0, 0)
+                       PFA_WIN_SIZE (0x00068074): 0x00000000 (0, 0)
+                          PFB_CTL_1 (0x00068880): 0x00000000 (disable, auto_scale yes, auto_scale_cal no, v_filter enable, vadapt disable, mode least, filter_sel programmed,chroma pre-filter disable, vert3tap auto, v_inter_invert field 1)
+                        PFB_WIN_POS (0x00068870): 0x00000000 (0, 0)
+                       PFB_WIN_SIZE (0x00068874): 0x00000000 (0, 0)
+                          PFC_CTL_1 (0x00069080): 0x00000000 (disable, auto_scale yes, auto_scale_cal no, v_filter enable, vadapt disable, mode least, filter_sel programmed,chroma pre-filter disable, vert3tap auto, v_inter_invert field 1)
+                        PFC_WIN_POS (0x00069070): 0x00000000 (0, 0)
+                       PFC_WIN_SIZE (0x00069074): 0x00000000 (0, 0)
+                     TRANS_HTOTAL_A (0x000e0000): 0xffffffff (65536 active, 65536 total)
+                     TRANS_HBLANK_A (0x000e0004): 0xffffffff (65536 start, 65536 end)
+                      TRANS_HSYNC_A (0x000e0008): 0xffffffff (65536 start, 65536 end)
+                     TRANS_VTOTAL_A (0x000e000c): 0xffffffff (65536 active, 65536 total)
+                     TRANS_VBLANK_A (0x000e0010): 0xffffffff (65536 start, 65536 end)
+                      TRANS_VSYNC_A (0x000e0014): 0xffffffff (65536 start, 65536 end)
+                 TRANS_VSYNCSHIFT_A (0x000e0028): 0xffffffff
+                         TRANSACONF (0x000f0008): 0xffffffff (enable, active, rsvd)
+                       FDI_RXA_MISC (0x000f0010): 0xffffffff (FDI Delay 8191)
+                    FDI_RXA_TUSIZE1 (0x000f0030): 0xffffffff
+                        FDI_RXA_IIR (0x000f0014): 0xffffffff
+                        FDI_RXA_IMR (0x000f0018): 0xffffffff
+                   BLC_PWM_CPU_CTL2 (0x00048250): 0x00000000 (enable 0, pipe A, blinking 0, granularity 128)
+                    BLC_PWM_CPU_CTL (0x00048254): 0x00000000 (cycle 0, freq 0)
+                  BLC_PWM2_CPU_CTL2 (0x00048350): 0x00000000 (enable 0, pipe A, blinking 0, granularity 128)
+                   BLC_PWM2_CPU_CTL (0x00048354): 0x00000000 (cycle 0, freq 0)
+                       BLC_MISC_CTL (0x00048360): 0x00000000 (PWM1-PCH PWM2-CPU)
+                   BLC_PWM_PCH_CTL1 (0x000c8250): 0x80000000 (enable 1, override 0, inverted polarity 0)
+                   BLC_PWM_PCH_CTL2 (0x000c8254): 0x00005eb2 (freq 0, cycle 24242)
+                       UTIL_PIN_CTL (0x00048400): 0x00000000 (enable 0, transcoder A, mode data, data 0 inverted polarity 0)
+                      PCH_PP_STATUS (0x000c7200): 0x80000008 (on, not ready, sequencing idle)
+                     PCH_PP_CONTROL (0x000c7204): 0x00000067 (blacklight enabled, power down on reset, panel on)
+                   PCH_PP_ON_DELAYS (0x000c7208): 0x07d00001
+                  PCH_PP_OFF_DELAYS (0x000c720c): 0x01f40001
+                     PCH_PP_DIVISOR (0x000c7210): 0xffffffff
+                        PIXCLK_GATE (0x000c6020): 0xffffffff
+                             SDEISR (0x000c4000): 0x01000000 (port d:0, port c:0, port b:0, crt:0)
+                 RC6_RESIDENCY_TIME (0x00138108): 0x1ac55c0f

@@ -31,15 +31,33 @@
   ENTRY_POINT                    = efi_main
 
 [Sources]
+  i915_debug.h
   i915ovmf.c
+  i915ovmf.h
   QemuFwCfgLib.c
   QemuFwCfgPei.c
+  i915_ddi.c
+  i915_display.c
+  i915_dp.c
+  i915_hdmi.c
+  i915_gop.c
+  i915_ddi.h
+  i915_display.h
+  i915_dp.h
+  i915_hdmi.h
+  i915_gop.h
+  i915_gmbus.c
+  i915_gmbus.h
+  intel_opregion.h
+  intel_opregion.c
 
+  
+  
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   OvmfPkg/OvmfPkg.dec
-  OptionRomPkg/OptionRomPkg.dec
+  Drivers/OptionRomPkg/OptionRomPkg.dec
   i915ovmfPkg/i915ovmf.dec
 
 [LibraryClasses]
@@ -54,7 +72,8 @@
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib
-
+  MemEncryptSevLib
+  
 [Protocols]
   gEfiDriverSupportedEfiVersionProtocolGuid     # PROTOCOL ALWAYS_PRODUCED
   gEfiGraphicsOutputProtocolGuid                # PROTOCOL BY_START
